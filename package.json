@@ -1,0 +1,96 @@
+{
+  "name": "@stacksjs/buddy",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "A modern and smart reverse proxy.",
+  "author": "Chris Breuer <chris@stacksjs.org>",
+  "license": "MIT",
+  "homepage": "https://github.com/stacksjs/buddy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stacksjs/buddy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stacksjs/buddy/issues"
+  },
+  "keywords": [
+    "reverse proxy",
+    "ssl",
+    "development",
+    "environment",
+    "proxy",
+    "bun",
+    "stacks",
+    "typescript",
+    "javascript"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js"
+    }
+  },
+  "module": "./dist/src/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "buddy": "./dist/bin/cli.js",
+    "reverse-proxy": "./dist/bin/cli.js"
+  },
+  "files": ["README.md", "dist"],
+  "scripts": {
+    "build": "bun build.ts && bun run compile",
+    "compile": "bun build ./bin/cli.ts --compile --minify --outfile bin/buddy",
+    "compile:all": "bun run compile:linux-x64 && bun run compile:linux-arm64 && bun run compile:windows-x64 && bun run compile:darwin-x64 && bun run compile:darwin-arm64",
+    "compile:linux-x64": "bun build ./bin/cli.ts --compile --minify --target=bun-linux-x64 --outfile bin/buddy-linux-x64",
+    "compile:linux-arm64": "bun build ./bin/cli.ts --compile --minify --target=bun-linux-arm64 --outfile bin/buddy-linux-arm64",
+    "compile:windows-x64": "bun build ./bin/cli.ts --compile --minify --target=bun-windows-x64 --outfile bin/buddy-windows-x64.exe",
+    "compile:darwin-x64": "bun build ./bin/cli.ts --compile --minify --target=bun-darwin-x64 --outfile bin/buddy-darwin-x64",
+    "compile:darwin-arm64": "bun build ./bin/cli.ts --compile --minify --target=bun-darwin-arm64 --outfile bin/buddy-darwin-arm64",
+    "lint": "bunx --bun eslint .",
+    "lint:fix": "bunx --bun eslint . --fix",
+    "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
+    "changelog": "bunx changelogen --output CHANGELOG.md",
+    "prepublishOnly": "bun --bun run build && bun run compile:all",
+    "release": "bun run changelog && bunx bumpp package.json --all",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit",
+    "dev:docs": "bun --bun vitepress dev docs",
+    "build:docs": "bun --bun vitepress build docs",
+    "preview:docs": "bun --bun vitepress preview docs"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cloudfront": "^3.726.1",
+    "@iconify-json/carbon": "^1.2.5",
+    "@shikijs/vitepress-twoslash": "^1.26.1",
+    "@stacksjs/actions": "^0.68.1",
+    "@stacksjs/cli": "^0.68.1",
+    "@stacksjs/cloud": "^0.68.1",
+    "@stacksjs/config": "^0.68.1",
+    "@stacksjs/dns": "^0.68.1",
+    "@stacksjs/enums": "^0.68.1",
+    "@stacksjs/eslint-config": "^3.12.0-beta.4",
+    "@stacksjs/logging": "^0.68.1",
+    "@stacksjs/path": "^0.68.1",
+    "@types/bun": "^1.1.16",
+    "@vite-pwa/vitepress": "^0.5.3",
+    "bun-plugin-dtsx": "^0.21.9",
+    "cac": "^6.7.14",
+    "consola": "^3.3.3",
+    "@stacksjs/types": "^0.68.1",
+    "@stacksjs/utils": "^0.68.1",
+    "typescript": "^5.7.2",
+    "unocss": "^65.4.0",
+    "unplugin-icons": "^22.0.0",
+    "unplugin-vue-components": "^28.0.0",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitepress": "^1.5.0"
+  },
+  "overrides": {
+    "unconfig": "0.3.10"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bunx lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,ts}": "bunx eslint . --fix"
+  }
+}
