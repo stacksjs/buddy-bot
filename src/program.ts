@@ -1,6 +1,6 @@
-import { FolderWatcher } from './watch'
-import { findStacksProjects } from '@stacksjs/utils'
 import { log } from '@stacksjs/cli'
+import { findStacksProjects } from '@stacksjs/utils'
+import { FolderWatcher } from './watch'
 // import type { Ports } from '@stacksjs/types'
 
 const projects = await findStacksProjects(undefined, { quiet: true })

@@ -34,7 +34,7 @@ cli
       process.exit(1)
     }
 
-    $`bunx --bun stacks new ${process.argv.slice(2).join(' ')}`
+    $`./buddy new ${process.argv.slice(2).join(' ')}`
   })
 
 cli

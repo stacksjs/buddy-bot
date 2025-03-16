@@ -1,7 +1,7 @@
+import type { WatchConfig } from './types'
 import { watch } from 'node:fs'
 import { resolve } from 'node:path'
 import { runCommand } from '@stacksjs/cli'
-import type { WatchConfig } from './types'
 
 export class FolderWatcher {
   private watchers: Map<string, ReturnType<typeof watch>> = new Map()

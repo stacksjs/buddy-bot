@@ -57,9 +57,6 @@
   },
 
   "typescript.preferGoToSourceDefinition": true,
-  "files.associations": {
-    "buddy": "typescript"
-  },
   "editor.quickSuggestions": {
     "strings": true
   },

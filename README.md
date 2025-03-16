@@ -12,8 +12,10 @@
 
 ## Features
 
-- Zero-Config Setup
-- CLI and Library Support
+- Access to all Stacks Buddy commands
+- Extremely lightweight
+- Cross-platform
+- No dependencies
 
 ## Install
 
@@ -31,11 +33,19 @@ pkgx install buddy # wip
 ## Usage
 
 ```bash
-buddy --from localhost:3000 --to my-project.localhost
-buddy --from localhost:8080 --to my-project.test --keyPath ./key.pem --certPath ./cert.pem
-buddy --help
-buddy --version
+buddy new my-project
+buddy help
+buddy version
 ```
+
+## Build From Source
+
+```bash
+bun run compile
+```
+
+> [!NOTE]
+> QuickJS is required to build the CLI. Soon, we expect to require it as a dependency via pkgx.
 
 ## Testing
 

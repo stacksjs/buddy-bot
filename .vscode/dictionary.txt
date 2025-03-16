@@ -6,6 +6,7 @@ bunfig
 bunx
 changelogen
 changelogithub
+chrisbbreuer
 codecov
 commitlint
 commitlintrc
@@ -18,6 +19,7 @@ dtsx
 entrypoints
 findstr
 foxundermoon
+getcwd
 heroicons
 HSTS
 iconify
@@ -35,9 +37,11 @@ postcompile
 prefetch
 preinstall
 proxied
+qjsc
 shikijs
 shoutout
 socio
+softprops
 Solana
 sponsorware
 stacksjs
