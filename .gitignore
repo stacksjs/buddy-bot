@@ -6,7 +6,8 @@
 *.pem
 coverage
 dist
-bin/buddy*
+bin/buddy-*
+bin/buddy
 lib-cov
 logs
 node_modules
@@ -14,3 +15,4 @@ temp
 docs/.vitepress/cache
 storage
 qjs*
+rust-buddy/target/

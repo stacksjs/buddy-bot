@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+
+# Default to the JavaScript version
+USE_RUST=false
+ARGS=("$@")
+
+# Check for environment variable to use Rust version
+if [ "$BUDDY_USE_RUST" = "true" ]; then
+  USE_RUST=true
+fi
+
+# Check for command line flag to use Rust version
+for i in "$@"; do
+  if [ "$i" = "--use-rust" ]; then
+    USE_RUST=true
+    # Remove the --use-rust flag from the arguments
+    ARGS=()
+    for arg in "$@"; do
+      if [ "$arg" != "--use-rust" ]; then
+        ARGS+=("$arg")
+      fi
+    done
+    break
+  fi
+done
+
+# Use the Rust version if available and requested
+if [ "$USE_RUST" = "true" ] && [ -f "./bin/buddy-rust" ]; then
+  echo "Using Rust version of Buddy CLI..."
+  ./bin/buddy-rust "${ARGS[@]}"
+# Try to use the QuickJS version if available
+elif [ -f "./qjs" ] && [ -f "./bin/cli.js" ]; then
+  echo "Using QuickJS version of Buddy CLI..."
+  ./qjs --std ./bin/cli.js "$@"
+# Fall back to the original implementation
+else
+  echo "Using JavaScript version of Buddy CLI..."
+  bun -e "import('./bin/cli.js')" "$@"
+fi

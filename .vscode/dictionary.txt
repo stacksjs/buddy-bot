@@ -38,6 +38,7 @@ prefetch
 preinstall
 proxied
 qjsc
+rustup
 shikijs
 shoutout
 socio
@@ -59,3 +60,4 @@ vitepress
 vue-demi
 vueus
 windir
+zigbuild

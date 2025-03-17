@@ -1,5 +1,4 @@
 dependencies:
-  bun.sh: ^1.2.5
   rust-lang.org: ^1.85.0
   rust-lang.org/rustup: ^1.28.1
   zig: ^0.14.0

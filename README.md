@@ -16,6 +16,7 @@
 - Extremely lightweight
 - Cross-platform
 - No dependencies
+- Multiple implementation options (JavaScript, QuickJS, Rust)
 
 ## Install
 
@@ -41,11 +42,83 @@ buddy version
 ## Build From Source
 
 ```bash
+# Build the JavaScript version
 bun run compile
+
+# Build the Rust version
+bun run compile:rust
 ```
 
 > [!NOTE]
-> QuickJS is required to build the CLI. Soon, we expect to require it as a dependency via pkgx.
+> QuickJS is required to build the JavaScript CLI. Soon, we expect to require it as a dependency via pkgx.
+
+## Implementation Options
+
+### JavaScript (QuickJS)
+
+The CLI is implemented in JavaScript and can be compiled to a standalone executable using QuickJS.
+
+```bash
+# Build the JavaScript version
+bun run compile
+
+# Build for all platforms
+bun run compile:all
+```
+
+### Rust
+
+The CLI is also implemented in Rust for native performance and smaller binary size.
+
+```bash
+# Build the Rust version for current platform
+bun run compile:rust
+
+# Build for current platform + all platform binaries
+bun run compile:rust:all
+```
+
+The Rust version is available at `bin/buddy-rust` and platform-specific binaries will be created at `bin/buddy-rust-[platform]` (e.g., `bin/buddy-rust-darwin-arm64` for macOS ARM64).
+
+For cross-compilation, you'll need to set up Rust properly:
+
+```bash
+# Set up default toolchain
+rustup default stable
+
+# Install cargo-zigbuild for cross-compilation
+cargo install cargo-zigbuild
+
+# Install required targets
+rustup target add x86_64-unknown-linux-gnu
+rustup target add aarch64-unknown-linux-gnu
+rustup target add x86_64-pc-windows-msvc
+rustup target add x86_64-apple-darwin
+rustup target add aarch64-apple-darwin
+```
+
+Note: Cross-compilation may not work on all systems and requires additional dependencies.
+
+### Wrapper Script
+
+A wrapper script is provided that can choose between the JavaScript and Rust versions:
+
+```bash
+# Use the JavaScript version (default)
+./buddy-wrapper
+
+# Use the Rust version with a flag
+./buddy-wrapper --use-rust
+
+# Use the Rust version with an environment variable
+BUDDY_USE_RUST=true ./buddy-wrapper
+```
+
+The wrapper script will:
+
+1. Use the Rust version if `--use-rust` flag is provided or `BUDDY_USE_RUST=true` environment variable is set
+2. Fall back to the QuickJS version if available
+3. Fall back to the original JavaScript implementation if neither is available
 
 ## Testing
 

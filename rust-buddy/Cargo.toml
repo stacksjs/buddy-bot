@@ -1,0 +1,15 @@
+[package]
+name = "buddy"
+version = "0.69.0"
+edition = "2021"
+description = "The Stacks CLI"
+authors = ["Chris Breuer <chris@stacksjs.org>"]
+license = "MIT"
+repository = "https://github.com/stacksjs/buddy"
+
+[dependencies]
+clap = { version = "4.5.3", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+anyhow = "1.0.80"
+walkdir = "2.4.0"
