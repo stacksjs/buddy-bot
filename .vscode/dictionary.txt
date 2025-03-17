@@ -38,6 +38,7 @@ prefetch
 preinstall
 proxied
 qjsc
+QUICKJS
 shikijs
 shoutout
 socio

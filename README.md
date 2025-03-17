@@ -20,15 +20,8 @@
 ## Install
 
 ```bash
-bun install -d @stacksjs/buddy
+brew install buddy
 ```
-
-<!-- _Alternatively, you can install:_
-
-```bash
-brew install buddy # wip
-pkgx install buddy # wip
-``` -->
 
 ## Usage
 
