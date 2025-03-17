@@ -29,11 +29,11 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Ensure Binaries
+      - name: Ensure QuickJS
         run: bun ./scripts/ensure-qjs.ts
 
-      - name: Publish to npm
-        run: bun publish --access public
+      - name: Compile Binaries
+        run: bun run compile:all
         env:
           BUN_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
