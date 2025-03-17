@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { execSync } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
 import * as fs from 'node:fs'
@@ -5,9 +6,10 @@ import * as http from 'node:http'
 import * as https from 'node:https'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import process from 'node:process'
 
 // Define the GitHub repository for QuickJS-NG releases
-const QUICKJS_REPO = 'https://github.com/quickjs-ng/quickjs'
+// const QUICKJS_REPO = 'https://github.com/quickjs-ng/quickjs'
 const QUICKJS_RELEASES_URL = 'https://github.com/quickjs-ng/quickjs/releases'
 const GITHUB_API_URL = 'https://api.github.com/repos/quickjs-ng/quickjs/releases/latest'
 const FALLBACK_VERSION = 'v0.9.0' // Fallback version if API call fails
@@ -358,7 +360,7 @@ export async function install(): Promise<void> {
       // We need to capture both stdout and stderr
       try {
         // Try to run qjs with no arguments to see if it works at all
-        const output = execSync(`"${qjsPath}"`, { stdio: 'pipe', encoding: 'utf8' }).toString()
+        execSync(`"${qjsPath}"`, { stdio: 'pipe', encoding: 'utf8' }).toString()
         console.log('QuickJS-NG installed successfully')
       }
       catch (error: any) {

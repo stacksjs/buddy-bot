@@ -1,6 +1,8 @@
+/* eslint-disable no-console */
 import type { WatchConfig } from './types'
 import { watch } from 'node:fs'
 import { resolve } from 'node:path'
+import process from 'node:process'
 import { runCommand } from '@stacksjs/cli'
 
 export class FolderWatcher {

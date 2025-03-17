@@ -3,6 +3,7 @@ import { findStacksProjects } from '@stacksjs/utils'
 import { FolderWatcher } from './watch'
 // import type { Ports } from '@stacksjs/types'
 
+// eslint-disable-next-line antfu/no-top-level-await
 const projects = await findStacksProjects(undefined, { quiet: true })
 
 log.info(`Found ${projects.length} projects`)

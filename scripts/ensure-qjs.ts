@@ -1,8 +1,4 @@
-/**
- * This script ensures that the QuickJS-NG binaries are downloaded
- * before attempting to compile the buddy CLI.
- */
-
+import process from 'node:process'
 import { getQjscPath, getQjsPath, install, isInstalled } from '../src/install'
 
 async function main() {

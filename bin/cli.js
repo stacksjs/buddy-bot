@@ -5,36 +5,28 @@ import * as std from 'qjs:std'
 // Helper functions to mimic Node.js fs functions
 function existsSync(path) {
   try {
+    // eslint-disable-next-line no-unused-vars
     const [_, err] = os.stat(path)
     return err === 0
   }
+  // eslint-disable-next-line unused-imports/no-unused-vars
   catch (e) {
     return false
   }
 }
 
 function readdirSync(path) {
-  try {
-    const [dirs, err] = os.readdir(path)
-    if (err !== 0)
-      throw new Error(`Failed to read directory: ${std.strerror(err)}`)
-    return dirs
-  }
-  catch (e) {
-    throw e
-  }
+  const [dirs, err] = os.readdir(path)
+  if (err !== 0)
+    throw new Error(`Failed to read directory: ${std.strerror(err)}`)
+  return dirs
 }
 
 function statSync(path) {
-  try {
-    const [stats, err] = os.stat(path)
-    if (err !== 0)
-      throw new Error(`Failed to stat file: ${std.strerror(err)}`)
-    return stats
-  }
-  catch (e) {
-    throw e
-  }
+  const [stats, err] = os.stat(path)
+  if (err !== 0)
+    throw new Error(`Failed to stat file: ${std.strerror(err)}`)
+  return stats
 }
 
 function join(...paths) {
@@ -42,6 +34,7 @@ function join(...paths) {
 }
 
 // Read package.json for version
+// eslint-disable-next-line no-undef
 const packageJsonPath = join(scriptArgs[0], '../package.json')
 let version = '0.0.0'
 
@@ -76,6 +69,7 @@ function createNewProject() {
   const buddyCli = 'buddy'
 
   if (existsSync(buddyCli)) {
+    // eslint-disable-next-line no-undef
     const args = scriptArgs.slice(1).join(' ')
     const result = std.system(`${buddyCli} ${args}`)
     if (result !== 0) {
@@ -102,6 +96,7 @@ function createNewProject() {
     std.exit(1)
   }
 
+  // eslint-disable-next-line no-undef
   const result = std.system(`./buddy new ${scriptArgs.slice(1).join(' ')}`)
   if (result !== 0) {
     console.log(`Command failed with exit code ${result}`)
@@ -134,10 +129,12 @@ function changeDirectory(project) {
             }
           }
           catch (e) {
+            console.log(`Error: ${e}`)
             // Skip if we can't access this path
           }
         }
       }
+      // eslint-disable-next-line unused-imports/no-unused-vars
       catch (e) {
         // Skip if we can't read this directory
       }
@@ -160,6 +157,7 @@ function changeDirectory(project) {
 // Proxy any command to the ./buddy file
 function proxyCommand() {
   if (existsSync('./buddy')) {
+    // eslint-disable-next-line no-undef
     const args = scriptArgs.slice(1).join(' ')
     const result = std.system(`./buddy ${args}`)
 
@@ -175,6 +173,7 @@ function proxyCommand() {
 
 // Main CLI logic
 function main() {
+  // eslint-disable-next-line no-undef
   const args = scriptArgs.slice(1)
 
   if (args.length === 0) {
