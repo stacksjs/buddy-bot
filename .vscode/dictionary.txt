@@ -46,6 +46,7 @@ softprops
 Solana
 sponsorware
 stacksjs
+strerror
 tlsx
 twoslash
 typecheck
