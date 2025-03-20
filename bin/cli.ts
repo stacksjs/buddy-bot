@@ -1,85 +1,89 @@
-import { $ } from 'bun'
-import { existsSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
-import process from 'node:process'
-import { cac } from 'cac'
-import { version } from '../package.json'
+// Currently not used as we are using QuickJS-NG for the CLI, since
+// the binary size is ~2mb in size, this way. Otherwise, we
+// would be using Bun and the binary size is ~56mb
 
-const cli = cac('buddy')
+// import { $ } from 'bun'
+// import { existsSync, readdirSync, statSync } from 'node:fs'
+// import { join } from 'node:path'
+// import process from 'node:process'
+// import { cac } from 'cac'
+// import { version } from '../package.json'
 
-cli
-  .command('new', 'Create a new Stacks project')
-  .alias('create')
-  .action(() => {
-    const buddyCli = 'buddy'
+// const cli = cac('buddy')
 
-    if (existsSync(buddyCli))
-      $`${buddyCli} ${process.argv.slice(2).join(' ')}`
+// cli
+//   .command('new', 'Create a new Stacks project')
+//   .alias('create')
+//   .action(() => {
+//     const buddyCli = 'buddy'
 
-    let currentDir = process.cwd()
-    let found = false
+//     if (existsSync(buddyCli))
+//       $`${buddyCli} ${process.argv.slice(2).join(' ')}`
 
-    while (currentDir !== '/') {
-      if (existsSync(`${currentDir}/storage/framework/core/buddy`)) {
-        // if the buddy directory exists, we know we are in a stacks project
-        found = true
-        break
-      }
-      currentDir = currentDir.split('/').slice(0, -1).join('/')
-    }
+//     let currentDir = process.cwd()
+//     let found = false
 
-    if (!found) {
-      console.error('No stacks project found. Do you want to create a new stacks project?')
-      // TODO: add prompt for user input
-      process.exit(1)
-    }
+//     while (currentDir !== '/') {
+//       if (existsSync(`${currentDir}/storage/framework/core/buddy`)) {
+//         // if the buddy directory exists, we know we are in a stacks project
+//         found = true
+//         break
+//       }
+//       currentDir = currentDir.split('/').slice(0, -1).join('/')
+//     }
 
-    $`./buddy new ${process.argv.slice(2).join(' ')}`
-  })
+//     if (!found) {
+//       console.error('No stacks project found. Do you want to create a new stacks project?')
+//       // TODO: add prompt for user input
+//       process.exit(1)
+//     }
 
-cli
-  .command('cd <project>', 'Change the current working directory to a different Stacks project')
-  .action((project: string) => {
-    const findProjectPath = (base: any, target: any) => {
-      const queue = [base]
+//     $`./buddy new ${process.argv.slice(2).join(' ')}`
+//   })
 
-      while (queue.length) {
-        const currentPath = queue.shift()
-        console.log(`Checking ${currentPath}...`)
-        const directoryContents = readdirSync(currentPath)
+// cli
+//   .command('cd <project>', 'Change the current working directory to a different Stacks project')
+//   .action((project: string) => {
+//     const findProjectPath = (base: any, target: any) => {
+//       const queue = [base]
 
-        for (const content of directoryContents) {
-          const contentPath = join(currentPath, content)
-          const isDirectory = statSync(contentPath).isDirectory()
+//       while (queue.length) {
+//         const currentPath = queue.shift()
+//         console.log(`Checking ${currentPath}...`)
+//         const directoryContents = readdirSync(currentPath)
 
-          if (isDirectory) {
-            if (contentPath.includes(target))
-              return contentPath // Found the target directory
+//         for (const content of directoryContents) {
+//           const contentPath = join(currentPath, content)
+//           const isDirectory = statSync(contentPath).isDirectory()
 
-            queue.push(contentPath)
-          }
-        }
-      }
+//           if (isDirectory) {
+//             if (contentPath.includes(target))
+//               return contentPath // Found the target directory
 
-      return null // Target directory not found
-    }
+//             queue.push(contentPath)
+//           }
+//         }
+//       }
 
-    const projectPath = findProjectPath('/', `${project}/storage/framework/core/buddy/`)
+//       return null // Target directory not found
+//     }
 
-    if (projectPath) {
-      console.log(`Project found at ${projectPath}.`)
-      console.log(`Run 'cd ${projectPath}' to navigate to the project directory.`)
-      // $`cd ${projectPath}`
-    }
-    else {
-      console.error('Project directory not found.')
-    }
-  })
+//     const projectPath = findProjectPath('/', `${project}/storage/framework/core/buddy/`)
 
-cli.command('version', 'Show the version of the Stacks CLI').action(() => {
-  console.log(version)
-})
+//     if (projectPath) {
+//       console.log(`Project found at ${projectPath}.`)
+//       console.log(`Run 'cd ${projectPath}' to navigate to the project directory.`)
+//       // $`cd ${projectPath}`
+//     }
+//     else {
+//       console.error('Project directory not found.')
+//     }
+//   })
 
-cli.version(version)
-cli.help()
-cli.parse()
+// cli.command('version', 'Show the version of the Stacks CLI').action(() => {
+//   console.log(version)
+// })
+
+// cli.version(version)
+// cli.help()
+// cli.parse()

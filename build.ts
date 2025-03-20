@@ -8,6 +8,7 @@ await Bun.build({
   format: 'esm',
   target: 'node',
   minify: true,
+  external: ['@stacksjs/config'],
   splitting: true,
   plugins: [dts()],
 })

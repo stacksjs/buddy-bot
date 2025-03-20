@@ -49,32 +49,6 @@ catch (e) {
   console.log('Failed to load package.json:', e)
 }
 
-// CLI implementation
-function printHelp() {
-  console.log('\x1b[1m\x1b[36m╔════════════════════════════════════════════╗\x1b[0m')
-  console.log('\x1b[1m\x1b[36m║               BUDDY CLI                    ║\x1b[0m')
-  console.log('\x1b[1m\x1b[36m╚════════════════════════════════════════════╝\x1b[0m')
-  console.log('')
-  console.log('\x1b[1mUsage:\x1b[0m buddy [command] [options]')
-  console.log('')
-  console.log('\x1b[1m\x1b[33mCommands:\x1b[0m')
-  console.log('  \x1b[32mnew, create\x1b[0m <project-name>   Create a new Stacks project with the specified name')
-  console.log('  \x1b[32mcd\x1b[0m <project>                 Change the current working directory to a different Stacks project')
-  console.log('  \x1b[32mversion\x1b[0m                      Show the version of the Stacks CLI')
-  console.log('  \x1b[32mhelp\x1b[0m                         Show this help message')
-  console.log('')
-  console.log('\x1b[1m\x1b[33mExamples:\x1b[0m')
-  console.log('  \x1b[90m# Create a new project named "my-app"\x1b[0m')
-  console.log('  buddy new my-app')
-  console.log('')
-  console.log('  \x1b[90m# Alternative way to create a new project\x1b[0m')
-  console.log('  buddy create awesome-project')
-  console.log('')
-  console.log('  \x1b[90m# Navigate to an existing project\x1b[0m')
-  console.log('  buddy cd my-app')
-  console.log('')
-}
-
 function printVersion() {
   console.log(version)
 }
@@ -173,60 +147,70 @@ function proxyCommand() {
   if (existsSync('./buddy')) {
     // eslint-disable-next-line no-undef
     const args = scriptArgs.slice(1).join(' ')
-    const result = std.system(`./buddy ${args}`)
-
-    if (result !== 0) {
-      console.log(`Command failed with exit code ${result}`)
+    try {
+      const result = std.system(`./buddy ${args}`)
+      if (result !== 0) {
+        console.log(`\x1b[31mCommand failed with exit code ${result}\x1b[0m`)
+      }
+      return true
     }
-
-    return true
+    catch {
+      return false
+    }
   }
-
   return false
 }
 
 // Main CLI logic
-function main() {
-  // eslint-disable-next-line no-undef
-  const args = scriptArgs.slice(1)
+// eslint-disable-next-line no-undef
+const args = scriptArgs.slice(1)
 
-  if (args.length === 0) {
-    printHelp()
-    return
-  }
-
-  const command = args[0]
-
-  switch (command) {
-    case 'new':
-    case 'create':
-      createNewProject()
-      break
-
-    case 'cd':
-      if (args.length < 2) {
-        console.error('Error: Missing project name')
-        std.exit(1)
-      }
-      changeDirectory(args[1])
-      break
-
-    case 'version':
-      printVersion()
-      break
-
-    case 'help':
-      printHelp()
-      break
-
-    default:
-      // Try to proxy the command to the ./buddy file
-      if (!proxyCommand()) {
-        console.error(`Unknown command: ${command}`)
-        printHelp()
-        std.exit(1)
-      }
-  }
+if (args.length === 0) {
+  // printHelp()
+  console.log('\x1b[33mYou missed a command. Please use a valid command.\x1b[0m')
+  console.log('\x1b[33mRead more about available commands at:\x1b[0m')
+  console.log('\x1b[36mhttps://stacks-docs.netlify.app\x1b[0m')
+  console.log('')
+  console.log('Or run \x1b[32mbuddy --help\x1b[0m to see available commands')
+  std.exit(0)
 }
 
-main()
+const command = args[0]
+
+// Check if it's a flag option that's not supported
+if (command.startsWith('-')) {
+  console.error('\x1b[31mError: Unknown option flag\x1b[0m')
+  console.log('\x1b[33mPlease use a valid option flag. Read more about available options at:\x1b[0m')
+  console.log('\x1b[36mhttps://stacks-docs.netlify.app\x1b[0m')
+  console.log('')
+  console.log('Or run \x1b[32mbuddy --help\x1b[0m to see available commands and options')
+  std.exit(1)
+}
+
+switch (command) {
+  case 'new':
+  case 'create':
+    createNewProject()
+    break
+
+  case 'cd':
+    if (args.length < 2) {
+      console.error('\x1b[31mError: Missing project name\x1b[0m')
+      console.log('Usage: buddy cd <project>')
+      console.log('\x1b[33mRead more at: \x1b[36mhttps://stacks-docs.netlify.app\x1b[0m')
+      std.exit(1)
+    }
+    changeDirectory(args[1])
+    break
+
+  default:
+    // Try to proxy the command to the ./buddy file
+    if (!proxyCommand()) {
+      console.error(`\x1b[31mUnknown command: ${command}\x1b[0m`)
+      console.log('\x1b[33mPlease use a valid command. Read more about available commands at:\x1b[0m')
+      console.log('\x1b[36mhttps://stacks-docs.netlify.app\x1b[0m')
+      console.log('')
+      console.log('Or run \x1b[32mbuddy --help\x1b[0m to see available commands')
+      std.exit(1)
+    }
+}
