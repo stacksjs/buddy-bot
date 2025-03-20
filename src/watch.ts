@@ -53,6 +53,7 @@ export class FolderWatcher {
     // Generated docs
     'docs/_site',
     '.docusaurus',
+    '.vitepress',
 
     // Container and deployment
     '.docker',

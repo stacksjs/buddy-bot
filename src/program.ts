@@ -1,4 +1,4 @@
-import { log } from '@stacksjs/cli'
+import { log } from '@stacksjs/logging'
 import { findStacksProjects } from '@stacksjs/utils'
 import { FolderWatcher } from './watch'
 // import type { Ports } from '@stacksjs/types'
