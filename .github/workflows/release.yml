@@ -46,10 +46,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            bin/buddy-linux-x64
-            bin/buddy-linux-arm64
-            bin/buddy-windows-x64.exe
-            bin/buddy-darwin-x64
-            bin/buddy-darwin-arm64
+            bin/buddy-linux-x64.zip
+            bin/buddy-linux-arm64.zip
+            bin/buddy-windows-x64.zip
+            bin/buddy-darwin-x64.zip
+            bin/buddy-darwin-arm64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
