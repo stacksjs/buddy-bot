@@ -68,13 +68,13 @@
     "zip:darwin-arm64": "zip -j bin/buddy-darwin-arm64.zip bin/buddy-darwin-arm64"
   },
   "devDependencies": {
-    "@stacksjs/docs": "^0.69.3",
+    "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.8.2-beta.1",
-    "@stacksjs/logging": "^0.69.3",
-    "@stacksjs/utils": "^0.69.3",
-    "@types/bun": "^1.2.5",
-    "bun-plugin-dtsx": "^0.21.9",
-    "typescript": "^5.8.2"
+    "@stacksjs/logging": "^0.70.23",
+    "@stacksjs/utils": "^0.70.23",
+    "@types/bun": "^1.2.17",
+    "bun-plugin-dtsx": "^0.21.12",
+    "typescript": "^5.8.3"
   },
   "overrides": {
     "unconfig": "0.3.10"
