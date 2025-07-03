@@ -1,0 +1,55 @@
+name: Releaser
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  npm:
+    name: npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Use cached node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            node-modules-
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Ensure QuickJS
+        run: bun ./scripts/ensure-qjs.ts
+
+      - name: Compile Binaries
+        run: bun run compile:all
+        env:
+          BUN_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+      - name: Create GitHub release
+        run: bunx changelogithub
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Attach Binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/buddy-bot-linux-x64.zip
+            bin/buddy-bot-linux-arm64.zip
+            bin/buddy-bot-windows-x64.zip
+            bin/buddy-bot-darwin-x64.zip
+            bin/buddy-bot-darwin-arm64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

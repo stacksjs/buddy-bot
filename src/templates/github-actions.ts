@@ -420,6 +420,155 @@ jobs:
   }
 
   /**
+   * Generate testing workflow with enhanced manual controls
+   */
+  static generateTestingWorkflow(config?: BuddyBotConfig): string {
+    return `name: Buddy Testing Updates
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Every 5 minutes for testing
+  workflow_dispatch: # Manual triggering for development
+    inputs:
+      strategy:
+        description: 'Update strategy'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - all
+          - major
+          - minor
+          - patch
+      dry_run:
+        description: 'Dry run (preview only)'
+        required: false
+        default: true
+        type: boolean
+      packages:
+        description: 'Specific packages (comma-separated)'
+        required: false
+        type: string
+      verbose:
+        description: 'Enable verbose logging'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  test-dependency-updates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Display test configuration
+        run: |
+          echo "🧪 **Buddy Bot Testing Mode**"
+          echo "Strategy: \${{ github.event.inputs.strategy || 'patch' }}"
+          echo "Dry Run: \${{ github.event.inputs.dry_run || 'true' }}"
+          echo "Packages: \${{ github.event.inputs.packages || 'all' }}"
+          echo "Verbose: \${{ github.event.inputs.verbose || 'true' }}"
+          echo "Triggered by: \${{ github.event_name }}"
+          echo "Repository: \${{ github.repository }}"
+          echo "Branch: \${{ github.ref_name }}"
+
+      - name: Run Buddy dependency scan
+        run: |
+          STRATEGY="\${{ github.event.inputs.strategy || 'patch' }}"
+          PACKAGES="\${{ github.event.inputs.packages }}"
+          VERBOSE="\${{ github.event.inputs.verbose || 'true' }}"
+
+          echo "🔍 Scanning for dependency updates..."
+
+          if [ "\$PACKAGES" != "" ]; then
+            if [ "\$VERBOSE" = "true" ]; then
+              bunx buddy-bot scan --packages "\$PACKAGES" --verbose
+            else
+              bunx buddy-bot scan --packages "\$PACKAGES"
+            fi
+          else
+            if [ "\$VERBOSE" = "true" ]; then
+              bunx buddy-bot scan --strategy "\$STRATEGY" --verbose
+            else
+              bunx buddy-bot scan --strategy "\$STRATEGY"
+            fi
+          fi
+
+      - name: Run Buddy dependency updates
+        if: \${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          STRATEGY="\${{ github.event.inputs.strategy || 'patch' }}"
+          PACKAGES="\${{ github.event.inputs.packages }}"
+          VERBOSE="\${{ github.event.inputs.verbose || 'true' }}"
+
+          echo "🚀 Running dependency updates..."
+
+          if [ "\$PACKAGES" != "" ]; then
+            if [ "\$VERBOSE" = "true" ]; then
+              bunx buddy-bot update --packages "\$PACKAGES" --verbose
+            else
+              bunx buddy-bot update --packages "\$PACKAGES"
+            fi
+          else
+            if [ "\$VERBOSE" = "true" ]; then
+              bunx buddy-bot update --strategy "\$STRATEGY" --verbose
+            else
+              bunx buddy-bot update --strategy "\$STRATEGY"
+            fi
+          fi
+
+      - name: Dry run notification
+        if: \${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "ℹ️ **Dry Run Mode** - No changes were made"
+          echo "To apply updates, run this workflow again with 'Dry run' set to false"
+
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "## 🧪 Buddy Bot Testing Summary" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Strategy**: \${{ github.event.inputs.strategy || 'patch' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: \${{ github.event_name }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Dry run**: \${{ github.event.inputs.dry_run || 'true' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Packages**: \${{ github.event.inputs.packages || 'all' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Verbose**: \${{ github.event.inputs.verbose || 'true' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Time**: \$(date)" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+
+          if [ "\${{ github.event_name }}" = "schedule" ]; then
+            echo "⏰ **Scheduled Run**: This was triggered automatically every 5 minutes" >> \$GITHUB_STEP_SUMMARY
+            echo "💡 **Tip**: Use 'Actions' tab to manually trigger with custom settings" >> \$GITHUB_STEP_SUMMARY
+          else
+            echo "🖱️ **Manual Trigger**: This was triggered manually from the Actions tab" >> \$GITHUB_STEP_SUMMARY
+            echo "⏰ **Auto-Schedule**: This workflow also runs every 5 minutes for testing" >> \$GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "📊 View detailed logs above for scan and update results." >> \$GITHUB_STEP_SUMMARY
+`
+  }
+
+  /**
    * Generate custom workflow from configuration
    */
   static generateCustomWorkflow(

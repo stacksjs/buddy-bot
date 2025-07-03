@@ -93,6 +93,11 @@ cli
               value: 'monorepo',
             },
             {
+              title: 'Development/Testing',
+              description: 'Manual trigger + every 5 minutes (for testing)',
+              value: 'testing',
+            },
+            {
               title: 'Custom Configuration',
               description: 'Create your own update schedule',
               value: 'custom',
@@ -628,6 +633,19 @@ function getWorkflowPreset(useCase: string): WorkflowPreset {
         daily: true,
       },
     },
+    'testing': {
+      name: 'Development/Testing',
+      description: 'Manual trigger + every 5 minutes (for testing)',
+      templates: {},
+      custom: [
+        {
+          name: 'testing-updates',
+          schedule: '*/5 * * * *',
+          strategy: 'patch',
+          autoMerge: false, // No auto-merge for testing
+        },
+      ],
+    },
     'custom': {
       name: 'Custom Configuration',
       description: 'Create your own update schedule',
@@ -818,28 +836,38 @@ async function generateWorkflowsFromPreset(preset: WorkflowPreset, logger: any):
     generated++
   }
 
-  // Generate custom workflows
+    // Generate custom workflows
   if (preset.custom && preset.custom.length > 0) {
     for (const customWorkflow of preset.custom) {
-      // Create auto-merge config object if enabled
-      let autoMergeConfig: boolean | { enabled: boolean, strategy: 'merge' | 'squash' | 'rebase', conditions?: string[] } = customWorkflow.autoMerge || false
+      let workflow: string
 
-      if (customWorkflow.autoMerge && customWorkflow.autoMergeStrategy) {
-        autoMergeConfig = {
-          enabled: true,
-          strategy: customWorkflow.autoMergeStrategy,
-          conditions: customWorkflow.strategy === 'patch' ? ['patch-only'] : [],
+      // Use specialized testing workflow for testing preset
+      if (customWorkflow.name === 'testing-updates') {
+        workflow = GitHubActionsTemplate.generateTestingWorkflow(workflowConfig)
+        fs.writeFileSync(path.join(outputDir, 'buddy-bot-testing.yml'), workflow)
+        logger.info('Generated testing workflow with 5-minute schedule and manual triggers')
+      } else {
+        // Create auto-merge config object if enabled
+        let autoMergeConfig: boolean | { enabled: boolean, strategy: 'merge' | 'squash' | 'rebase', conditions?: string[] } = customWorkflow.autoMerge || false
+
+        if (customWorkflow.autoMerge && customWorkflow.autoMergeStrategy) {
+          autoMergeConfig = {
+            enabled: true,
+            strategy: customWorkflow.autoMergeStrategy,
+            conditions: customWorkflow.strategy === 'patch' ? ['patch-only'] : [],
+          }
         }
+
+        workflow = GitHubActionsTemplate.generateCustomWorkflow({
+          name: customWorkflow.name,
+          schedule: customWorkflow.schedule,
+          strategy: customWorkflow.strategy,
+          autoMerge: autoMergeConfig,
+        }, workflowConfig)
+        fs.writeFileSync(path.join(outputDir, `buddy-bot-${customWorkflow.name}.yml`), workflow)
+        logger.info(`Generated custom workflow: ${customWorkflow.name}`)
       }
 
-      const workflow = GitHubActionsTemplate.generateCustomWorkflow({
-        name: customWorkflow.name,
-        schedule: customWorkflow.schedule,
-        strategy: customWorkflow.strategy,
-        autoMerge: autoMergeConfig,
-      }, workflowConfig)
-      fs.writeFileSync(path.join(outputDir, `buddy-bot-${customWorkflow.name}.yml`), workflow)
-      logger.info(`Generated custom workflow: ${customWorkflow.name}`)
       generated++
     }
   }

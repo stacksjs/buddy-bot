@@ -54,6 +54,7 @@ This will guide you through creating GitHub Actions workflows for automated depe
 - **Minimal Updates** - Weekly patch updates, monthly minor/major updates
 - **Docker Project** - Optimized for containerized applications
 - **Monorepo** - Multiple packages in a single repository
+- **Development/Testing** - Manual trigger + every 5 minutes (perfect for testing)
 - **Custom Configuration** - Create your own update schedule
 
 ### Command Line Interface
@@ -224,6 +225,33 @@ Each preset configures auto-merge appropriately:
 - **High Frequency Updates**: Auto-merge patch updates only (6AM, 12PM, 6PM), manual review for minor updates (12AM)
 - **Security Focused**: Auto-merge security patches every 6 hours
 - **Standard Project**: Auto-merge daily patches, manual review for weekly/monthly updates
+- **Development/Testing**: No auto-merge, dry-run by default, enhanced testing features
+
+## Development & Testing
+
+The **Development/Testing** preset is specifically designed for testing and development environments:
+
+### Features
+- **⏰ Every 5 minutes**: Automated runs for rapid testing cycles
+- **🖱️ Manual triggers**: Full control via GitHub Actions UI
+- **🔍 Dry run by default**: Safe testing without making changes
+- **📝 Verbose logging**: Detailed output for debugging
+- **📦 Package-specific testing**: Test updates for specific packages
+- **📊 Enhanced summaries**: Detailed test reports with context
+
+### Manual Trigger Options
+When running manually, you can customize:
+- **Update strategy**: Choose patch, minor, major, or all updates
+- **Dry run mode**: Preview changes without applying them
+- **Specific packages**: Test updates for particular packages only
+- **Verbose logging**: Control output detail level
+
+### Perfect For
+- 🧪 Testing new configurations
+- 🔧 Debugging dependency issues
+- 📈 Monitoring update frequency
+- 🚀 Validating workflow changes
+- 📋 Learning how Buddy Bot works
 
 ## Package Grouping
 
