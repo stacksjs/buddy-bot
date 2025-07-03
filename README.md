@@ -51,12 +51,12 @@ buddy-bot setup
 This will guide you through creating GitHub Actions workflows for automated dependency updates. Choose from several presets:
 
 - **Standard Project** - Daily patch updates, weekly minor updates, monthly major updates
-- **High Frequency Updates** - Check for updates 4 times per day (6AM, 12PM, 6PM, 12AM)
+- **High Frequency Updates** - Check for updates 4 times per day _(6AM, 12PM, 6PM, 12AM)_
 - **Security Focused** - Frequent patch updates with security-first approach
 - **Minimal Updates** - Weekly patch updates, monthly minor/major updates
 - **Docker Project** - Optimized for containerized applications
 - **Monorepo** - Multiple packages in a single repository
-- **Development/Testing** - Manual trigger + every 5 minutes (perfect for testing)
+- **Development/Testing** - Manual trigger + every 5 minutes _(perfect for testing)_
 - **Custom Configuration** - Create your own update schedule
 
 ### Command Line Interface
