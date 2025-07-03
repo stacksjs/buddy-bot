@@ -214,10 +214,13 @@ export class RegistryClient {
       if (parts.length >= 4) {
         // For Unicode format, indices are 1,2,3,4 (first is empty)
         // For pipe format, indices are 1,2,3,4 (first is empty)
-        const name = parts[1]?.trim() || ''
+        let name = parts[1]?.trim() || ''
         const current = parts[2]?.trim() || ''
         const update = parts[3]?.trim() || ''
         const latest = parts[4]?.trim() || ''
+
+        // Clean package name - remove dependency type suffixes that bun outdated adds
+        name = name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
 
         if (name && current && latest && name !== 'Package') {
           results.push({

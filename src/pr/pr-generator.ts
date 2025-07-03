@@ -77,8 +77,11 @@ export class PullRequestGenerator {
 
     for (const update of group.updates) {
       try {
+        // Clean package name (remove dependency type info) before fetching
+        const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+
         const result = await this.releaseNotesFetcher.fetchPackageInfo(
-          update.name,
+          cleanPackageName,
           update.currentVersion,
           update.newVersion,
         )
@@ -101,6 +104,12 @@ export class PullRequestGenerator {
       if (info.repository?.url) {
         const repoUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName)
         const sourceUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName, 'HEAD')
+        packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
+      } else if (cleanPackageName.startsWith('@types/')) {
+        // Special handling for @types/* packages even without repository metadata
+        const typeName = cleanPackageName.replace('@types/', '')
+        const repoUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${typeName}`
+        const sourceUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/${typeName}`
         packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
       } else {
         // Fallback to npm page if no repository

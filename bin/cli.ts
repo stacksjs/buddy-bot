@@ -19,6 +19,8 @@ DEPENDENCY MANAGEMENT:
   setup         🚀 Interactive setup for automated updates (recommended)
   scan          🔍 Scan for dependency updates
   update        ⬆️  Update dependencies and create PRs
+  rebase        🔄 Rebase/retry a pull request with latest updates
+  check-rebase  🔍 Auto-detect and rebase PRs with checked rebase box
   check         📋 Check specific packages for updates
   schedule      ⏰ Run automated updates on schedule
 
@@ -37,6 +39,8 @@ CONFIGURATION & SETUP:
 Examples:
   buddy-bot setup                      # Interactive setup
   buddy-bot scan --verbose             # Scan for updates
+  buddy-bot rebase 17                  # Rebase PR #17
+  buddy-bot check-rebase               # Auto-rebase checked PRs
   buddy-bot info react                 # Get package info
   buddy-bot versions react --latest 5  # Show recent versions
   buddy-bot search "test framework"    # Search packages
@@ -351,6 +355,267 @@ cli
       process.exit(1)
     }
   })
+
+cli
+  .command('rebase <pr-number>', 'Rebase/retry a pull request by recreating it with latest updates')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--force', 'Force rebase even if PR appears to be up to date')
+  .example('buddy-bot rebase 17')
+  .example('buddy-bot rebase 17 --verbose')
+  .example('buddy-bot rebase 17 --force')
+  .action(async (prNumber: string, options: CLIOptions & { force?: boolean }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      logger.info(`🔄 Rebasing/retrying PR #${prNumber}...`)
+
+      // Check if repository is configured
+      if (!config.repository) {
+        logger.error('❌ Repository configuration required for PR operations')
+        logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        process.exit(1)
+      }
+
+      // Get GitHub token from environment
+      const token = process.env.GITHUB_TOKEN
+      if (!token) {
+        logger.error('❌ GITHUB_TOKEN environment variable required for PR operations')
+        process.exit(1)
+      }
+
+      const { GitHubProvider } = await import('../src/git/github-provider')
+      const gitProvider = new GitHubProvider(
+        token,
+        config.repository.owner,
+        config.repository.name,
+      )
+
+      const prNum = Number.parseInt(prNumber)
+      if (Number.isNaN(prNum)) {
+        logger.error('❌ Invalid PR number provided')
+        process.exit(1)
+      }
+
+      // Get the PR to rebase
+      const prs = await gitProvider.getPullRequests('open')
+      const pr = prs.find(p => p.number === prNum)
+
+      if (!pr) {
+        logger.error(`❌ Could not find open PR #${prNum}`)
+        process.exit(1)
+      }
+
+      if (!pr.head.startsWith('buddy-bot/')) {
+        logger.error(`❌ PR #${prNum} is not a buddy-bot PR (branch: ${pr.head})`)
+        process.exit(1)
+      }
+
+      logger.info(`📋 Found PR: ${pr.title}`)
+      logger.info(`🌿 Branch: ${pr.head}`)
+
+      // Extract package updates from PR body to determine what to update
+      const packageUpdates = await extractPackageUpdatesFromPRBody(pr.body)
+
+      if (packageUpdates.length === 0) {
+        logger.error('❌ Could not extract package updates from PR body')
+        process.exit(1)
+      }
+
+      logger.info(`📦 Found ${packageUpdates.length} packages to update`)
+
+      // Check if we need to rebase by scanning for current updates
+      if (!options.force) {
+        logger.info('🔍 Checking if rebase is needed...')
+        const buddy = new Buddy(config)
+        const scanResult = await buddy.scanForUpdates()
+
+        // Check if current scan matches PR content
+        const currentUpdates = scanResult.updates.filter(u =>
+          packageUpdates.some(pu => pu.name === u.name)
+        )
+
+        const upToDate = packageUpdates.every(pu =>
+          currentUpdates.some(cu =>
+            cu.name === pu.name &&
+            cu.newVersion === pu.newVersion
+          )
+        )
+
+        if (upToDate) {
+          logger.success('✅ PR is already up to date, no rebase needed')
+          logger.info('💡 Use --force to rebase anyway')
+          return
+        }
+      }
+
+      // Recreate the PR by closing current one and creating new one
+      logger.info('🔄 Recreating PR with latest updates...')
+
+      // Close existing PR
+      await gitProvider.closePullRequest(prNum)
+      logger.info(`✅ Closed PR #${prNum}`)
+
+      // Run update process to create new PR
+      const buddy = new Buddy({
+        ...config,
+        verbose: options.verbose ?? config.verbose,
+      })
+
+      const scanResult = await buddy.scanForUpdates()
+      if (scanResult.updates.length === 0) {
+        logger.success('✅ All dependencies are now up to date!')
+        return
+      }
+
+      await buddy.createPullRequests(scanResult)
+      logger.success('🔄 PR rebase completed!')
+
+    } catch (error) {
+      logger.error('Rebase failed:', error)
+      process.exit(1)
+    }
+  })
+
+// Helper function to extract package updates from PR body
+async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{name: string, currentVersion: string, newVersion: string}>> {
+  const updates: Array<{name: string, currentVersion: string, newVersion: string}> = []
+
+  // Match table rows with package updates
+  const tableRowRegex = /\|\s*\[([^\]]+)\][^\|]*\|\s*\[`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]/g
+
+  let match
+  while ((match = tableRowRegex.exec(body)) !== null) {
+    const [, packageName, currentVersion, newVersion] = match
+    updates.push({
+      name: packageName,
+      currentVersion: currentVersion,
+      newVersion: newVersion
+    })
+  }
+
+  return updates
+}
+
+cli
+  .command('check-rebase', 'Check all open buddy-bot PRs for rebase checkbox and auto-rebase if checked')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--dry-run', 'Check but don\'t actually rebase')
+  .example('buddy-bot check-rebase')
+  .example('buddy-bot check-rebase --verbose')
+  .example('buddy-bot check-rebase --dry-run')
+  .action(async (options: CLIOptions) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      logger.info('🔍 Checking for PRs with rebase checkbox enabled...')
+
+      // Check if repository is configured
+      if (!config.repository) {
+        logger.error('❌ Repository configuration required for PR operations')
+        logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        process.exit(1)
+      }
+
+      // Get GitHub token from environment
+      const token = process.env.GITHUB_TOKEN
+      if (!token) {
+        logger.error('❌ GITHUB_TOKEN environment variable required for PR operations')
+        process.exit(1)
+      }
+
+      const { GitHubProvider } = await import('../src/git/github-provider')
+      const gitProvider = new GitHubProvider(
+        token,
+        config.repository.owner,
+        config.repository.name,
+      )
+
+      // Get all open PRs
+      const prs = await gitProvider.getPullRequests('open')
+      const buddyPRs = prs.filter(pr => 
+        pr.head.startsWith('buddy-bot/') || 
+        pr.author === 'github-actions[bot]' ||
+        pr.author.includes('buddy')
+      )
+
+      if (buddyPRs.length === 0) {
+        logger.info('📋 No buddy-bot PRs found')
+        return
+      }
+
+      logger.info(`📋 Found ${buddyPRs.length} buddy-bot PR(s)`)
+
+      let rebasedCount = 0
+
+      for (const pr of buddyPRs) {
+        // Check if rebase checkbox is checked
+        const isRebaseChecked = checkRebaseCheckbox(pr.body)
+        
+        if (isRebaseChecked) {
+          logger.info(`🔄 PR #${pr.number} has rebase checkbox checked: ${pr.title}`)
+          
+          if (options.dryRun) {
+            logger.info('🔍 [DRY RUN] Would rebase this PR')
+            rebasedCount++
+          } else {
+            logger.info(`🔄 Rebasing PR #${pr.number}...`)
+            
+            try {
+              // Extract package updates from PR body
+              const packageUpdates = await extractPackageUpdatesFromPRBody(pr.body)
+              
+              if (packageUpdates.length === 0) {
+                logger.warn(`⚠️ Could not extract package updates from PR #${pr.number}, skipping`)
+                continue
+              }
+
+              // Close existing PR
+              await gitProvider.closePullRequest(pr.number)
+              logger.info(`✅ Closed PR #${pr.number}`)
+
+              // Run update process to create new PR
+              const buddy = new Buddy({
+                ...config,
+                verbose: options.verbose ?? config.verbose,
+              })
+              
+              const scanResult = await buddy.scanForUpdates()
+              if (scanResult.updates.length === 0) {
+                logger.info('✅ All dependencies are now up to date!')
+                continue
+              }
+
+              await buddy.createPullRequests(scanResult)
+              logger.success(`🔄 Successfully rebased PR #${pr.number}!`)
+              rebasedCount++
+              
+            } catch (error) {
+              logger.error(`❌ Failed to rebase PR #${pr.number}:`, error)
+            }
+          }
+        } else {
+          logger.info(`📋 PR #${pr.number}: No rebase requested`)
+        }
+      }
+
+      if (rebasedCount > 0) {
+        logger.success(`✅ ${options.dryRun ? 'Would rebase' : 'Successfully rebased'} ${rebasedCount} PR(s)`)
+      } else {
+        logger.info('✅ No PRs need rebasing')
+      }
+      
+    } catch (error) {
+      logger.error('Check-rebase failed:', error)
+      process.exit(1)
+    }
+  })
+
+// Helper function to check if rebase checkbox is checked
+function checkRebaseCheckbox(body: string): boolean {
+  // Look for the checked rebase checkbox pattern
+  const checkedPattern = /- \[x\] <!-- rebase-check -->If you want to rebase\/retry this PR, check this box/i
+  return checkedPattern.test(body)
+}
 
 cli
   .command('check <packages...>', 'Check specific packages for updates')
