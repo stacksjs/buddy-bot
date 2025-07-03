@@ -9,6 +9,9 @@ import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger } from './utils/logger'
+import { GitHubProvider } from './git/github-provider'
+import { PullRequestGenerator } from './pr/pr-generator'
+import fs from 'node:fs'
 
 export class Buddy {
   private readonly logger: Logger
@@ -87,20 +90,109 @@ export class Buddy {
     this.logger.info('Creating pull requests for updates...')
 
     try {
-      // For now, we'll create placeholder PR logic
-      // This will be implemented when we add Git providers
-      for (const group of scanResult.groups) {
-        this.logger.info(`Would create PR for group: ${group.name} (${group.updates.length} updates)`)
-        this.logger.debug(`PR Title: ${group.title}`)
-        this.logger.debug(`Updates: ${group.updates.map(u => `${u.name}@${u.newVersion}`).join(', ')}`)
+      // Check if repository is configured
+      if (!this.config.repository) {
+        this.logger.error('❌ Repository configuration required for PR creation')
+        this.logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        return
       }
 
-      this.logger.success(`Would create ${scanResult.groups.length} pull request(s)`)
+      // Get GitHub token from environment
+      const token = process.env.GITHUB_TOKEN
+      if (!token) {
+        this.logger.error('❌ GITHUB_TOKEN environment variable required for PR creation')
+        return
+      }
+
+      // Initialize GitHub provider
+      const gitProvider = new GitHubProvider(
+        token,
+        this.config.repository.owner,
+        this.config.repository.name,
+      )
+
+      // Initialize PR generator
+      const prGenerator = new PullRequestGenerator()
+
+      // Process each group
+      for (const group of scanResult.groups) {
+        try {
+          this.logger.info(`Creating PR for group: ${group.name} (${group.updates.length} updates)`)
+
+          // Generate unique branch name
+          const timestamp = Date.now()
+          const branchName = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-${timestamp}`
+
+          // Create branch
+          await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
+
+          // Update package.json with new versions
+          const packageJsonUpdates = await this.generatePackageJsonUpdates(group.updates)
+
+          // Commit changes
+          await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
+
+          // Generate PR content
+          const prTitle = group.title
+          const prBody = await prGenerator.generateBody(group)
+
+          // Create pull request
+          const pr = await gitProvider.createPullRequest({
+            title: prTitle,
+            body: prBody,
+            head: branchName,
+            base: this.config.repository.baseBranch || 'main',
+            draft: false,
+            reviewers: this.config.pullRequest?.reviewers,
+            labels: this.config.pullRequest?.labels || ['dependencies'],
+          })
+
+          this.logger.success(`✅ Created PR #${pr.number}: ${pr.title}`)
+          this.logger.info(`🔗 ${pr.url}`)
+        }
+        catch (error) {
+          this.logger.error(`❌ Failed to create PR for group ${group.name}:`, error)
+        }
+      }
+
+      this.logger.success(`✅ Completed PR creation for ${scanResult.groups.length} group(s)`)
     }
     catch (error) {
       this.logger.error('Failed to create pull requests:', error)
       throw error
     }
+  }
+
+  /**
+   * Generate package.json file changes for updates
+   */
+  private async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
+    const packageJsonPath = 'package.json'
+
+    // Read current package.json
+    const packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
+    const packageJson = JSON.parse(packageJsonContent)
+
+    // Apply updates
+    for (const update of updates) {
+      // Find which dependency type this package belongs to
+      if (packageJson.dependencies && packageJson.dependencies[update.name]) {
+        packageJson.dependencies[update.name] = `^${update.newVersion}`
+      } else if (packageJson.devDependencies && packageJson.devDependencies[update.name]) {
+        packageJson.devDependencies[update.name] = `^${update.newVersion}`
+      } else if (packageJson.peerDependencies && packageJson.peerDependencies[update.name]) {
+        packageJson.peerDependencies[update.name] = `^${update.newVersion}`
+      }
+    }
+
+    // Generate new package.json content
+    const newContent = JSON.stringify(packageJson, null, 2) + '\n'
+
+    return [{
+      path: packageJsonPath,
+      content: newContent,
+      type: 'update' as const,
+    }]
   }
 
   /**
