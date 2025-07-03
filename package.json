@@ -49,7 +49,7 @@
   "dependencies": {
     "@types/prompts": "^2.4.9",
     "bunfig": "^0.10.1",
-    "cac": "^6.7.13",
+    "cac": "^6.7.14",
     "prompts": "^2.4.2"
   },
   "devDependencies": {

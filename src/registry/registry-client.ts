@@ -1,10 +1,10 @@
-import { spawn } from 'child_process'
-import type { Logger } from '../utils/logger'
 import type { PackageMetadata, PackageUpdate } from '../types'
+import type { Logger } from '../utils/logger'
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 import { PackageRegistryError } from '../types'
 import { getUpdateType } from '../utils/helpers'
-import path from 'path'
-import fs from 'fs'
 
 export interface BunOutdatedResult {
   name: string
@@ -181,7 +181,8 @@ export class RegistryClient {
     const results: BunOutdatedResult[] = []
 
     // Remove ANSI color codes
-    const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '')
+    const ansiEscape = `${String.fromCharCode(27)}[`
+    const cleanOutput = output.replace(new RegExp(`${ansiEscape}[0-9;]*m`, 'g'), '')
     const cleanLines = cleanOutput.split('\n').filter(line => line.trim())
 
     // Skip header lines and parse table format
@@ -204,7 +205,8 @@ export class RegistryClient {
       if (line.includes('│')) {
         // Unicode box-drawing characters (terminal output)
         parts = line.split('│').map(part => part.trim())
-      } else {
+      }
+      else {
         // Regular pipe characters (programmatic output)
         parts = line.split('|').map(part => part.trim())
       }
@@ -259,14 +261,16 @@ export class RegistryClient {
 
       for (const packageName of filteredPackages) {
         const packageJsonVersion = allDeps[packageName]
-        if (!packageJsonVersion) continue
+        if (!packageJsonVersion)
+          continue
 
         // Get the actual version from package.json (strip caret, tilde, etc.)
         const cleanVersion = this.cleanVersionRange(packageJsonVersion)
 
         // Get latest version from registry
         const latestVersion = await this.getLatestVersion(packageName)
-        if (!latestVersion) continue
+        if (!latestVersion)
+          continue
 
         // Check if package.json version is older than latest using Bun's semver
         if (Bun.semver.order(cleanVersion, latestVersion) < 0) {

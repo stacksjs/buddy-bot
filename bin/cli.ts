@@ -612,7 +612,7 @@ cli
         // Output raw JSON from bun info
         const { spawn } = await import('node:child_process')
         const child = spawn('bun', ['info', packageName, '--json'], {
-          stdio: 'inherit'
+          stdio: 'inherit',
         })
 
         child.on('close', (code) => {
@@ -696,7 +696,7 @@ cli
         process.exit(1)
       }
 
-      const latestCount = parseInt(options.latest || '10', 10)
+      const latestCount = Number.parseInt(options.latest || '10', 10)
 
       console.log(`📦 ${metadata.name} - Available Versions`)
       console.log(`📈 Total: ${metadata.versions?.length || 0} versions`)
@@ -706,7 +706,7 @@ cli
         console.log('\n📋 Recent versions:')
         const versionsToShow = metadata.versions.slice(-latestCount).reverse()
 
-        versionsToShow.forEach((version, index) => {
+        versionsToShow.forEach((version, _index) => {
           const isLatest = version === metadata.latestVersion
           const prefix = isLatest ? '⭐' : '  '
           console.log(`${prefix} ${version}`)
@@ -739,7 +739,8 @@ cli
       if (exists) {
         console.log(`✅ Package "${packageName}" exists in the registry`)
         process.exit(0)
-      } else {
+      }
+      else {
         console.log(`❌ Package "${packageName}" does not exist in the registry`)
         process.exit(1)
       }
@@ -765,7 +766,8 @@ cli
 
       if (latestVersion) {
         console.log(`📦 ${packageName}@${latestVersion}`)
-      } else {
+      }
+      else {
         logger.error(`Package "${packageName}" not found`)
         process.exit(1)
       }
@@ -785,7 +787,7 @@ cli
   .example('buddy-bot deps react')
   .example('buddy-bot deps react --dev')
   .example('buddy-bot deps react --all')
-  .action(async (packageName: string, options: CLIOptions & { dev?: boolean; peer?: boolean; all?: boolean }) => {
+  .action(async (packageName: string, options: CLIOptions & { dev?: boolean, peer?: boolean, all?: boolean }) => {
     const { RegistryClient } = await import('../src/registry/registry-client')
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
@@ -813,7 +815,8 @@ cli
           Object.entries(deps).forEach(([name, version]) => {
             console.log(`  ${name}: ${version}`)
           })
-        } else {
+        }
+        else {
           console.log('  No production dependencies')
         }
       }
@@ -827,7 +830,8 @@ cli
           Object.entries(devDeps).forEach(([name, version]) => {
             console.log(`  ${name}: ${version}`)
           })
-        } else {
+        }
+        else {
           console.log('  No dev dependencies')
         }
       }
@@ -841,7 +845,8 @@ cli
           Object.entries(peerDeps).forEach(([name, version]) => {
             console.log(`  ${name}: ${version}`)
           })
-        } else {
+        }
+        else {
           console.log('  No peer dependencies')
         }
       }
@@ -902,7 +907,8 @@ cli
 
         if (v2Index > v1Index) {
           console.log(`   📈 ${version2} is newer than ${version1}`)
-        } else {
+        }
+        else {
           console.log(`   📉 ${version2} is older than ${version1}`)
         }
       }
@@ -922,17 +928,17 @@ cli
   .option('--limit <count>', 'Limit number of results', { default: '10' })
   .example('buddy-bot search react')
   .example('buddy-bot search "test framework" --limit 5')
-    .action(async (query: string, options: CLIOptions & { limit?: string }) => {
+  .action(async (query: string, options: CLIOptions & { limit?: string }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
       const { spawn } = await import('node:child_process')
-      const limit = parseInt(options.limit || '10', 10)
+      const limit = Number.parseInt(options.limit || '10', 10)
 
       console.log(`🔍 Searching for: "${query}"`)
       console.log(`📊 Showing top ${limit} results\n`)
 
-            // Check if npm is available first
+      // Check if npm is available first
       const checkNpm = spawn('which', ['npm'], { stdio: 'pipe' })
 
       checkNpm.on('close', async (code) => {
@@ -962,10 +968,11 @@ cli
             })
 
             console.log(`✨ Use 'buddy-bot info <package>' for detailed information`)
-          } catch (error) {
+          }
+          catch {
             console.log('❌ Registry API search failed')
             console.log('💡 Alternative search options:')
-            console.log('   • Visit https://www.npmjs.com/search?q=' + encodeURIComponent(query))
+            console.log(`   • Visit https://www.npmjs.com/search?q=${encodeURIComponent(query)}`)
             console.log('   • Use: bun add <package-name> to test if a package exists')
             console.log('   • Use: buddy-bot exists <package-name> to check existence')
           }
@@ -974,7 +981,7 @@ cli
 
         // npm is available, proceed with search
         const child = spawn('npm', ['search', query, '--json'], {
-          stdio: 'pipe'
+          stdio: 'pipe',
         })
 
         let output = ''
@@ -1012,20 +1019,22 @@ cli
               })
 
               console.log(`✨ Use 'buddy-bot info <package>' for detailed information`)
-            } catch (error) {
-              logger.error('Failed to parse search results:', error)
-              console.log('💡 Try searching at https://www.npmjs.com/search?q=' + encodeURIComponent(query))
             }
-          } else {
+            catch (error) {
+              logger.error('Failed to parse search results:', error)
+              console.log(`💡 Try searching at https://www.npmjs.com/search?q=${encodeURIComponent(query)}`)
+            }
+          }
+          else {
             console.log('❌ Search failed')
-            console.log('💡 Try searching at https://www.npmjs.com/search?q=' + encodeURIComponent(query))
+            console.log(`💡 Try searching at https://www.npmjs.com/search?q=${encodeURIComponent(query)}`)
           }
         })
       })
     }
     catch (error) {
       logger.error('Failed to search packages:', error)
-      console.log('💡 Try searching at https://www.npmjs.com/search?q=' + encodeURIComponent(query))
+      console.log(`💡 Try searching at https://www.npmjs.com/search?q=${encodeURIComponent(query)}`)
     }
   })
 
