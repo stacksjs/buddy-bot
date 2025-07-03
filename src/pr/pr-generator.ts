@@ -115,22 +115,19 @@ export class PullRequestGenerator {
 
       body += `<details>\n`
 
-      // Generate summary title - show repository name if available, otherwise just package name
+            // Generate summary title following Renovate's format
       let summaryTitle: string
+
+      // Clean package name (remove dependency type info like "(dev)")
+      const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+
       if (info.repository?.url) {
         const repoName = this.getRepositoryName(info.repository.url)
-        // Clean package name for comparison (remove dependency type info like "(dev)")
-        const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
-
-        // Only add package name in parentheses if it's different from repo name
-        if (repoName !== cleanPackageName && !repoName.includes(cleanPackageName)) {
-          summaryTitle = `${repoName} (${cleanPackageName})`
-        } else {
-          summaryTitle = repoName
-        }
+        // Always show in format "owner/repo (package)" to match Renovate
+        summaryTitle = `${repoName} (${cleanPackageName})`
       } else {
-        // No repository info, just use the package name (cleaned)
-        summaryTitle = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+        // No repository info, just use the clean package name
+        summaryTitle = cleanPackageName
       }
 
       body += `<summary>${summaryTitle}</summary>\n\n`
