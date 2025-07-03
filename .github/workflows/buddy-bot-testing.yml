@@ -6,9 +6,9 @@ on:
   workflow_dispatch: # Manual triggering for development
     inputs:
       strategy:
-        description: 'Update strategy'
+        description: Update strategy
         required: false
-        default: 'patch'
+        default: patch
         type: choice
         options:
           - all
@@ -16,16 +16,16 @@ on:
           - minor
           - patch
       dry_run:
-        description: 'Dry run (preview only)'
+        description: Dry run (preview only)
         required: false
         default: true
         type: boolean
       packages:
-        description: 'Specific packages (comma-separated)'
+        description: Specific packages (comma-separated)
         required: false
         type: string
       verbose:
-        description: 'Enable verbose logging'
+        description: Enable verbose logging
         required: false
         default: true
         type: boolean

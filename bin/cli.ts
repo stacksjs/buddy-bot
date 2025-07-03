@@ -836,7 +836,7 @@ async function generateWorkflowsFromPreset(preset: WorkflowPreset, logger: any):
     generated++
   }
 
-    // Generate custom workflows
+  // Generate custom workflows
   if (preset.custom && preset.custom.length > 0) {
     for (const customWorkflow of preset.custom) {
       let workflow: string
@@ -846,7 +846,8 @@ async function generateWorkflowsFromPreset(preset: WorkflowPreset, logger: any):
         workflow = GitHubActionsTemplate.generateTestingWorkflow(workflowConfig)
         fs.writeFileSync(path.join(outputDir, 'buddy-bot-testing.yml'), workflow)
         logger.info('Generated testing workflow with 5-minute schedule and manual triggers')
-      } else {
+      }
+      else {
         // Create auto-merge config object if enabled
         let autoMergeConfig: boolean | { enabled: boolean, strategy: 'merge' | 'squash' | 'rebase', conditions?: string[] } = customWorkflow.autoMerge || false
 

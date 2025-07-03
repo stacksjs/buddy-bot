@@ -422,7 +422,7 @@ jobs:
   /**
    * Generate testing workflow with enhanced manual controls
    */
-  static generateTestingWorkflow(config?: BuddyBotConfig): string {
+  static generateTestingWorkflow(_config?: BuddyBotConfig): string {
     return `name: Buddy Testing Updates
 
 on:
