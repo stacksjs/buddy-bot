@@ -31,12 +31,16 @@ PACKAGE INFORMATION:
   compare       ⚖️  Compare two versions of a package
   search        🔍 Search for packages in the registry
 
+CONFIGURATION & SETUP:
+  open-settings 🔧 Open GitHub repository and organization settings pages
+
 Examples:
   buddy-bot setup                      # Interactive setup
   buddy-bot scan --verbose             # Scan for updates
   buddy-bot info react                 # Get package info
   buddy-bot versions react --latest 5  # Show recent versions
-  buddy-bot search "test framework"    # Search packages`)
+  buddy-bot search "test framework"    # Search packages
+  buddy-bot open-settings              # Open GitHub settings`)
 
 // Define CLI options interface to match our core types
 interface CLIOptions {
@@ -1035,6 +1039,106 @@ cli
     catch (error) {
       logger.error('Failed to search packages:', error)
       console.log(`💡 Try searching at https://www.npmjs.com/search?q=${encodeURIComponent(query)}`)
+    }
+  })
+
+cli
+  .command('open-settings', 'Open GitHub repository and organization settings pages')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot open-settings')
+  .action(async (options: CLIOptions) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const { exec } = await import('node:child_process')
+      const { promisify } = await import('node:util')
+      const execAsync = promisify(exec)
+
+      // Try to get repository info from config
+      let owner = config.repository?.owner
+      let name = config.repository?.name
+
+      // If not in config, try to detect from git remote
+      if (!owner || !name) {
+        try {
+          const { stdout } = await execAsync('git remote get-url origin')
+          const remoteUrl = stdout.trim()
+
+          // Parse GitHub URL (supports both HTTPS and SSH)
+          const match = remoteUrl.match(/github\.com[/:]([\w-]+)\/([\w-]+)(?:\.git)?/)
+          if (match) {
+            owner = match[1]
+            name = match[2]
+            logger.info(`📡 Detected repository: ${owner}/${name}`)
+          }
+        }
+        catch {
+          // Ignore git errors
+        }
+      }
+
+      if (!owner || !name) {
+        logger.warn('⚠️  Could not determine repository information.')
+        logger.info('💡 Please configure repository settings in buddy-bot.config.ts or run from a Git repository.')
+        logger.info('\nFor manual setup, visit:')
+        logger.info('🔗 Repository settings: https://github.com/YOUR_ORG/YOUR_REPO/settings/actions')
+        logger.info('🔗 Organization settings: https://github.com/organizations/YOUR_ORG/settings/actions')
+        return
+      }
+
+      // Open repository settings page
+      const repoUrl = `https://github.com/${owner}/${name}/settings/actions`
+      const orgUrl = `https://github.com/organizations/${owner}/settings/actions`
+
+      logger.info('🔧 Opening GitHub Actions settings pages...')
+      logger.info(`📦 Repository: ${owner}/${name}`)
+
+      // Function to open URL cross-platform
+      const openUrl = async (url: string, description: string) => {
+        try {
+          let command: string
+
+          switch (process.platform) {
+            case 'darwin': // macOS
+              command = `open "${url}"`
+              break
+            case 'win32': // Windows
+              command = `start "" "${url}"`
+              break
+            default: // Linux and others
+              command = `xdg-open "${url}"`
+          }
+
+          await execAsync(command)
+          logger.success(`✅ Opened ${description}: ${url}`)
+        }
+        catch (error) {
+          logger.warn(`⚠️  Could not auto-open ${description}. Please visit manually:`)
+          logger.info(`🔗 ${url}`)
+        }
+      }
+
+      // Open repository settings
+      await openUrl(repoUrl, 'repository settings')
+
+      // Also try to open organization settings (may fail if not an org)
+      setTimeout(async () => {
+        logger.info('\n🏢 Attempting to open organization settings...')
+        await openUrl(orgUrl, 'organization settings')
+
+        logger.info('\n📋 Required Settings:')
+        logger.info('  1. Under "Workflow permissions":')
+        logger.info('     ✅ Select "Read and write permissions"')
+        logger.info('     ✅ Check "Allow GitHub Actions to create and approve pull requests"')
+        logger.info('  2. Click "Save"')
+        logger.info('\n💡 Note: Organization settings may override repository settings.')
+      }, 1000) // Delay to avoid opening both simultaneously
+    }
+    catch (error) {
+      logger.error('Failed to open settings:', error)
+      logger.info('\n📋 Manual Setup:')
+      logger.info('🔗 Repository: https://github.com/YOUR_ORG/YOUR_REPO/settings/actions')
+      logger.info('🔗 Organization: https://github.com/organizations/YOUR_ORG/settings/actions')
     }
   })
 

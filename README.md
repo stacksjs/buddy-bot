@@ -385,6 +385,40 @@ The comprehensive workflow automatically:
 - **Failure handling**: Auto-creates GitHub issues
 - **Smart summaries**: Rich GitHub Actions summaries
 
+### GitHub Actions Permissions Setup
+
+⚠️ **Important**: For Buddy to create pull requests in GitHub Actions workflows, you need to enable the proper permissions:
+
+#### Repository Settings
+1. Go to your repository **Settings** → **Actions** → **General**
+2. Under **"Workflow permissions"**, select **"Read and write permissions"**
+3. ✅ Check **"Allow GitHub Actions to create and approve pull requests"**
+4. Click **"Save"**
+
+#### Organization Settings (if applicable)
+If your repository is part of an organization, you may also need to enable organization-level permissions:
+1. Go to your organization **Settings** → **Actions** → **General**
+2. Configure the same permissions as above
+
+#### Quick Setup Command
+```bash
+# Open GitHub settings pages directly
+buddy open-settings
+
+# Or manually visit:
+# Repository: https://github.com/YOUR_ORG/YOUR_REPO/settings/actions
+# Organization: https://github.com/organizations/YOUR_ORG/settings/actions
+```
+
+#### Troubleshooting
+If you see errors like:
+- `GitHub Actions is not permitted to create or approve pull requests`
+- `GraphQL: GitHub Actions is not permitted to create or approve pull requests (createPullRequest)`
+
+This indicates the permissions above need to be enabled. Both GitHub CLI and REST API methods require these permissions to create PRs from workflows.
+
+For more details, see the [GitHub documentation on managing GitHub Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests).
+
 ## Testing
 
 ```bash
