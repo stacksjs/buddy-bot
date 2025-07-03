@@ -315,11 +315,11 @@ bun run build
 
 ## Changelog
 
-Please see our [releases](https://github.com/stacksjs/buddy/releases) page for more information on what has changed recently.
+Please see our [releases](https://github.com/stacksjs/stacks/releases) page for more information on what has changed recently.
 
 ## Contributing
 
-Please review the [Contributing Guide](https://github.com/stacksjs/contributing) for details.
+Please see the [Contributing Guide](https://github.com/stacksjs/contributing) for details.
 
 ## Community
 
@@ -333,9 +333,9 @@ For casual chit-chat with others using this package:
 
 ## Postcardware
 
-Two things are true: Stacks OSS will always stay open-source, and we do love to receive postcards from wherever Stacks is used! 🌍 _We also publish them on our website. And thank you, Spatie_
+“Software that is free, but hopes for a postcard.” We love receiving postcards from around the world showing where Stacks is being used! We showcase them on our website too.
 
-Our address: Stacks.js, 12665 Village Ln #2306, Playa Vista, CA 90094
+Our address: Stacks.js, 12665 Village Ln #2306, Playa Vista, CA 90094, United States 🌎
 
 ## Sponsors
 
@@ -346,12 +346,16 @@ We would like to extend our thanks to the following sponsors for funding Stacks 
 
 ## Credits
 
+- [Renovatebot](https://renovatebot.com/)
+- [Dependabot](https://dependabot.com/)
 - [Chris Breuer](https://github.com/chrisbbreuer)
 - [All Contributors](../../contributors)
 
+And a special thanks to [Dan Scanlon](https://twitter.com/danscan) for donating the `stacks` name on npm ✨
+
 ## License
 
-The MIT License (MIT). Please see [LICENSE](https://github.com/stacksjs/stacks/tree/main/LICENSE.md) for more information.
+The MIT License (MIT). Please see [LICENSE](LICENSE.md) for more information.
 
 Made with 💙
 
