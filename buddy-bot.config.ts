@@ -18,6 +18,7 @@ const config: BuddyBotConfig = {
   // Pull request configuration
   pullRequest: {
     reviewers: [],
+    assignees: [],
     labels: ['dependencies'],
     autoMerge: {
       enabled: true,

@@ -53,6 +53,8 @@ export interface BuddyBotConfig {
     }
     /** Reviewers to assign */
     reviewers?: string[]
+    /** Assignees to assign */
+    assignees?: string[]
     /** Labels to add */
     labels?: string[]
   }
@@ -90,6 +92,8 @@ export interface BuddyBotConfig {
       autoMerge?: boolean
       /** Reviewers */
       reviewers?: string[]
+      /** Assignees */
+      assignees?: string[]
       /** Labels */
       labels?: string[]
     }[]
@@ -233,6 +237,8 @@ export interface PullRequestOptions {
   reviewers?: string[]
   /** Team reviewers to assign */
   teamReviewers?: string[]
+  /** Assignees to assign */
+  assignees?: string[]
   /** Labels to add */
   labels?: string[]
   /** Milestone to assign */
@@ -264,6 +270,8 @@ export interface PullRequest {
   author: string
   /** Reviewers */
   reviewers: string[]
+  /** Assignees */
+  assignees: string[]
   /** Labels */
   labels: string[]
   /** Is draft */

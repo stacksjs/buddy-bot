@@ -155,6 +155,7 @@ export class Buddy {
                 title: prTitle,
                 body: prBody,
                 labels: dynamicLabels,
+                assignees: this.config.pullRequest?.assignees,
               })
 
               this.logger.success(`✅ Updated existing PR #${existingPR.number}: ${prTitle}`)
@@ -187,6 +188,7 @@ export class Buddy {
             base: this.config.repository.baseBranch || 'main',
             draft: false,
             reviewers: this.config.pullRequest?.reviewers,
+            assignees: this.config.pullRequest?.assignees,
             labels: dynamicLabels,
           })
 

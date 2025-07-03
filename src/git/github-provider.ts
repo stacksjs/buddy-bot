@@ -133,6 +133,10 @@ export class GitHubProvider implements GitProvider {
         args.push('--reviewer', options.reviewers.join(','))
       }
 
+      if (options.assignees && options.assignees.length > 0) {
+        args.push('--assignee', options.assignees.join(','))
+      }
+
       if (options.labels && options.labels.length > 0) {
         args.push('--label', options.labels.join(','))
       }
@@ -163,6 +167,7 @@ export class GitHubProvider implements GitProvider {
         updatedAt: new Date(),
         author: 'github-actions[bot]',
         reviewers: options.reviewers || [],
+        assignees: options.assignees || [],
         labels: options.labels || [],
         draft: options.draft || false,
       }
@@ -199,6 +204,18 @@ export class GitHubProvider implements GitProvider {
         }
       }
 
+      // Add assignees if specified
+      if (options.assignees && options.assignees.length > 0) {
+        try {
+          await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${response.number}/assignees`, {
+            assignees: options.assignees,
+          })
+        }
+        catch (assigneeError) {
+          console.warn(`⚠️ Failed to add assignees: ${assigneeError}`)
+        }
+      }
+
       // Add labels if specified
       if (options.labels && options.labels.length > 0) {
         try {
@@ -225,6 +242,7 @@ export class GitHubProvider implements GitProvider {
         updatedAt: new Date(response.updated_at),
         author: response.user.login,
         reviewers: options.reviewers || [],
+        assignees: options.assignees || [],
         labels: options.labels || [],
         draft: response.draft,
       }
@@ -292,6 +310,7 @@ export class GitHubProvider implements GitProvider {
         mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
         author: pr.user.login,
         reviewers: pr.requested_reviewers?.map((r: any) => r.login) || [],
+        assignees: pr.assignees?.map((a: any) => a.login) || [],
         labels: pr.labels?.map((l: any) => l.name) || [],
         draft: pr.draft,
       }))
@@ -329,6 +348,18 @@ export class GitHubProvider implements GitProvider {
         }
       }
 
+      // Update assignees if specified
+      if (options.assignees && options.assignees.length > 0) {
+        try {
+          // Use GitHub CLI for assignees (more reliable with permissions)
+          await this.runCommand('gh', ['issue', 'edit', prNumber.toString(), '--add-assignee', options.assignees.join(',')])
+          console.log(`✅ Updated assignees for PR #${prNumber}: ${options.assignees.join(', ')}`)
+        }
+        catch (assigneeError) {
+          console.warn(`⚠️ Failed to update assignees for PR #${prNumber}: ${assigneeError}`)
+        }
+      }
+
       console.log(`✅ Updated PR #${prNumber}`)
 
       return {
@@ -343,6 +374,7 @@ export class GitHubProvider implements GitProvider {
         updatedAt: new Date(response.updated_at),
         author: response.user.login,
         reviewers: [],
+        assignees: [],
         labels: options.labels || [],
         draft: response.draft,
       }
