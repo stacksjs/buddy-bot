@@ -3,12 +3,11 @@ import { dts } from 'bun-plugin-dtsx'
 console.log('Building...')
 
 await Bun.build({
-  entrypoints: ['./src/index.ts', './src/program.ts'],
+  entrypoints: ['./src/index.ts', './bin/cli.ts'],
   outdir: './dist',
   format: 'esm',
-  target: 'node',
+  target: 'bun',
   minify: true,
-  external: ['@stacksjs/config'],
   splitting: true,
   plugins: [dts()],
 })

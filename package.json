@@ -1,18 +1,17 @@
 {
-  "name": "@stacksjs/buddy",
+  "name": "buddy-bot",
   "type": "module",
-  "version": "0.69.5",
-  "private": true,
+  "version": "0.0.0",
   "description": "The Stacks CLI.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
-  "homepage": "https://github.com/stacksjs/buddy",
+  "homepage": "https://github.com/stacksjs/buddy-bot",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stacksjs/buddy.git"
+    "url": "git+https://github.com/stacksjs/buddy-bot.git"
   },
   "bugs": {
-    "url": "https://github.com/stacksjs/buddy/issues"
+    "url": "https://github.com/stacksjs/buddy-bot/issues"
   },
   "keywords": [
     "buddy",
@@ -33,45 +32,27 @@
   },
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "buddy": "./bin/buddy",
-    "stacks": "./bin/buddy"
-  },
   "files": ["README.md", "bin", "dist"],
   "scripts": {
     "build": "bun build.ts",
-    "download:qjs": "bun ./scripts/ensure-qjs.ts",
-    "compile": "./bin/qjs --std -c bin/cli.js -o bin/buddy && chmod +x bin/buddy",
-    "compile:all": "bun run compile:linux-x64 && bun run compile:linux-arm64 && bun run compile:windows-x64 && bun run compile:darwin-x64 && bun run compile:darwin-arm64",
-    "compile:linux-x64": "./bin/qjs --std -c bin/cli.js -o bin/buddy-linux-x64 && chmod +x bin/buddy-linux-x64",
-    "compile:linux-arm64": "./bin/qjs --std -c bin/cli.js -o bin/buddy-linux-arm64 && chmod +x bin/buddy-linux-arm64",
-    "compile:windows-x64": "./bin/qjs --std -c bin/cli.js -o bin/buddy-windows-x64.exe",
-    "compile:darwin-x64": "./bin/qjs --std -c bin/cli.js -o bin/buddy-darwin-x64 && chmod +x bin/buddy-darwin-x64",
-    "compile:darwin-arm64": "./bin/qjs --std -c bin/cli.js -o bin/buddy-darwin-arm64 && chmod +x bin/buddy-darwin-arm64",
     "lint": "bunx --bun eslint .",
     "lint:fix": "bunx --bun eslint . --fix",
     "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
     "changelog": "bunx changelogen --output CHANGELOG.md",
-    "prepublishOnly": "bun run download:qjs && bun run build && bun run compile:all && bun run zip",
+    "prepublishOnly": "bun run build",
     "release": "bun run changelog && bunx bumpp package.json --all",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
     "dev:docs": "bun --bun vitepress dev docs",
     "build:docs": "bun --bun vitepress build docs",
-    "preview:docs": "bun --bun vitepress preview docs",
-    "zip": "bun run zip:all",
-    "zip:all": "bun run zip:linux-x64 && bun run zip:linux-arm64 && bun run zip:windows-x64 && bun run zip:darwin-x64 && bun run zip:darwin-arm64",
-    "zip:linux-x64": "zip -j bin/buddy-linux-x64.zip bin/buddy-linux-x64",
-    "zip:linux-arm64": "zip -j bin/buddy-linux-arm64.zip bin/buddy-linux-arm64",
-    "zip:windows-x64": "zip -j bin/buddy-windows-x64.zip bin/buddy-windows-x64.exe",
-    "zip:darwin-x64": "zip -j bin/buddy-darwin-x64.zip bin/buddy-darwin-x64",
-    "zip:darwin-arm64": "zip -j bin/buddy-darwin-arm64.zip bin/buddy-darwin-arm64"
+    "preview:docs": "bun --bun vitepress preview docs"
+  },
+  "bin": {
+    "buddy-bot": "./dist/bin/cli.js"
   },
   "devDependencies": {
     "@stacksjs/docs": "^0.70.23",
-    "@stacksjs/eslint-config": "^4.8.2-beta.1",
-    "@stacksjs/logging": "^0.70.23",
-    "@stacksjs/utils": "^0.70.23",
+    "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@types/bun": "^1.2.17",
     "bun-plugin-dtsx": "^0.21.12",
     "typescript": "^5.8.3"
@@ -84,5 +65,8 @@
   },
   "lint-staged": {
     "*.{js,ts}": "bunx eslint . --fix"
+  },
+  "dependencies": {
+    "bunfig": "^0.10.0"
   }
 }

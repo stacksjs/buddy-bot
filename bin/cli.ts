@@ -1,89 +1,92 @@
-// Currently not used as we are using QuickJS-NG for the CLI, since
-// the binary size is ~2mb in size, this way. Otherwise, we
-// would be using Bun and the binary size is ~56mb
+import process from 'node:process'
+import { CAC } from 'cac'
+import { version } from '../package.json'
 
-// import { $ } from 'bun'
-// import { existsSync, readdirSync, statSync } from 'node:fs'
-// import { join } from 'node:path'
-// import process from 'node:process'
-// import { cac } from 'cac'
-// import { version } from '../package.json'
+const cli = new CAC('buddy-bot')
 
-// const cli = cac('buddy')
+// Define CLI options interface to match our core types
+interface CLIOptions {
+  from?: string
+  to?: string
+  keyPath?: string
+  certPath?: string
+  caCertPath?: string
+  hostsCleanup?: boolean
+  certsCleanup?: boolean
+  startCommand?: string
+  startCwd?: string
+  startEnv?: string
+  changeOrigin?: boolean
+  verbose?: boolean
+}
 
-// cli
-//   .command('new', 'Create a new Stacks project')
-//   .alias('create')
-//   .action(() => {
-//     const buddyCli = 'buddy'
+cli
+  .command('start', 'Start the Reverse Proxy Server')
+  .option('--from <from>', 'The URL to proxy from')
+  .option('--to <to>', 'The URL to proxy to')
+  .option('--key-path <path>', 'Absolute path to the SSL key')
+  .option('--cert-path <path>', 'Absolute path to the SSL certificate')
+  .option('--ca-cert-path <path>', 'Absolute path to the SSL CA certificate')
+  .option('--hosts-cleanup', 'Cleanup /etc/hosts on exit')
+  .option('--certs-cleanup', 'Cleanup SSL certificates on exit')
+  .option('--start-command <command>', 'Command to start the dev server')
+  .option('--start-cwd <path>', 'Current working directory for the dev server')
+  .option('--start-env <env>', 'Environment variables for the dev server')
+  .option('--change-origin', 'Change the origin of the host header to the target URL')
+  .option('--verbose', 'Enable verbose logging')
+  .example('rpx start --from localhost:5173 --to my-project.localhost')
+  .example('rpx start --from localhost:3000 --to my-project.localhost/api')
+  .example('rpx start --from localhost:3000 --to localhost:3001')
+  .example('rpx start --from localhost:5173 --to my-project.test --key-path /absolute/path/to/key --cert-path /absolute/path/to/cert')
+  .example('rpx start --from localhost:5173 --to my-project.localhost --change-origin')
+  .action(async (options?: CLIOptions) => {
+    if (!options?.from || !options.to) {
+      return startProxies(config)
+    }
 
-//     if (existsSync(buddyCli))
-//       $`${buddyCli} ${process.argv.slice(2).join(' ')}`
+    // Convert CLI options to ProxyOption
+    const proxyOptions: ProxyOption = {
+      from: options.from,
+      to: options.to,
+      https: {
+        keyPath: options.keyPath,
+        certPath: options.certPath,
+        caCertPath: options.caCertPath,
+      },
+      cleanup: {
+        certs: options.certsCleanup || false,
+        hosts: options.hostsCleanup || false,
+      },
+      verbose: options.verbose || false,
+      changeOrigin: options.changeOrigin || false,
+    }
 
-//     let currentDir = process.cwd()
-//     let found = false
+    // Add start options if provided
+    if (options.startCommand) {
+      const startOptions: StartOptions = {
+        command: options.startCommand,
+      }
+      if (options.startCwd)
+        startOptions.cwd = options.startCwd
+      if (options.startEnv) {
+        try {
+          startOptions.env = JSON.parse(options.startEnv)
+        }
+        catch (err) {
+          console.error('Failed to parse start-env JSON:', err)
+          process.exit(1)
+        }
+      }
+      proxyOptions.start = startOptions
+    }
 
-//     while (currentDir !== '/') {
-//       if (existsSync(`${currentDir}/storage/framework/core/buddy`)) {
-//         // if the buddy directory exists, we know we are in a stacks project
-//         found = true
-//         break
-//       }
-//       currentDir = currentDir.split('/').slice(0, -1).join('/')
-//     }
+    return startProxy(proxyOptions)
+  })
 
-//     if (!found) {
-//       console.error('No stacks project found. Do you want to create a new stacks project?')
-//       // TODO: add prompt for user input
-//       process.exit(1)
-//     }
+cli.command('version', 'Show the version of the Reverse Proxy CLI').action(() => {
+  console.log(version)
+})
 
-//     $`./buddy new ${process.argv.slice(2).join(' ')}`
-//   })
-
-// cli
-//   .command('cd <project>', 'Change the current working directory to a different Stacks project')
-//   .action((project: string) => {
-//     const findProjectPath = (base: any, target: any) => {
-//       const queue = [base]
-
-//       while (queue.length) {
-//         const currentPath = queue.shift()
-//         console.log(`Checking ${currentPath}...`)
-//         const directoryContents = readdirSync(currentPath)
-
-//         for (const content of directoryContents) {
-//           const contentPath = join(currentPath, content)
-//           const isDirectory = statSync(contentPath).isDirectory()
-
-//           if (isDirectory) {
-//             if (contentPath.includes(target))
-//               return contentPath // Found the target directory
-
-//             queue.push(contentPath)
-//           }
-//         }
-//       }
-
-//       return null // Target directory not found
-//     }
-
-//     const projectPath = findProjectPath('/', `${project}/storage/framework/core/buddy/`)
-
-//     if (projectPath) {
-//       console.log(`Project found at ${projectPath}.`)
-//       console.log(`Run 'cd ${projectPath}' to navigate to the project directory.`)
-//       // $`cd ${projectPath}`
-//     }
-//     else {
-//       console.error('Project directory not found.')
-//     }
-//   })
-
-// cli.command('version', 'Show the version of the Stacks CLI').action(() => {
-//   console.log(version)
-// })
-
-// cli.version(version)
-// cli.help()
-// cli.parse()
+cli.version(version)
+cli.help()
+cli.parse()
