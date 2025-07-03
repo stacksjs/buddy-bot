@@ -2,6 +2,7 @@
 import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
+import process from 'node:process'
 
 export class GitHubProvider implements GitProvider {
   private readonly apiUrl = 'https://api.github.com'
@@ -112,11 +113,16 @@ export class GitHubProvider implements GitProvider {
     try {
       // Prepare the command
       const args = [
-        'pr', 'create',
-        '--title', options.title,
-        '--body', options.body,
-        '--head', options.head,
-        '--base', options.base,
+        'pr',
+        'create',
+        '--title',
+        options.title,
+        '--body',
+        options.body,
+        '--head',
+        options.head,
+        '--base',
+        options.base,
       ]
 
       if (options.draft) {
@@ -135,12 +141,12 @@ export class GitHubProvider implements GitProvider {
       const result = await this.runCommand('gh', args)
 
       // Parse the PR URL from the output (GitHub CLI returns the PR URL)
-      const prUrlMatch = result.match(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/(\d+)/)
+      const prUrlMatch = result.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
       if (!prUrlMatch) {
         throw new Error('Failed to parse PR number from GitHub CLI output')
       }
 
-      const prNumber = parseInt(prUrlMatch[1])
+      const prNumber = Number.parseInt(prUrlMatch[1])
       const prUrl = prUrlMatch[0]
 
       console.log(`✅ Created PR #${prNumber}: ${options.title}`)
@@ -239,7 +245,7 @@ export class GitHubProvider implements GitProvider {
         env: {
           ...process.env,
           GITHUB_TOKEN: this.token,
-          GH_TOKEN: this.token
+          GH_TOKEN: this.token,
         },
       })
 
