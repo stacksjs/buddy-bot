@@ -6,7 +6,7 @@
 <!-- [![npm downloads][npm-downloads-src]][npm-downloads-href] -->
 <!-- [![Codecov][codecov-src]][codecov-href] -->
 
-# Buddy Bot
+# 🐶 Buddy Bot
 
 > Automated dependency updates for the JavaScript and TypeScript ecosystem.
 
