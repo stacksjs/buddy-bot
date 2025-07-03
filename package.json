@@ -31,11 +31,7 @@
   "bin": {
     "buddy-bot": "./dist/bin/cli.js"
   },
-  "files": [
-    "README.md",
-    "bin",
-    "dist"
-  ],
+  "files": ["README.md", "bin", "dist"],
   "scripts": {
     "build": "bun build.ts",
     "lint": "bunx --bun eslint .",
@@ -59,7 +55,7 @@
   "devDependencies": {
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
-    "@types/bun": "^1.2.17",
+    "@types/bun": "^1.2.18",
     "bun-plugin-dtsx": "^0.9.5",
     "typescript": "^5.8.3"
   },
