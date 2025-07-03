@@ -1,5 +1,4 @@
-import { semver } from 'bun'
-import type { PackageFile, PackageUpdate, UpdateGroup, Dependency } from '../types'
+import type { Dependency, PackageFile, PackageUpdate, UpdateGroup } from '../types'
 
 /**
  * Parse package file content based on file type
@@ -22,13 +21,14 @@ export function parsePackageFile(content: string, filePath: string): PackageFile
         path: filePath,
         type: 'package.json',
         content,
-        dependencies
+        dependencies,
       }
     }
 
     // Add other file type parsers as needed
     return null
-  } catch (error) {
+  }
+  catch {
     return null
   }
 }
@@ -40,16 +40,17 @@ function extractDependencies(
   deps: Record<string, string> | undefined,
   type: Dependency['type'],
   filePath: string,
-  dependencies: Dependency[]
+  dependencies: Dependency[],
 ): void {
-  if (!deps) return
+  if (!deps)
+    return
 
   for (const [name, version] of Object.entries(deps)) {
     dependencies.push({
       name,
       currentVersion: version,
       type,
-      file: filePath
+      file: filePath,
     })
   }
 }
@@ -57,9 +58,8 @@ function extractDependencies(
 /**
  * Detect package manager based on lock files and configuration
  */
-export function detectPackageManager(projectPath: string): 'bun' | 'npm' | 'yarn' | 'pnpm' {
-  // For now, default to bun since that's what we're targeting
-  // In production, you'd check for lock files and configurations
+export function detectPackageManager(_projectPath: string): 'bun' | 'npm' | 'yarn' | 'pnpm' {
+  // we only support bun for now
   return 'bun'
 }
 
@@ -83,10 +83,12 @@ export function formatCommitMessage(updates: PackageUpdate[], template?: string)
 
   if (majorUpdates.length > 0) {
     return `chore(deps): update ${majorUpdates.length} major dependencies`
-  } else if (minorUpdates.length > 0) {
+  }
+  else if (minorUpdates.length > 0) {
     return `chore(deps): update ${minorUpdates.length} minor dependencies`
-  } else {
-    return `chore(deps): update all non-major dependencies`
+  }
+  else {
+    return `chore(deps): update ${patchUpdates.length} patch dependencies`
   }
 }
 
@@ -107,7 +109,8 @@ export function formatPRTitle(updates: PackageUpdate[], template?: string): stri
 
   if (majorUpdates.length > 0) {
     return `chore(deps): update ${majorUpdates.length} major dependencies`
-  } else {
+  }
+  else {
     return `chore(deps): update all non-major dependencies`
   }
 }
@@ -169,7 +172,7 @@ export function generateBranchName(updates: PackageUpdate[], prefix = 'buddy'): 
 
   if (updates.length === 1) {
     const update = updates[0]
-    const safeName = update.name.replace(/[^a-zA-Z0-9-]/g, '-')
+    const safeName = update.name.replace(/[^a-z0-9-]/gi, '-')
     return `${prefix}/update-${safeName}-to-${update.newVersion}-${timestamp}`
   }
 
@@ -177,7 +180,8 @@ export function generateBranchName(updates: PackageUpdate[], prefix = 'buddy'): 
 
   if (majorUpdates.length > 0) {
     return `${prefix}/update-major-dependencies-${timestamp}`
-  } else {
+  }
+  else {
     return `${prefix}/update-dependencies-${timestamp}`
   }
 }
@@ -199,7 +203,7 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
       updates: majorUpdates,
       updateType: 'major',
       title: formatPRTitle(majorUpdates),
-      body: formatPRBody(majorUpdates)
+      body: formatPRBody(majorUpdates),
     })
   }
 
@@ -210,7 +214,7 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
       updates: nonMajorUpdates,
       updateType: minorUpdates.length > 0 ? 'minor' : 'patch',
       title: formatPRTitle(nonMajorUpdates),
-      body: formatPRBody(nonMajorUpdates)
+      body: formatPRBody(nonMajorUpdates),
     })
   }
 

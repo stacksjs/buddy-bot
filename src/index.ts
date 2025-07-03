@@ -1,35 +1,35 @@
-export * from './types'
-
-// Core functionality exports
-export { PackageScanner } from './scanner/package-scanner'
-export { RegistryClient } from './registry/registry-client'
-export { VersionResolver } from './version/version-resolver'
-export { GitHubProvider } from './git/github-provider'
-export { GitLabProvider } from './git/gitlab-provider'
-export { UpdateProcessor } from './update/update-processor'
-export { PullRequestGenerator } from './pr/pr-generator'
-export { ConfigManager } from './config/config-manager'
-export { Logger } from './utils/logger'
-
 // Main Buddy class
 export { Buddy } from './buddy'
 
-// Enhanced services
-export { ReleaseNotesFetcher } from './services/release-notes-fetcher'
-export { Scheduler } from './scheduler/scheduler'
-export { GitHubActionsTemplate } from './templates/github-actions'
-
 // CLI exports
 export { createCLI } from './cli/cli'
+export { ConfigManager } from './config/config-manager'
+export { GitHubProvider } from './git/github-provider'
+export { GitLabProvider } from './git/gitlab-provider'
+export { PullRequestGenerator } from './pr/pr-generator'
+export { RegistryClient } from './registry/registry-client'
+// Core functionality exports
+export { PackageScanner } from './scanner/package-scanner'
+export { Scheduler } from './scheduler/scheduler'
+// Enhanced services
+export { ReleaseNotesFetcher } from './services/release-notes-fetcher'
 
+export { GitHubActionsTemplate } from './templates/github-actions'
+
+export * from './types'
+export { UpdateProcessor } from './update/update-processor'
 // Utility functions
 export {
-  parsePackageFile,
   detectPackageManager,
   formatCommitMessage,
-  formatPRTitle,
   formatPRBody,
+  formatPRTitle,
   generateBranchName,
   groupUpdates,
-  sortUpdatesByPriority
+  parsePackageFile,
+  sortUpdatesByPriority,
 } from './utils/helpers'
+
+export { Logger } from './utils/logger'
+
+export { VersionResolver } from './version/version-resolver'

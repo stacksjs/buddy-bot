@@ -1,5 +1,6 @@
-import type { UpdateGroup, PullRequest, PackageUpdate, PullRequestOptions } from '../types'
-import { ReleaseNotesFetcher, type PackageInfo, type ReleaseNote } from '../services/release-notes-fetcher'
+import type { PackageInfo, ReleaseNote } from '../services/release-notes-fetcher'
+import type { PullRequest, UpdateGroup } from '../types'
+import { ReleaseNotesFetcher } from '../services/release-notes-fetcher'
 
 export class PullRequestGenerator {
   private releaseNotesFetcher = new ReleaseNotesFetcher()
@@ -28,7 +29,7 @@ export class PullRequestGenerator {
         author: 'buddy-bot',
         reviewers: [],
         labels: ['dependencies', 'automated'],
-        draft: false
+        draft: false,
       }
 
       prs.push(pr)
@@ -48,13 +49,15 @@ export class PullRequestGenerator {
 
     const majorCount = group.updates.filter(u => u.updateType === 'major').length
     const minorCount = group.updates.filter(u => u.updateType === 'minor').length
-    const patchCount = group.updates.filter(u => u.updateType === 'patch').length
+    // const _patchCount = group.updates.filter(u => u.updateType === 'patch').length
 
     if (majorCount > 0) {
       return `chore(deps): update ${group.updates.length} dependencies (major)`
-    } else if (minorCount > 0) {
+    }
+    else if (minorCount > 0) {
       return `chore(deps): update ${group.updates.length} dependencies (minor)`
-    } else {
+    }
+    else {
       return `chore(deps): update ${group.updates.length} dependencies (patch)`
     }
   }
@@ -70,17 +73,18 @@ export class PullRequestGenerator {
     body += `|---|---|---|---|---|---|\n`
 
     // Fetch package information for each update
-    const packageInfos = new Map<string, { packageInfo: PackageInfo; releaseNotes: ReleaseNote[]; compareUrl?: string }>()
+    const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
 
     for (const update of group.updates) {
       try {
         const result = await this.releaseNotesFetcher.fetchPackageInfo(
           update.name,
           update.currentVersion,
-          update.newVersion
+          update.newVersion,
         )
         packageInfos.set(update.name, result)
-      } catch (error) {
+      }
+      catch (error) {
         console.warn(`Failed to fetch info for ${update.name}:`, error)
       }
     }
@@ -130,7 +134,8 @@ export class PullRequestGenerator {
             body += `*Released by [@${release.author}](https://github.com/${release.author}) on ${new Date(release.date).toLocaleDateString()}*\n\n`
           }
         }
-      } else {
+      }
+      else {
         body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
 
         if (compareUrl) {
@@ -202,7 +207,8 @@ export class PullRequestGenerator {
       }
 
       return repositoryUrl
-    } catch {
+    }
+    catch {
       return repositoryUrl
     }
   }
@@ -219,7 +225,7 @@ export class PullRequestGenerator {
 
     // Limit to reasonable length for PR body
     if (cleaned.length > 1000) {
-      cleaned = cleaned.substring(0, 1000) + '...\n\n*[View full release notes]*'
+      cleaned = `${cleaned.substring(0, 1000)}...\n\n*[View full release notes]*`
     }
 
     return cleaned
@@ -231,7 +237,7 @@ export class PullRequestGenerator {
   generateCustomTemplate(
     group: UpdateGroup,
     template: string,
-    variables: Record<string, string> = {}
+    variables: Record<string, string> = {},
   ): string {
     let result = template
 
@@ -241,7 +247,7 @@ export class PullRequestGenerator {
       '{package_count}': group.updates.length.toString(),
       '{update_type}': group.updateType,
       '{packages}': group.updates.map(u => u.name).join(', '),
-      '{date}': new Date().toISOString().split('T')[0]
+      '{date}': new Date().toISOString().split('T')[0],
     }
 
     // Replace variables

@@ -1,6 +1,6 @@
 import type { BuddyBotConfig } from '../types'
+import process from 'node:process'
 import { Buddy } from '../buddy'
-import { ConfigManager } from '../config/config-manager'
 import { Logger } from '../utils/logger'
 
 export interface ScheduleConfig {
@@ -88,7 +88,8 @@ export class Scheduler {
    * Stop the scheduler
    */
   stop(): void {
-    if (!this.isRunning) return
+    if (!this.isRunning)
+      return
 
     this.isRunning = false
     this.logger.info('🛑 Stopping Buddy Scheduler...')
@@ -177,7 +178,8 @@ export class Scheduler {
       job.status = 'idle'
 
       this.logger.success(`✅ Job '${job.name}' completed in ${duration}ms`)
-    } catch (error) {
+    }
+    catch (error) {
       job.status = 'error'
       this.logger.error(`❌ Job '${job.name}' failed:`, error)
     }
@@ -203,7 +205,8 @@ export class Scheduler {
     if (job.config.repository && job.config.pullRequest) {
       await buddy.createPullRequests(scanResult)
       this.logger.success(`Created pull requests for ${scanResult.groups.length} update groups`)
-    } else {
+    }
+    else {
       this.logger.info('Repository not configured, skipping PR creation')
     }
   }
@@ -216,7 +219,8 @@ export class Scheduler {
       // This is a simplified cron parser
       // In production, you'd want to use a proper cron library like 'node-cron'
       return this.parseCronExpression(cronExpression, timezone)
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.error(`Invalid cron expression '${cronExpression}':`, error)
       return null
     }
@@ -232,7 +236,7 @@ export class Scheduler {
       throw new Error('Cron expression must have 5 parts: minute hour day month dayOfWeek')
     }
 
-    const [minuteStr, hourStr, dayStr, monthStr, dayOfWeekStr] = parts
+    const [minuteStr, hourStr, _dayStr, _monthStr, _dayOfWeekStr] = parts
     const now = new Date()
 
     // Apply timezone offset if specified
@@ -257,7 +261,8 @@ export class Scheduler {
       if (next <= now) {
         next.setDate(next.getDate() + 1)
       }
-    } else {
+    }
+    else {
       // Default to next hour
       next.setTime(now.getTime() + 60 * 60 * 1000)
     }
@@ -289,7 +294,7 @@ export class Scheduler {
     }
 
     const num = Number(field)
-    return isNaN(num) ? [] : [num]
+    return Number.isNaN(num) ? [] : [num]
   }
 
   /**
@@ -300,7 +305,7 @@ export class Scheduler {
       cron: config.schedule?.cron || '0 2 * * 1', // Default: Monday 2 AM
       timezone: config.schedule?.timezone,
       runOnStartup: false,
-      maxRuntime: 30 * 60 * 1000 // 30 minutes
+      maxRuntime: 30 * 60 * 1000, // 30 minutes
     }
 
     return {
@@ -308,7 +313,7 @@ export class Scheduler {
       name: `Buddy Dependency Updates (${jobId})`,
       schedule,
       status: 'idle',
-      config
+      config,
     }
   }
 
@@ -316,12 +321,12 @@ export class Scheduler {
    * Predefined schedule presets
    */
   static readonly PRESETS = {
-    DAILY: '0 2 * * *',           // 2 AM daily
-    WEEKLY: '0 2 * * 1',          // 2 AM Monday
-    WEEKDAYS: '0 2 * * 1-5',      // 2 AM weekdays
-    TWICE_WEEKLY: '0 2 * * 1,4',  // 2 AM Monday and Thursday
-    MONTHLY: '0 2 1 * *',         // 2 AM first of month
-    HOURLY: '0 * * * *',          // Every hour
-    CUSTOM: (minute: number, hour: number, dayOfWeek = '*') => `${minute} ${hour} * * ${dayOfWeek}`
+    DAILY: '0 2 * * *', // 2 AM daily
+    WEEKLY: '0 2 * * 1', // 2 AM Monday
+    WEEKDAYS: '0 2 * * 1-5', // 2 AM weekdays
+    TWICE_WEEKLY: '0 2 * * 1,4', // 2 AM Monday and Thursday
+    MONTHLY: '0 2 1 * *', // 2 AM first of month
+    HOURLY: '0 * * * *', // Every hour
+    CUSTOM: (minute: number, hour: number, dayOfWeek = '*') => `${minute} ${hour} * * ${dayOfWeek}`,
   }
 }

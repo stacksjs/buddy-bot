@@ -1,17 +1,16 @@
-import { readFile, readdir, stat } from 'fs/promises'
-import { join, resolve } from 'path'
 import type {
-  PackageFile,
   Dependency,
-  Logger
+  Logger,
+  PackageFile,
 } from '../types'
+import { readdir, readFile, stat } from 'node:fs/promises'
+import { join } from 'node:path'
 import { BuddyError } from '../types'
-import { parsePackageFile } from '../utils/helpers'
 
 export class PackageScanner {
   constructor(
     private readonly projectPath: string,
-    private readonly logger: Logger
+    private readonly logger: Logger,
   ) {}
 
   /**
@@ -46,7 +45,8 @@ export class PackageScanner {
       this.logger.success(`Found ${packageFiles.length} package files in ${duration}ms`)
 
       return packageFiles
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.error('Failed to scan project:', error)
       throw new BuddyError(`Failed to scan project: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -72,9 +72,10 @@ export class PackageScanner {
         path: this.getRelativePath(filePath),
         type: 'package.json',
         content,
-        dependencies
+        dependencies,
       }
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.warn(`Failed to parse package.json file ${filePath}:`, error)
       return null
     }
@@ -92,13 +93,17 @@ export class PackageScanner {
 
       if (fileName === 'bun.lockb') {
         type = 'bun.lockb'
-      } else if (fileName === 'package-lock.json') {
+      }
+      else if (fileName === 'package-lock.json') {
         type = 'package-lock.json'
-      } else if (fileName === 'yarn.lock') {
+      }
+      else if (fileName === 'yarn.lock') {
         type = 'yarn.lock'
-      } else if (fileName === 'pnpm-lock.yaml') {
+      }
+      else if (fileName === 'pnpm-lock.yaml') {
         type = 'pnpm-lock.yaml'
-      } else {
+      }
+      else {
         return null
       }
 
@@ -110,9 +115,10 @@ export class PackageScanner {
         path: this.getRelativePath(filePath),
         type,
         content,
-        dependencies
+        dependencies,
       }
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.warn(`Failed to parse lock file ${filePath}:`, error)
       return null
     }
@@ -125,16 +131,17 @@ export class PackageScanner {
     deps: Record<string, string> | undefined,
     type: Dependency['type'],
     filePath: string,
-    dependencies: Dependency[]
+    dependencies: Dependency[],
   ): void {
-    if (!deps) return
+    if (!deps)
+      return
 
     for (const [name, version] of Object.entries(deps)) {
       dependencies.push({
         name,
         currentVersion: version,
         type,
-        file: this.getRelativePath(filePath)
+        file: this.getRelativePath(filePath),
       })
     }
   }
@@ -145,7 +152,7 @@ export class PackageScanner {
   private async extractLockFileDependencies(
     content: string,
     type: PackageFile['type'],
-    filePath: string
+    filePath: string,
   ): Promise<Dependency[]> {
     const dependencies: Dependency[] = []
 
@@ -167,13 +174,14 @@ export class PackageScanner {
                   name,
                   currentVersion: pkg.version,
                   type: pkg.dev ? 'devDependencies' : 'dependencies',
-                  file: this.getRelativePath(filePath)
+                  file: this.getRelativePath(filePath),
                 })
               }
             }
           }
         }
-      } catch (error) {
+      }
+      catch (error) {
         this.logger.warn(`Failed to parse package-lock.json:`, error)
       }
     }
@@ -202,11 +210,13 @@ export class PackageScanner {
             const subFiles = await this.findFiles(fileName, fullPath)
             files.push(...subFiles)
           }
-        } else if (stats.isFile() && entry === fileName) {
+        }
+        else if (stats.isFile() && entry === fileName) {
           files.push(fullPath)
         }
       }
-    } catch (error) {
+    }
+    catch {
       // Ignore permission errors and continue
     }
 
@@ -245,7 +255,7 @@ export class PackageScanner {
       'temp',
       '.cache',
       '.vscode',
-      '.idea'
+      '.idea',
     ]
 
     return skipDirs.includes(dirName) || dirName.startsWith('.')
@@ -255,7 +265,7 @@ export class PackageScanner {
    * Get relative path from project root
    */
   private getRelativePath(absolutePath: string): string {
-    return absolutePath.replace(this.projectPath + '/', '')
+    return absolutePath.replace(`${this.projectPath}/`, '')
   }
 
   /**
@@ -275,7 +285,7 @@ export class PackageScanner {
 
     // Remove duplicates based on name
     const uniqueDeps = allDeps.filter((dep, index, self) =>
-      index === self.findIndex(d => d.name === dep.name)
+      index === self.findIndex(d => d.name === dep.name),
     )
 
     return uniqueDeps

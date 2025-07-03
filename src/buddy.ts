@@ -1,14 +1,15 @@
 import type {
   BuddyBotConfig,
-  UpdateScanResult,
+  Logger as ILogger,
   PackageUpdate,
   UpdateGroup,
-  Logger as ILogger
+  UpdateScanResult,
 } from './types'
-import { PackageScanner } from './scanner/package-scanner'
+import process from 'node:process'
 import { RegistryClient } from './registry/registry-client'
-import { Logger } from './utils/logger'
+import { PackageScanner } from './scanner/package-scanner'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
+import { Logger } from './utils/logger'
 
 export class Buddy {
   private readonly logger: ILogger
@@ -17,7 +18,7 @@ export class Buddy {
 
   constructor(
     private readonly config: BuddyBotConfig,
-    private readonly projectPath: string = process.cwd()
+    private readonly projectPath: string = process.cwd(),
   ) {
     this.logger = new Logger(false) // Will be configurable
     this.scanner = new PackageScanner(this.projectPath, this.logger)
@@ -43,7 +44,8 @@ export class Buddy {
         // Get all updates first, then filter
         const allUpdates = await this.registryClient.getOutdatedPackages()
         updates = allUpdates.filter(update => !this.config.packages!.ignore!.includes(update.name))
-      } else {
+      }
+      else {
         updates = await this.registryClient.getOutdatedPackages()
       }
 
@@ -67,12 +69,13 @@ export class Buddy {
         updates,
         groups,
         scannedAt: new Date(),
-        duration
+        duration,
       }
 
       this.logger.success(`Scan completed in ${duration}ms. Found ${updates.length} updates.`)
       return result
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.error('Failed to scan for updates:', error)
       throw error
     }
@@ -94,7 +97,8 @@ export class Buddy {
       }
 
       this.logger.success(`Would create ${scanResult.groups.length} pull request(s)`)
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.error('Failed to create pull requests:', error)
       throw error
     }
@@ -140,11 +144,12 @@ export class Buddy {
    */
   private filterUpdatesByStrategy(
     updates: PackageUpdate[],
-    strategy: 'major' | 'minor' | 'patch' | 'all'
+    strategy: 'major' | 'minor' | 'patch' | 'all',
   ): PackageUpdate[] {
-    if (strategy === 'all') return updates
+    if (strategy === 'all')
+      return updates
 
-    return updates.filter(update => {
+    return updates.filter((update) => {
       switch (strategy) {
         case 'major':
           return update.updateType === 'major'
@@ -177,9 +182,10 @@ export class Buddy {
           groupUpdates.push(...matchingUpdates)
 
           // Remove from ungrouped
-          matchingUpdates.forEach(update => {
+          matchingUpdates.forEach((update) => {
             const index = ungroupedUpdates.indexOf(update)
-            if (index > -1) ungroupedUpdates.splice(index, 1)
+            if (index > -1)
+              ungroupedUpdates.splice(index, 1)
           })
         }
 
@@ -195,7 +201,7 @@ export class Buddy {
             updates: filteredUpdates,
             updateType: this.getHighestUpdateType(filteredUpdates),
             title: `chore(deps): update ${groupConfig.name}`,
-            body: `Update ${filteredUpdates.length} packages in ${groupConfig.name} group`
+            body: `Update ${filteredUpdates.length} packages in ${groupConfig.name} group`,
           })
         }
       }
@@ -214,8 +220,10 @@ export class Buddy {
    * Get the highest update type from a list of updates
    */
   private getHighestUpdateType(updates: PackageUpdate[]): 'major' | 'minor' | 'patch' {
-    if (updates.some(u => u.updateType === 'major')) return 'major'
-    if (updates.some(u => u.updateType === 'minor')) return 'minor'
+    if (updates.some(u => u.updateType === 'major'))
+      return 'major'
+    if (updates.some(u => u.updateType === 'minor'))
+      return 'minor'
     return 'patch'
   }
 

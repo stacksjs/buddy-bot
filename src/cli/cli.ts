@@ -1,4 +1,5 @@
 import type { BuddyBotConfig } from '../types'
+import process from 'node:process'
 import { Buddy } from '../buddy'
 import { ConfigManager } from '../config/config-manager'
 import { Logger } from '../utils/logger'
@@ -14,20 +15,20 @@ export interface CLIOptions {
 }
 
 export function createCLI(): {
-  scan: typeof scanCommand
-  update: typeof updateCommand
-  check: typeof checkCommand
-  schedule: typeof scheduleCommand
+  'scan': typeof scanCommand
+  'update': typeof updateCommand
+  'check': typeof checkCommand
+  'schedule': typeof scheduleCommand
   'generate-workflows': typeof generateWorkflowsCommand
-  help: typeof helpCommand
+  'help': typeof helpCommand
 } {
   return {
-    scan: scanCommand,
-    update: updateCommand,
-    check: checkCommand,
-    schedule: scheduleCommand,
+    'scan': scanCommand,
+    'update': updateCommand,
+    'check': checkCommand,
+    'schedule': scheduleCommand,
     'generate-workflows': generateWorkflowsCommand,
-    help: helpCommand
+    'help': helpCommand,
   }
 }
 
@@ -48,8 +49,8 @@ export async function scanCommand(options: CLIOptions = {}): Promise<void> {
       packages: {
         ...baseConfig.packages,
         strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
-        ignore: options.ignore ?? baseConfig.packages?.ignore
-      }
+        ignore: options.ignore ?? baseConfig.packages?.ignore,
+      },
     }
 
     const buddy = new Buddy(config)
@@ -60,7 +61,8 @@ export async function scanCommand(options: CLIOptions = {}): Promise<void> {
 
       if (updates.length === 0) {
         logger.success('All specified packages are up to date!')
-      } else {
+      }
+      else {
         logger.info(`Found ${updates.length} updates:`)
         for (const update of updates) {
           logger.info(`  ${update.name}: ${update.currentVersion} → ${update.newVersion} (${update.updateType})`)
@@ -75,7 +77,8 @@ export async function scanCommand(options: CLIOptions = {}): Promise<void> {
 
       if (updates.length === 0) {
         logger.success('All matching packages are up to date!')
-      } else {
+      }
+      else {
         logger.info(`Found ${updates.length} updates:`)
         for (const update of updates) {
           logger.info(`  ${update.name}: ${update.currentVersion} → ${update.newVersion} (${update.updateType})`)
@@ -129,8 +132,8 @@ export async function scanCommand(options: CLIOptions = {}): Promise<void> {
         logger.info(`  ${group.name}: ${group.updates.length} updates`)
       }
     }
-
-  } catch (error) {
+  }
+  catch (error) {
     logger.error('Scan failed:', error)
     process.exit(1)
   }
@@ -152,8 +155,8 @@ export async function updateCommand(options: CLIOptions = {}): Promise<void> {
       packages: {
         ...baseConfig.packages,
         strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
-        ignore: options.ignore ?? baseConfig.packages?.ignore
-      }
+        ignore: options.ignore ?? baseConfig.packages?.ignore,
+      },
     }
 
     const buddy = new Buddy(config)
@@ -176,8 +179,8 @@ export async function updateCommand(options: CLIOptions = {}): Promise<void> {
     // Create pull requests
     await buddy.createPullRequests(scanResult)
     logger.success('Update process completed!')
-
-  } catch (error) {
+  }
+  catch (error) {
     logger.error('Update failed:', error)
     process.exit(1)
   }
@@ -214,8 +217,8 @@ export async function scheduleCommand(options: CLIOptions = {}): Promise<void> {
       packages: {
         ...baseConfig.packages,
         strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
-        ignore: options.ignore ?? baseConfig.packages?.ignore
-      }
+        ignore: options.ignore ?? baseConfig.packages?.ignore,
+      },
     }
 
     // Validate that repository is configured for scheduling
@@ -257,8 +260,8 @@ export async function scheduleCommand(options: CLIOptions = {}): Promise<void> {
 
     // Keep process alive
     process.stdin.resume()
-
-  } catch (error) {
+  }
+  catch (error) {
     logger.error('Scheduler failed:', error)
     process.exit(1)
   }
@@ -281,7 +284,8 @@ export async function generateWorkflowsCommand(options: CLIOptions = {}): Promis
     // Create output directory
     try {
       mkdirSync(outputDir, { recursive: true })
-    } catch {
+    }
+    catch {
       // Directory already exists
     }
 
@@ -316,8 +320,8 @@ export async function generateWorkflowsCommand(options: CLIOptions = {}): Promis
     logger.info('  3. Configure buddy-bot.config.ts with your repository settings')
     logger.info('  4. Enable GitHub Actions in your repository settings')
     logger.info('\n🔗 Learn more: https://docs.github.com/en/actions')
-
-  } catch (error) {
+  }
+  catch (error) {
     logger.error('Failed to generate workflows:', error)
     process.exit(1)
   }
@@ -428,7 +432,8 @@ export async function runCLI(args: string[]): Promise<void> {
     default:
       if (!command) {
         helpCommand()
-      } else {
+      }
+      else {
         console.error(`Unknown command: ${command}`)
         console.error('Run "buddy help" for usage information')
         process.exit(1)

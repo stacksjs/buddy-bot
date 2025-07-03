@@ -90,22 +90,22 @@ jobs:
         name: 'Daily Dependency Updates',
         schedule: '0 2 * * *', // 2 AM daily
         strategy: 'patch',
-        autoMerge: true
+        autoMerge: true,
       }),
 
       'dependency-updates-weekly.yml': this.generateWorkflow({
         name: 'Weekly Dependency Updates',
         schedule: '0 2 * * 1', // 2 AM Monday
         strategy: 'minor',
-        autoMerge: false
+        autoMerge: false,
       }),
 
       'dependency-updates-monthly.yml': this.generateWorkflow({
         name: 'Monthly Dependency Updates',
         schedule: '0 2 1 * *', // 2 AM first of month
         strategy: 'major',
-        autoMerge: false
-      })
+        autoMerge: false,
+      }),
     }
   }
 

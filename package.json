@@ -22,16 +22,19 @@
   ],
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./program": {
-      "import": "./dist/program.js",
-      "types": "./dist/program.d.ts"
+      "types": "./dist/program.d.ts",
+      "import": "./dist/program.js"
     }
   },
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "buddy-bot": "./dist/bin/cli.js"
+  },
   "files": ["README.md", "bin", "dist"],
   "scripts": {
     "build": "bun build.ts",
@@ -46,9 +49,6 @@
     "dev:docs": "bun --bun vitepress dev docs",
     "build:docs": "bun --bun vitepress build docs",
     "preview:docs": "bun --bun vitepress preview docs"
-  },
-  "bin": {
-    "buddy-bot": "./dist/bin/cli.js"
   },
   "dependencies": {
     "bunfig": "^0.10.0"

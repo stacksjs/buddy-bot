@@ -1,6 +1,6 @@
+import type { PackageUpdate, UpdateGroup } from '../src/types'
 import { describe, expect, it } from 'bun:test'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
-import type { UpdateGroup, PackageUpdate } from '../src/types'
 
 describe('PR Generator - Simple Tests', () => {
   const generator = new PullRequestGenerator()
@@ -12,7 +12,7 @@ describe('PR Generator - Simple Tests', () => {
     updateType: 'patch',
     dependencyType: 'devDependencies',
     file: 'package.json',
-    metadata: undefined
+    metadata: undefined,
   }
 
   const mockUpdateGroup: UpdateGroup = {
@@ -20,7 +20,7 @@ describe('PR Generator - Simple Tests', () => {
     updateType: 'patch',
     title: 'chore(deps): update typescript to v5.8.3',
     body: '',
-    updates: [mockPackageUpdate]
+    updates: [mockPackageUpdate],
   }
 
   describe('Title Generation', () => {
@@ -37,8 +37,8 @@ describe('PR Generator - Simple Tests', () => {
         body: '',
         updates: [
           mockPackageUpdate,
-          { ...mockPackageUpdate, name: 'react', updateType: 'minor' }
-        ]
+          { ...mockPackageUpdate, name: 'react', updateType: 'minor' },
+        ],
       }
 
       const title = generator.generateTitle(multipleUpdateGroup)
@@ -54,8 +54,8 @@ describe('PR Generator - Simple Tests', () => {
         updates: [
           mockPackageUpdate, // patch
           { ...mockPackageUpdate, name: 'react', updateType: 'major' },
-          { ...mockPackageUpdate, name: 'vue', updateType: 'minor' }
-        ]
+          { ...mockPackageUpdate, name: 'vue', updateType: 'minor' },
+        ],
       }
 
       const title = generator.generateTitle(majorUpdateGroup)
@@ -68,7 +68,7 @@ describe('PR Generator - Simple Tests', () => {
         updateType: 'patch',
         title: '',
         body: '',
-        updates: []
+        updates: [],
       }
 
       const title = generator.generateTitle(emptyGroup)
@@ -121,8 +121,8 @@ describe('PR Generator - Simple Tests', () => {
         updates: [
           mockPackageUpdate,
           { ...mockPackageUpdate, name: '@types/node' },
-          { ...mockPackageUpdate, name: '@vue/cli' }
-        ]
+          { ...mockPackageUpdate, name: '@vue/cli' },
+        ],
       }
 
       const title = generator.generateTitle(multiPackageGroup)
@@ -137,8 +137,8 @@ describe('PR Generator - Simple Tests', () => {
         body: '',
         updates: [{
           ...mockPackageUpdate,
-          name: '@types/node'
-        }]
+          name: '@types/node',
+        }],
       }
 
       const title = generator.generateTitle(scopedUpdate)
@@ -153,7 +153,7 @@ describe('PR Generator - Simple Tests', () => {
         updateType: 'major',
         title: '',
         body: '',
-        updates: [{ ...mockPackageUpdate, updateType: 'major' }]
+        updates: [{ ...mockPackageUpdate, updateType: 'major' }],
       }
 
       const title = generator.generateTitle(majorGroup)
@@ -167,7 +167,7 @@ describe('PR Generator - Simple Tests', () => {
         updateType: 'minor',
         title: '',
         body: '',
-        updates: [{ ...mockPackageUpdate, updateType: 'minor' }]
+        updates: [{ ...mockPackageUpdate, updateType: 'minor' }],
       }
 
       const title = generator.generateTitle(minorGroup)
@@ -198,8 +198,8 @@ describe('PR Generator - Simple Tests', () => {
         updates: [{
           ...mockPackageUpdate,
           currentVersion: '1.0.0',
-          newVersion: '2.0.0'
-        }]
+          newVersion: '2.0.0',
+        }],
       }
 
       const title = generator.generateTitle(semverUpdate)
@@ -216,8 +216,8 @@ describe('PR Generator - Simple Tests', () => {
         body: '',
         updates: [{
           ...mockPackageUpdate,
-          name: 'very-long-package-name-that-exceeds-normal-length'
-        }]
+          name: 'very-long-package-name-that-exceeds-normal-length',
+        }],
       }
 
       const title = generator.generateTitle(longNameUpdate)
@@ -232,8 +232,8 @@ describe('PR Generator - Simple Tests', () => {
         body: '',
         updates: [{
           ...mockPackageUpdate,
-          name: '@org/package-name_with.special-chars'
-        }]
+          name: '@org/package-name_with.special-chars',
+        }],
       }
 
       const title = generator.generateTitle(specialCharUpdate)

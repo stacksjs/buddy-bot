@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
-
-import { GitHubActionsTemplate } from '../templates/github-actions'
-import { writeFileSync, mkdirSync } from 'node:fs'
+/* eslint-disable no-console */
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import process from 'node:process'
+import { GitHubActionsTemplate } from '../templates/github-actions'
 
 /**
  * Demo script to generate GitHub Actions workflows
@@ -14,7 +15,8 @@ function generateWorkflowExamples() {
 
   try {
     mkdirSync(outputDir, { recursive: true })
-  } catch {
+  }
+  catch {
     // Directory already exists
   }
 
@@ -75,7 +77,7 @@ async function demoPRFormatting() {
         updateType: 'patch' as const,
         dependencyType: 'devDependencies' as const,
         file: 'package.json',
-        metadata: undefined
+        metadata: undefined,
       },
       {
         name: '@types/node',
@@ -84,9 +86,9 @@ async function demoPRFormatting() {
         updateType: 'major' as const,
         dependencyType: 'devDependencies' as const,
         file: 'package.json',
-        metadata: undefined
-      }
-    ]
+        metadata: undefined,
+      },
+    ],
   }
 
   const generator = new PullRequestGenerator()
@@ -100,14 +102,15 @@ async function demoPRFormatting() {
   try {
     const body = await generator.generateBody(mockUpdateGroup)
     // Show first 500 chars of the body
-    console.log(body.substring(0, 500) + '...')
+    console.log(`${body.substring(0, 500)}...`)
     console.log('\n✅ Enhanced PR formatting includes:')
     console.log('  • Rich markdown tables with badges')
     console.log('  • Release notes from GitHub')
     console.log('  • Package statistics')
     console.log('  • Confidence indicators')
     console.log('  • Comparison links')
-  } catch (error) {
+  }
+  catch {
     console.log('⚠️  PR body generation demo (requires network access)')
     console.log('   In production, this would fetch real package data')
   }
@@ -120,6 +123,7 @@ function demoScheduling() {
   console.log('\n⏰ Demo: Cron Scheduling')
   console.log('========================================')
 
+  // eslint-disable-next-line ts/no-require-imports
   const { Scheduler } = require('../scheduler/scheduler')
 
   console.log('📅 Available schedule presets:')
@@ -145,6 +149,7 @@ if (import.meta.main) {
   console.log('================================\n')
 
   generateWorkflowExamples()
+  // eslint-disable-next-line antfu/no-top-level-await
   await demoPRFormatting()
   demoScheduling()
 

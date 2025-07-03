@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { PackageUpdate, UpdateScanResult } from '../types'
 
 export class UpdateProcessor {

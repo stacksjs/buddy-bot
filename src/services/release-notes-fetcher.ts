@@ -1,5 +1,3 @@
-import type { PackageUpdate, PackageMetadata } from '../types'
-
 export interface ReleaseNote {
   version: string
   date: string
@@ -43,11 +41,11 @@ export interface PackageInfo {
     directory?: string
   }
   license?: string
-  author?: string | { name: string; email?: string; url?: string }
+  author?: string | { name: string, email?: string, url?: string }
   keywords?: string[]
   weeklyDownloads?: number
   lastPublish?: string
-  maintainers?: Array<{ name: string; email?: string }>
+  maintainers?: Array<{ name: string, email?: string }>
 }
 
 export class ReleaseNotesFetcher {
@@ -86,14 +84,15 @@ export class ReleaseNotesFetcher {
         packageInfo,
         releaseNotes,
         changelog,
-        compareUrl
+        compareUrl,
       }
-    } catch (error) {
+    }
+    catch (error) {
       console.warn(`Failed to fetch package info for ${packageName}:`, error)
       return {
         packageInfo: { name: packageName },
         releaseNotes: [],
-        changelog: []
+        changelog: [],
       }
     }
   }
@@ -104,29 +103,29 @@ export class ReleaseNotesFetcher {
   private async fetchNpmPackageInfo(packageName: string): Promise<PackageInfo> {
     try {
       const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`, {
-        headers: { 'User-Agent': this.userAgent }
+        headers: { 'User-Agent': this.userAgent },
       })
 
       if (!response.ok) {
         throw new Error(`NPM registry responded with ${response.status}`)
       }
 
-            const data = await response.json() as any
+      const data = await response.json() as any
       const latest = data['dist-tags']?.latest
-      const latestVersion = latest ? data.versions[latest] : null
 
       // Fetch weekly downloads
       let weeklyDownloads: number | undefined
       try {
         const downloadsResponse = await fetch(
           `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`,
-          { headers: { 'User-Agent': this.userAgent } }
+          { headers: { 'User-Agent': this.userAgent } },
         )
         if (downloadsResponse.ok) {
           const downloadsData = await downloadsResponse.json() as any
           weeklyDownloads = downloadsData.downloads
         }
-      } catch {
+      }
+      catch {
         // Ignore download fetch errors
       }
 
@@ -140,9 +139,10 @@ export class ReleaseNotesFetcher {
         keywords: data.keywords,
         weeklyDownloads,
         lastPublish: data.time?.[latest],
-        maintainers: data.maintainers
+        maintainers: data.maintainers,
       }
-    } catch (error) {
+    }
+    catch (error) {
       console.warn(`Failed to fetch npm info for ${packageName}:`, error)
       return { name: packageName }
     }
@@ -151,7 +151,7 @@ export class ReleaseNotesFetcher {
   /**
    * Parse GitHub repository URL
    */
-  private parseGitHubUrl(repositoryUrl: string): { owner: string; repo: string } | null {
+  private parseGitHubUrl(repositoryUrl: string): { owner: string, repo: string } | null {
     try {
       // Handle different URL formats
       const cleanUrl = repositoryUrl
@@ -171,12 +171,13 @@ export class ReleaseNotesFetcher {
       if (pathParts.length >= 2) {
         return {
           owner: pathParts[0],
-          repo: pathParts[1]
+          repo: pathParts[1],
         }
       }
 
       return null
-    } catch {
+    }
+    catch {
       return null
     }
   }
@@ -188,12 +189,12 @@ export class ReleaseNotesFetcher {
     owner: string,
     repo: string,
     currentVersion: string,
-    newVersion: string
+    newVersion: string,
   ): Promise<ReleaseNote[]> {
     try {
       const response = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/releases?per_page=50`,
-        { headers: { 'User-Agent': this.userAgent } }
+        { headers: { 'User-Agent': this.userAgent } },
       )
 
       if (!response.ok) {
@@ -221,10 +222,11 @@ export class ReleaseNotesFetcher {
             name: asset.name,
             downloadUrl: asset.browser_download_url,
             size: asset.size,
-            contentType: asset.content_type
-          })) || []
+            contentType: asset.content_type,
+          })) || [],
         }))
-    } catch (error) {
+    }
+    catch (error) {
       console.warn(`Failed to fetch GitHub releases for ${owner}/${repo}:`, error)
       return []
     }
@@ -241,7 +243,7 @@ export class ReleaseNotesFetcher {
       try {
         const response = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/contents/${filename}`,
-          { headers: { 'User-Agent': this.userAgent } }
+          { headers: { 'User-Agent': this.userAgent } },
         )
 
         if (response.ok) {
@@ -251,7 +253,8 @@ export class ReleaseNotesFetcher {
             return this.parseChangelog(content)
           }
         }
-      } catch {
+      }
+      catch {
         // Continue to next file
       }
     }
@@ -279,7 +282,7 @@ export class ReleaseNotesFetcher {
         currentEntry = {
           version: versionMatch[1],
           date: versionMatch[2].trim(),
-          changes: {}
+          changes: {},
         }
         currentSection = null
         continue
@@ -295,7 +298,8 @@ export class ReleaseNotesFetcher {
       // List items
       const itemMatch = line.match(/^[-*]\s*(.+)/)
       if (itemMatch && currentEntry && currentSection) {
-        if (!currentEntry.changes) currentEntry.changes = {}
+        if (!currentEntry.changes)
+          currentEntry.changes = {}
         const sectionKey = currentSection as keyof typeof currentEntry.changes
         if (!currentEntry.changes[sectionKey]) {
           currentEntry.changes[sectionKey] = []
@@ -351,7 +355,7 @@ export class ReleaseNotesFetcher {
       age: `[![age](https://developer.mend.io/api/mc/badges/age/npm/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
       adoption: `[![adoption](https://developer.mend.io/api/mc/badges/adoption/npm/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
       passing: `[![passing](https://developer.mend.io/api/mc/badges/compatibility/npm/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
-      confidence: `[![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`
+      confidence: `[![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
     }
   }
 }

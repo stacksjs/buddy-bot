@@ -1,5 +1,5 @@
+import type { VersionRange } from '../types'
 import { semver } from 'bun'
-import type { PackageUpdate, VersionRange } from '../types'
 
 export class VersionResolver {
   /**
@@ -9,20 +9,21 @@ export class VersionResolver {
     return semver.order(version1, version2)
   }
 
-    /**
+  /**
    * Check if a version satisfies a range using Bun's fast semver implementation
    */
   static satisfiesRange(version: string, range: string): boolean {
     return semver.satisfies(version, range)
   }
 
-    /**
+  /**
    * Get the latest version that satisfies a range
    */
   static getLatestInRange(versions: string[], range: string): string | null {
     const satisfyingVersions = versions.filter(v => semver.satisfies(v, range))
 
-    if (satisfyingVersions.length === 0) return null
+    if (satisfyingVersions.length === 0)
+      return null
 
     // Sort using Bun's semver.order (descending)
     return satisfyingVersions.sort((a, b) => semver.order(b, a))[0]
@@ -37,11 +38,11 @@ export class VersionResolver {
       range: rangeString.replace(/^[\^~>=<]+/, ''),
       isExact: !/^[\^~>=<]/.test(rangeString),
       satisfies: (version: string) => this.satisfiesRange(version, rangeString),
-      getLatest: (versions: string[]) => this.getLatestInRange(versions, rangeString)
+      getLatest: (versions: string[]) => this.getLatestInRange(versions, rangeString),
     }
   }
 
-    /**
+  /**
    * Determine update type between two versions
    */
   static getUpdateType(fromVersion: string, toVersion: string): 'major' | 'minor' | 'patch' {
@@ -52,12 +53,14 @@ export class VersionResolver {
     const fromParts = cleanFrom.split('.').map(Number)
     const toParts = cleanTo.split('.').map(Number)
 
-    if (toParts[0] > fromParts[0]) return 'major'
-    if (toParts[0] === fromParts[0] && toParts[1] > fromParts[1]) return 'minor'
+    if (toParts[0] > fromParts[0])
+      return 'major'
+    if (toParts[0] === fromParts[0] && toParts[1] > fromParts[1])
+      return 'minor'
     return 'patch'
   }
 
-    /**
+  /**
    * Check if an update is safe based on version range
    */
   static isSafeUpdate(currentRange: string, newVersion: string): boolean {

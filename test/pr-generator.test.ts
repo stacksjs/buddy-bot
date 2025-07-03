@@ -1,6 +1,6 @@
-import { beforeAll, describe, expect, it, mock } from 'bun:test'
+import type { PackageUpdate, UpdateGroup } from '../src/types'
+import { beforeAll, describe, expect, it } from 'bun:test'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
-import type { UpdateGroup, PackageUpdate } from '../src/types'
 
 describe('PullRequestGenerator', () => {
   let generator: PullRequestGenerator
@@ -12,7 +12,7 @@ describe('PullRequestGenerator', () => {
     updateType: 'patch',
     dependencyType: 'devDependencies',
     file: 'package.json',
-    metadata: undefined
+    metadata: undefined,
   }
 
   const mockUpdateGroup: UpdateGroup = {
@@ -20,7 +20,7 @@ describe('PullRequestGenerator', () => {
     updateType: 'patch',
     title: 'chore(deps): update typescript to v5.8.3',
     body: '',
-    updates: [mockPackageUpdate]
+    updates: [mockPackageUpdate],
   }
 
   beforeAll(() => {
@@ -42,8 +42,8 @@ describe('PullRequestGenerator', () => {
         body: '',
         updates: [
           mockPackageUpdate,
-          { ...mockPackageUpdate, name: 'react', updateType: 'minor' }
-        ]
+          { ...mockPackageUpdate, name: 'react', updateType: 'minor' },
+        ],
       }
 
       const title = generator.generateTitle(multipleUpdateGroup)
@@ -59,8 +59,8 @@ describe('PullRequestGenerator', () => {
         updates: [
           mockPackageUpdate, // patch
           { ...mockPackageUpdate, name: 'react', updateType: 'major' },
-          { ...mockPackageUpdate, name: 'vue', updateType: 'minor' }
-        ]
+          { ...mockPackageUpdate, name: 'vue', updateType: 'minor' },
+        ],
       }
 
       const title = generator.generateTitle(majorUpdateGroup)
@@ -68,7 +68,7 @@ describe('PullRequestGenerator', () => {
     })
   })
 
-      describe('generateBody', () => {
+  describe('generateBody', () => {
     it('should have generateBody method', () => {
       expect(typeof generator.generateBody).toBe('function')
     })
@@ -100,13 +100,13 @@ describe('PullRequestGenerator', () => {
     })
   })
 
-      describe('generatePullRequests', () => {
+  describe('generatePullRequests', () => {
     it('should have generatePullRequests method', () => {
       expect(typeof generator.generatePullRequests).toBe('function')
     })
   })
 
-    describe('helper methods', () => {
+  describe('helper methods', () => {
     it('should have required helper methods', () => {
       expect(typeof generator.generateBody).toBe('function')
       expect(typeof generator.generateTitle).toBe('function')
@@ -114,14 +114,14 @@ describe('PullRequestGenerator', () => {
     })
   })
 
-    describe('error handling', () => {
+  describe('error handling', () => {
     it('should handle undefined metadata', () => {
       const updateWithoutMetadata: UpdateGroup = {
         ...mockUpdateGroup,
         updates: [{
           ...mockPackageUpdate,
-          metadata: undefined
-        }]
+          metadata: undefined,
+        }],
       }
 
       expect(updateWithoutMetadata.updates[0].metadata).toBeUndefined()

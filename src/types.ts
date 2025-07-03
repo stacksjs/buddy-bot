@@ -57,7 +57,6 @@ export interface BuddyBotConfig {
     labels?: string[]
   }
 
-
 }
 
 export type BuddyBotOptions = Partial<BuddyBotConfig>
@@ -131,7 +130,7 @@ export interface PackageMetadata {
   /** License */
   license?: string
   /** Author information */
-  author?: string | { name: string; email?: string }
+  author?: string | { name: string, email?: string }
   /** Keywords */
   keywords?: string[]
   /** Latest version */
@@ -151,25 +150,25 @@ export interface PackageMetadata {
 // Git and PR types
 export interface GitProvider {
   /** Create a new branch */
-  createBranch(branchName: string, baseBranch: string): Promise<void>
+  createBranch: (branchName: string, baseBranch: string) => Promise<void>
 
   /** Commit changes to branch */
-  commitChanges(branchName: string, message: string, files: FileChange[]): Promise<void>
+  commitChanges: (branchName: string, message: string, files: FileChange[]) => Promise<void>
 
   /** Create pull request */
-  createPullRequest(options: PullRequestOptions): Promise<PullRequest>
+  createPullRequest: (options: PullRequestOptions) => Promise<PullRequest>
 
   /** Get existing pull requests */
-  getPullRequests(state?: 'open' | 'closed' | 'all'): Promise<PullRequest[]>
+  getPullRequests: (state?: 'open' | 'closed' | 'all') => Promise<PullRequest[]>
 
   /** Update pull request */
-  updatePullRequest(prNumber: number, options: Partial<PullRequestOptions>): Promise<PullRequest>
+  updatePullRequest: (prNumber: number, options: Partial<PullRequestOptions>) => Promise<PullRequest>
 
   /** Close pull request */
-  closePullRequest(prNumber: number): Promise<void>
+  closePullRequest: (prNumber: number) => Promise<void>
 
   /** Merge pull request */
-  mergePullRequest(prNumber: number, strategy?: 'merge' | 'squash' | 'rebase'): Promise<void>
+  mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
 }
 
 export interface FileChange {
@@ -289,11 +288,11 @@ export interface CommandOption {
 
 // Utility types
 export interface Logger {
-  info(message: string, ...args: any[]): void
-  warn(message: string, ...args: any[]): void
-  error(message: string, ...args: any[]): void
-  debug(message: string, ...args: any[]): void
-  success(message: string, ...args: any[]): void
+  info: (message: string, ...args: any[]) => void
+  warn: (message: string, ...args: any[]) => void
+  error: (message: string, ...args: any[]) => void
+  debug: (message: string, ...args: any[]) => void
+  success: (message: string, ...args: any[]) => void
 }
 
 export interface VersionRange {
@@ -304,9 +303,9 @@ export interface VersionRange {
   /** Is exact version */
   isExact: boolean
   /** Satisfies version */
-  satisfies(version: string): boolean
+  satisfies: (version: string) => boolean
   /** Get latest version that satisfies range */
-  getLatest(versions: string[]): string | null
+  getLatest: (versions: string[]) => string | null
 }
 
 // Error types
@@ -314,7 +313,7 @@ export class BuddyError extends Error {
   constructor(
     message: string,
     public code?: string,
-    public details?: any
+    public details?: any,
   ) {
     super(message)
     this.name = 'BuddyError'

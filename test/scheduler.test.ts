@@ -1,6 +1,6 @@
-import { beforeAll, beforeEach, afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import { Scheduler, type SchedulerJob } from '../src/scheduler/scheduler'
 import type { BuddyBotConfig } from '../src/types'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { Scheduler } from '../src/scheduler/scheduler'
 
 describe('Scheduler', () => {
   let scheduler: Scheduler
@@ -19,22 +19,22 @@ describe('Scheduler', () => {
         provider: 'github',
         owner: 'test-owner',
         name: 'test-repo',
-        token: 'test-token'
+        token: 'test-token',
       },
       schedule: {
         cron: '0 2 * * 1', // Monday 2 AM
-        timezone: 'UTC'
-      }
+        timezone: 'UTC',
+      },
     }
   })
 
-      afterEach(() => {
+  afterEach(() => {
     if (scheduler) {
       scheduler.stop()
 
       // Clear any remaining jobs
       const jobs = scheduler.getAllJobs()
-      jobs.forEach(job => {
+      jobs.forEach((job) => {
         scheduler.removeJob(job.id)
       })
     }
@@ -131,11 +131,11 @@ describe('Scheduler', () => {
     })
   })
 
-    describe('cron parsing', () => {
+  describe('cron parsing', () => {
     it('should parse simple cron expressions', () => {
       const job = Scheduler.createJobFromConfig({
         ...mockConfig,
-        schedule: { cron: '0 9 * * *' } // 9 AM daily
+        schedule: { cron: '0 9 * * *' }, // 9 AM daily
       })
 
       scheduler.addJob(job)
@@ -145,7 +145,7 @@ describe('Scheduler', () => {
     it('should handle invalid cron expressions gracefully', () => {
       const job = Scheduler.createJobFromConfig({
         ...mockConfig,
-        schedule: { cron: 'invalid cron' }
+        schedule: { cron: 'invalid cron' },
       })
 
       // Invalid cron expressions are caught during execution, not during job creation
@@ -156,7 +156,7 @@ describe('Scheduler', () => {
     it('should parse cron with minutes and hours', () => {
       const job = Scheduler.createJobFromConfig({
         ...mockConfig,
-        schedule: { cron: '30 14 * * *' } // 2:30 PM daily
+        schedule: { cron: '30 14 * * *' }, // 2:30 PM daily
       })
 
       scheduler.addJob(job)
@@ -188,7 +188,7 @@ describe('Scheduler', () => {
     it('should calculate next run time correctly', () => {
       const job = Scheduler.createJobFromConfig({
         ...mockConfig,
-        schedule: { cron: '0 9 * * *' } // 9 AM daily
+        schedule: { cron: '0 9 * * *' }, // 9 AM daily
       })
 
       scheduler.addJob(job)
@@ -206,8 +206,8 @@ describe('Scheduler', () => {
         ...mockConfig,
         schedule: {
           cron: '0 9 * * *',
-          timezone: 'America/New_York'
-        }
+          timezone: 'America/New_York',
+        },
       })
 
       scheduler.addJob(job)
@@ -239,7 +239,7 @@ describe('Scheduler', () => {
     it('should handle malformed cron expressions', () => {
       const job = Scheduler.createJobFromConfig({
         ...mockConfig,
-        schedule: { cron: 'not-a-cron' }
+        schedule: { cron: 'not-a-cron' },
       })
 
       // Should handle gracefully without throwing

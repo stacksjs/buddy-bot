@@ -1,10 +1,9 @@
-import { spawn } from 'child_process'
 import type {
-  PackageUpdate,
+  Logger,
   PackageMetadata,
-  Dependency,
-  Logger
+  PackageUpdate,
 } from '../types'
+import { spawn } from 'node:child_process'
 import { PackageRegistryError } from '../types'
 import { getUpdateType } from '../utils/helpers'
 
@@ -18,7 +17,7 @@ export interface BunOutdatedResult {
 export class RegistryClient {
   constructor(
     private readonly projectPath: string,
-    private readonly logger: Logger
+    private readonly logger: Logger,
   ) {}
 
   /**
@@ -47,16 +46,17 @@ export class RegistryClient {
           metadata,
           releaseNotesUrl: this.getReleaseNotesUrl(result.name, metadata),
           changelogUrl: this.getChangelogUrl(result.name, metadata),
-          homepage: metadata?.homepage
+          homepage: metadata?.homepage,
         })
       }
 
       this.logger.success(`Found ${updates.length} package updates`)
       return updates
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.error('Failed to check for outdated packages:', error)
       throw new PackageRegistryError(
-        `Failed to check for outdated packages: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to check for outdated packages: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
     }
   }
@@ -98,9 +98,10 @@ export class RegistryClient {
         weeklyDownloads: undefined, // Would need separate API call
         dependencies: data.dependencies,
         devDependencies: data.devDependencies,
-        peerDependencies: data.peerDependencies
+        peerDependencies: data.peerDependencies,
       }
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.warn(`Failed to get metadata for ${packageName}:`, error)
       return undefined
     }
@@ -113,7 +114,8 @@ export class RegistryClient {
     try {
       await this.runCommand('npm', ['view', packageName, 'name'])
       return true
-    } catch {
+    }
+    catch {
       return false
     }
   }
@@ -125,7 +127,8 @@ export class RegistryClient {
     try {
       const result = await this.runCommand('npm', ['view', packageName, 'version'])
       return result.trim()
-    } catch {
+    }
+    catch {
       return null
     }
   }
@@ -142,13 +145,15 @@ export class RegistryClient {
     try {
       const output = await this.runCommand('bun', args)
       return this.parseBunOutdatedOutput(output)
-    } catch (error) {
+    }
+    catch {
       // If bun is not available, fall back to npm outdated
       this.logger.warn('Bun not available, falling back to npm outdated')
       try {
         const output = await this.runCommand('npm', ['outdated', '--json'])
         return this.parseNpmOutdatedOutput(output)
-      } catch (npmError) {
+      }
+      catch {
         throw new PackageRegistryError('Neither bun nor npm outdated commands are available')
       }
     }
@@ -169,7 +174,8 @@ export class RegistryClient {
         continue
       }
 
-      if (!dataStarted || !line.trim()) continue
+      if (!dataStarted || !line.trim())
+        continue
 
       // Parse table format: Package | Current | Update | Latest
       const parts = line.split('|').map(part => part.trim())
@@ -178,7 +184,7 @@ export class RegistryClient {
           name: parts[0],
           current: parts[1],
           update: parts[2],
-          latest: parts[3]
+          latest: parts[3],
         })
       }
     }
@@ -200,12 +206,13 @@ export class RegistryClient {
           name,
           current: packageInfo.current,
           update: packageInfo.wanted,
-          latest: packageInfo.latest
+          latest: packageInfo.latest,
         })
       }
 
       return results
-    } catch {
+    }
+    catch {
       // If JSON parsing fails, return empty array
       return []
     }
@@ -218,7 +225,7 @@ export class RegistryClient {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         cwd: this.projectPath,
-        stdio: 'pipe'
+        stdio: 'pipe',
       })
 
       let stdout = ''
@@ -235,7 +242,8 @@ export class RegistryClient {
       child.on('close', (code) => {
         if (code === 0) {
           resolve(stdout)
-        } else {
+        }
+        else {
           reject(new Error(`Command failed with code ${code}: ${stderr}`))
         }
       })
@@ -250,10 +258,11 @@ export class RegistryClient {
    * Generate release notes URL based on package metadata
    */
   private getReleaseNotesUrl(packageName: string, metadata?: PackageMetadata): string | undefined {
-    if (!metadata?.repository) return undefined
+    if (!metadata?.repository)
+      return undefined
 
     // Extract GitHub repo URL
-    const repoMatch = metadata.repository.match(/github\.com[\/:]([^\/]+\/[^\/]+)/)
+    const repoMatch = metadata.repository.match(/github\.com[/:]([^/]+\/[^/]+)/)
     if (repoMatch) {
       const repoPath = repoMatch[1].replace('.git', '')
       return `https://github.com/${repoPath}/releases`
@@ -266,10 +275,11 @@ export class RegistryClient {
    * Generate changelog URL based on package metadata
    */
   private getChangelogUrl(packageName: string, metadata?: PackageMetadata): string | undefined {
-    if (!metadata?.repository) return undefined
+    if (!metadata?.repository)
+      return undefined
 
     // Extract GitHub repo URL
-    const repoMatch = metadata.repository.match(/github\.com[\/:]([^\/]+\/[^\/]+)/)
+    const repoMatch = metadata.repository.match(/github\.com[/:]([^/]+\/[^/]+)/)
     if (repoMatch) {
       const repoPath = repoMatch[1].replace('.git', '')
       return `https://github.com/${repoPath}/blob/main/CHANGELOG.md`
@@ -302,12 +312,13 @@ export class RegistryClient {
           metadata,
           releaseNotesUrl: this.getReleaseNotesUrl(result.name, metadata),
           changelogUrl: this.getChangelogUrl(result.name, metadata),
-          homepage: metadata?.homepage
+          homepage: metadata?.homepage,
         })
       }
 
       return updates
-    } catch (error) {
+    }
+    catch (error) {
       this.logger.warn(`Failed to get updates for workspace ${workspaceName}:`, error)
       return []
     }

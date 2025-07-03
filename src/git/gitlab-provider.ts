@@ -1,9 +1,10 @@
-import type { GitProvider, FileChange, PullRequestOptions, PullRequest } from '../types'
+/* eslint-disable no-console */
+import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
 
 export class GitLabProvider implements GitProvider {
   constructor(
     private readonly token: string,
-    private readonly projectId: string
+    private readonly projectId: string,
   ) {}
 
   async createBranch(branchName: string, baseBranch: string): Promise<void> {
@@ -33,7 +34,7 @@ export class GitLabProvider implements GitProvider {
       author: 'buddy',
       reviewers: options.reviewers || [],
       labels: options.labels || [],
-      draft: options.draft || false
+      draft: options.draft || false,
     }
   }
 
@@ -43,7 +44,7 @@ export class GitLabProvider implements GitProvider {
     return []
   }
 
-  async updatePullRequest(prNumber: number, options: Partial<PullRequestOptions>): Promise<PullRequest> {
+  async updatePullRequest(prNumber: number, _options: Partial<PullRequestOptions>): Promise<PullRequest> {
     // TODO: Implement GitLab API call to update MR
     console.log(`Would update MR #${prNumber}`)
     throw new Error('Not implemented')

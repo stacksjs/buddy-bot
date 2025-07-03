@@ -4,7 +4,7 @@ const config: BuddyBotConfig = {
   verbose: true,
   packages: {
     strategy: 'all',
-    ignore: ['@types/bun'] // Example ignore
+    ignore: ['@types/bun'], // Example ignore
   },
 
   // Scheduling (uncomment to enable automated runs)

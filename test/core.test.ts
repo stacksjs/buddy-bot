@@ -1,8 +1,8 @@
+import type { BuddyBotConfig, PackageUpdate, UpdateGroup } from '../src/types'
 import { describe, expect, it } from 'bun:test'
 import { Buddy } from '../src/buddy'
-import { Scheduler } from '../src/scheduler/scheduler'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
-import type { BuddyBotConfig, UpdateGroup, PackageUpdate } from '../src/types'
+import { Scheduler } from '../src/scheduler/scheduler'
 
 describe('Core Functionality Tests', () => {
   const mockConfig: BuddyBotConfig = {
@@ -12,8 +12,8 @@ describe('Core Functionality Tests', () => {
       provider: 'github',
       owner: 'test-owner',
       name: 'test-repo',
-      token: 'test-token'
-    }
+      token: 'test-token',
+    },
   }
 
   const mockPackageUpdate: PackageUpdate = {
@@ -23,7 +23,7 @@ describe('Core Functionality Tests', () => {
     updateType: 'patch',
     dependencyType: 'devDependencies',
     file: 'package.json',
-    metadata: undefined
+    metadata: undefined,
   }
 
   const mockUpdateGroup: UpdateGroup = {
@@ -31,7 +31,7 @@ describe('Core Functionality Tests', () => {
     updateType: 'patch',
     title: 'chore(deps): update typescript to v5.8.3',
     body: '',
-    updates: [mockPackageUpdate]
+    updates: [mockPackageUpdate],
   }
 
   describe('Buddy Core', () => {
@@ -43,7 +43,7 @@ describe('Core Functionality Tests', () => {
     it('should initialize with minimal config', () => {
       const minimalConfig: BuddyBotConfig = {
         verbose: false,
-        packages: { strategy: 'all' }
+        packages: { strategy: 'all' },
       }
       const buddy = new Buddy(minimalConfig)
       expect(buddy).toBeDefined()
@@ -111,8 +111,8 @@ describe('Core Functionality Tests', () => {
         body: '',
         updates: [
           mockPackageUpdate,
-          { ...mockPackageUpdate, name: 'react', updateType: 'minor' }
-        ]
+          { ...mockPackageUpdate, name: 'react', updateType: 'minor' },
+        ],
       }
 
       const title = generator.generateTitle(multipleUpdateGroup)
@@ -133,10 +133,10 @@ describe('Core Functionality Tests', () => {
     it('should handle different package strategies', () => {
       const strategies: Array<'all' | 'major' | 'minor' | 'patch'> = ['all', 'major', 'minor', 'patch']
 
-      strategies.forEach(strategy => {
+      strategies.forEach((strategy) => {
         const config: BuddyBotConfig = {
           verbose: false,
-          packages: { strategy }
+          packages: { strategy },
         }
 
         expect(() => new Buddy(config)).not.toThrow()
@@ -146,7 +146,7 @@ describe('Core Functionality Tests', () => {
     it('should handle repository providers', () => {
       const providers: Array<'github' | 'gitlab'> = ['github', 'gitlab']
 
-      providers.forEach(provider => {
+      providers.forEach((provider) => {
         const config: BuddyBotConfig = {
           verbose: false,
           packages: { strategy: 'all' },
@@ -154,8 +154,8 @@ describe('Core Functionality Tests', () => {
             provider,
             owner: 'test',
             name: 'repo',
-            token: 'token'
-          }
+            token: 'token',
+          },
         }
 
         expect(() => new Buddy(config)).not.toThrow()
@@ -168,8 +168,8 @@ describe('Core Functionality Tests', () => {
         packages: { strategy: 'all' },
         schedule: {
           cron: '0 9 * * 1-5',
-          timezone: 'UTC'
-        }
+          timezone: 'UTC',
+        },
       }
 
       const job = Scheduler.createJobFromConfig(config, 'scheduled-job')
@@ -182,7 +182,7 @@ describe('Core Functionality Tests', () => {
     it('should handle invalid cron expressions', () => {
       const config: BuddyBotConfig = {
         ...mockConfig,
-        schedule: { cron: 'invalid-cron' }
+        schedule: { cron: 'invalid-cron' },
       }
 
       const job = Scheduler.createJobFromConfig(config, 'invalid-cron-job')
@@ -205,7 +205,7 @@ describe('Core Functionality Tests', () => {
         updateType: 'patch',
         title: '',
         body: '',
-        updates: []
+        updates: [],
       }
 
       const title = generator.generateTitle(emptyGroup)
@@ -222,8 +222,8 @@ describe('Core Functionality Tests', () => {
           provider: 'github',
           owner: 'stacksjs',
           name: 'buddy',
-          token: 'token'
-        }
+          token: 'token',
+        },
       }
 
       const job = Scheduler.createJobFromConfig(config, 'integration-job')
@@ -249,7 +249,7 @@ describe('Core Functionality Tests', () => {
         updateType: 'major',
         title: '',
         body: '',
-        updates: [{ ...mockPackageUpdate, updateType: 'major' }]
+        updates: [{ ...mockPackageUpdate, updateType: 'major' }],
       }
 
       const title = generator.generateTitle(majorGroup)

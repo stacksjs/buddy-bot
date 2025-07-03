@@ -1,10 +1,11 @@
-import type { GitProvider, FileChange, PullRequestOptions, PullRequest } from '../types'
+/* eslint-disable no-console */
+import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
 
 export class GitHubProvider implements GitProvider {
   constructor(
     private readonly token: string,
     private readonly owner: string,
-    private readonly repo: string
+    private readonly repo: string,
   ) {}
 
   async createBranch(branchName: string, baseBranch: string): Promise<void> {
@@ -34,7 +35,7 @@ export class GitHubProvider implements GitProvider {
       author: 'buddy',
       reviewers: options.reviewers || [],
       labels: options.labels || [],
-      draft: options.draft || false
+      draft: options.draft || false,
     }
   }
 
@@ -44,7 +45,7 @@ export class GitHubProvider implements GitProvider {
     return []
   }
 
-  async updatePullRequest(prNumber: number, options: Partial<PullRequestOptions>): Promise<PullRequest> {
+  async updatePullRequest(prNumber: number, _options: Partial<PullRequestOptions>): Promise<PullRequest> {
     // TODO: Implement GitHub API call to update PR
     console.log(`Would update PR #${prNumber}`)
     throw new Error('Not implemented')
