@@ -3,9 +3,9 @@
 layout: home
 
 hero:
-  name: "buddy"
-  text: "For a better local environment."
-  tagline: "Modern and smart reverse proxy."
+  name: "buddy-bot"
+  text: "Intelligent Dependency Management"
+  tagline: "Keep your dependencies up-to-date with automated pull requests."
   image: /images/logo-white.png
   actions:
     - theme: brand
@@ -13,21 +13,33 @@ hero:
       link: /intro
     - theme: alt
       text: View on GitHub
-      link: https://github.com/stacksjs/buddy
+      link: https://github.com/stacksjs/buddy-bot
 
 features:
-  - title: "Smart Reverse Proxy"
-    icon: "🔀"
-    details: "Pretty development URLs for your local environment."
-  - title: "HTTPS Support"
-    icon: "🔒"
-    details: "Automatic, and configurable, HTTPS support."
-  - title: "`/etc/hosts` Management"
-    icon: "📝"
-    details: "Self-cleans your `/etc/hosts` file."
-  - title: "CLI & Library"
-    icon: "🛠"
-    details: "Use the CLI or the library in your own project."
+  - title: "🔍 Smart Scanning"
+    icon: "🔍"
+    details: "Automatically discovers outdated packages across your project using Bun's lightning-fast package manager."
+  - title: "🤖 Automated PRs"
+    icon: "🤖"
+    details: "Creates professional pull requests with detailed release notes, impact analysis, and proper formatting."
+  - title: "🏷️ Dynamic Labels"
+    icon: "🏷️"
+    details: "Intelligently applies contextual labels based on update type, package ecosystem, and impact scope."
+  - title: "👥 Team Integration"
+    icon: "👥"
+    details: "Automatic reviewers and assignees based on package ownership and team configuration."
+  - title: "📅 Flexible Scheduling"
+    icon: "📅"
+    details: "Cron-based scheduling with GitHub Actions integration for automated dependency management."
+  - title: "🔄 Smart Rebasing"
+    icon: "🔄"
+    details: "Interactive checkbox-based PR rebasing with conflict detection and resolution."
+  - title: "📦 Package Grouping"
+    icon: "📦"
+    details: "Group related packages for coordinated updates and better change management."
+  - title: "🛡️ Security Focus"
+    icon: "🛡️"
+    details: "Prioritizes security updates with configurable strategies for different package types."
 ---
 
 <Home />

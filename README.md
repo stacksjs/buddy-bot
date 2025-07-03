@@ -178,14 +178,6 @@ Buddy leverages Bun's built-in capabilities for maximum performance:
 4. **Rich Metadata**: Fetches package metadata, release notes, and changelogs
 5. **PR Generation**: Creates detailed pull requests with formatted content
 
-### Bun Integration
-
-Buddy is built specifically for the Bun ecosystem:
-
-- **Bun Semver**: Uses Bun's native semver implementation (20x faster than node-semver)
-- **Bun Outdated**: Leverages `bun outdated` for accurate dependency checking
-- **Native Performance**: Built with Bun for maximum speed
-
 ## Update Strategies
 
 - **`all`**: Update all dependencies regardless of semver impact
