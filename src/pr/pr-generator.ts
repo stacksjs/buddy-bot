@@ -105,13 +105,15 @@ export class PullRequestGenerator {
         const repoUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName)
         const sourceUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName, 'HEAD')
         packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
-      } else if (cleanPackageName.startsWith('@types/')) {
+      }
+      else if (cleanPackageName.startsWith('@types/')) {
         // Special handling for @types/* packages even without repository metadata
         const typeName = cleanPackageName.replace('@types/', '')
         const repoUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${typeName}`
         const sourceUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/${typeName}`
         packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
-      } else {
+      }
+      else {
         // Fallback to npm page if no repository
         packageCell = `[${cleanPackageName}](https://www.npmjs.com/package/${encodeURIComponent(cleanPackageName)})`
       }
@@ -124,7 +126,7 @@ export class PullRequestGenerator {
       const badges = this.releaseNotesFetcher.generatePackageBadges(
         { ...info, name: cleanPackageName },
         update.currentVersion,
-        update.newVersion
+        update.newVersion,
       )
 
       body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
@@ -142,7 +144,7 @@ export class PullRequestGenerator {
 
       body += `<details>\n`
 
-            // Generate summary title following Renovate's format
+      // Generate summary title following Renovate's format
       let summaryTitle: string
 
       // Clean package name (remove dependency type info like "(dev)")
@@ -152,7 +154,8 @@ export class PullRequestGenerator {
         const repoName = this.getRepositoryName(info.repository.url)
         // Always show in format "owner/repo (package)" to match Renovate
         summaryTitle = `${repoName} (${cleanPackageName})`
-      } else {
+      }
+      else {
         // No repository info, just use the clean package name
         summaryTitle = cleanPackageName
       }

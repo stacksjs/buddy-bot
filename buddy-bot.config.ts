@@ -4,7 +4,7 @@ const config: BuddyBotConfig = {
   verbose: true,
   packages: {
     strategy: 'all',
-    ignore: ['@types/bun'], // Example ignore (restored)
+    ignore: [],
   },
 
   // Repository settings for PR creation

@@ -128,10 +128,10 @@ export class Buddy {
           const branchPattern = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-`
 
           const existingPR = existingPRs.find(pr =>
-            (pr.title === prTitle ||
-             pr.head.startsWith(branchPattern) ||
-             this.isSimilarPRTitle(pr.title, prTitle)) &&
-            (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/'))
+            (pr.title === prTitle
+              || pr.head.startsWith(branchPattern)
+              || this.isSimilarPRTitle(pr.title, prTitle))
+            && (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/')),
           )
 
           if (existingPR) {
@@ -143,7 +143,8 @@ export class Buddy {
             if (existingUpdatesMatch) {
               this.logger.info(`✅ Existing PR has the same updates, skipping creation`)
               continue
-                        } else {
+            }
+            else {
               this.logger.info(`🔄 Updates differ, will update existing PR with new content`)
 
               // Generate dynamic labels for the update
@@ -208,33 +209,56 @@ export class Buddy {
   /**
    * Generate package.json file changes for updates
    */
-  private async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
+  async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
     const packageJsonPath = 'package.json'
 
-    // Read current package.json
-    const packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
+    // Read current package.json content as string to preserve formatting
+    let packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
+
+    // Parse to understand structure
     const packageJson = JSON.parse(packageJsonContent)
 
-    // Apply updates
+    // Apply updates using string replacement to preserve formatting
     for (const update of updates) {
-      // Find which dependency type this package belongs to
-      if (packageJson.dependencies && packageJson.dependencies[update.name]) {
-        packageJson.dependencies[update.name] = `^${update.newVersion}`
+      let packageFound = false
+
+      // Clean package name (remove dependency type info like "(dev)")
+      const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+
+      // Try to find and update the package in each dependency section
+      const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
+
+      for (const section of dependencySections) {
+        if (packageJson[section] && packageJson[section][cleanPackageName]) {
+          const currentVersionInFile = packageJson[section][cleanPackageName]
+
+          // Extract the original version prefix (^, ~, >=, etc.) or lack thereof
+          const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
+          const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
+
+          // Create regex to find the exact line with this package and version
+          // This handles various formatting styles like: "package": "version", "package":"version", etc.
+          const packageRegex = new RegExp(
+            `("${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
+            'g',
+          )
+
+          // Preserve the original prefix when updating to new version
+          const newVersion = `${originalPrefix}${update.newVersion}`
+          packageJsonContent = packageJsonContent.replace(packageRegex, `$1${newVersion}$3`)
+          packageFound = true
+          break
+        }
       }
-      else if (packageJson.devDependencies && packageJson.devDependencies[update.name]) {
-        packageJson.devDependencies[update.name] = `^${update.newVersion}`
-      }
-      else if (packageJson.peerDependencies && packageJson.peerDependencies[update.name]) {
-        packageJson.peerDependencies[update.name] = `^${update.newVersion}`
+
+      if (!packageFound) {
+        console.warn(`Package ${cleanPackageName} not found in package.json`)
       }
     }
 
-    // Generate new package.json content
-    const newContent = `${JSON.stringify(packageJson, null, 2)}\n`
-
     return [{
       path: packageJsonPath,
-      content: newContent,
+      content: packageJsonContent,
       type: 'update' as const,
     }]
   }
@@ -378,22 +402,24 @@ export class Buddy {
     const normalizedNew = normalize(newTitle)
 
     // Check if titles are similar (considering common dependency update patterns)
-    return normalizedExisting === normalizedNew ||
-           existingTitle.includes('dependency') && newTitle.includes('dependency') ||
-           existingTitle.includes('update') && newTitle.includes('update')
+    return normalizedExisting === normalizedNew
+      || (existingTitle.includes('dependency') && newTitle.includes('dependency'))
+      || (existingTitle.includes('update') && newTitle.includes('update'))
   }
 
-    /**
+  /**
    * Check if existing PR body contains the same package updates
    */
   private checkIfUpdatesMatch(existingPRBody: string, newUpdates: PackageUpdate[]): boolean {
-    if (!existingPRBody) return false
+    if (!existingPRBody)
+      return false
 
     // Extract package names and versions from the existing PR body
-    const packageRegex = /([a-zA-Z0-9@\-_./]+):\s*(\d+\.\d+\.\d+[^\s]*)\s*→\s*(\d+\.\d+\.\d+[^\s]*)/g
+    const packageRegex = /([\w@\-./]+):\s*(\d+\.\d+\.\d\S*)\s*→\s*(\d+\.\d+\.\d\S*)/g
     const existingUpdates = new Map<string, { from: string, to: string }>()
 
     let match
+    // eslint-disable-next-line no-cond-assign
     while ((match = packageRegex.exec(existingPRBody)) !== null) {
       const [, packageName, fromVersion, toVersion] = match
       existingUpdates.set(packageName, { from: fromVersion, to: toVersion })
@@ -411,7 +437,7 @@ export class Buddy {
     return existingUpdates.size === newUpdates.length
   }
 
-    /**
+  /**
    * Generate dynamic labels for PR based on update types and configuration
    */
   private generatePRLabels(group: UpdateGroup): string[] {
@@ -440,16 +466,14 @@ export class Buddy {
     }
 
     // Add additional contextual labels
-    if (group.updates.length === 1) {
-      labels.add('single-package')
-    } else if (group.updates.length > 5) {
+    if (group.updates.length > 5) {
       labels.add('bulk-update')
     }
 
     // Add security label if any package might be security related
     const securityPackages = ['helmet', 'express-rate-limit', 'cors', 'bcrypt', 'jsonwebtoken']
     const hasSecurityPackage = group.updates.some(update =>
-      securityPackages.some(pkg => update.name.includes(pkg))
+      securityPackages.some(pkg => update.name.includes(pkg)),
     )
     if (hasSecurityPackage) {
       labels.add('security')
@@ -457,7 +481,7 @@ export class Buddy {
 
     // Add configured labels from config if they exist (but avoid duplicates)
     if (this.config.pullRequest?.labels) {
-      this.config.pullRequest.labels.forEach(label => {
+      this.config.pullRequest.labels.forEach((label) => {
         // Only add if it's not 'dependencies' since we always add that
         if (label !== 'dependencies') {
           labels.add(label)

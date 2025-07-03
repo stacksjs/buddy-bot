@@ -431,14 +431,14 @@ cli
 
         // Check if current scan matches PR content
         const currentUpdates = scanResult.updates.filter(u =>
-          packageUpdates.some(pu => pu.name === u.name)
+          packageUpdates.some(pu => pu.name === u.name),
         )
 
         const upToDate = packageUpdates.every(pu =>
           currentUpdates.some(cu =>
-            cu.name === pu.name &&
-            cu.newVersion === pu.newVersion
-          )
+            cu.name === pu.name
+            && cu.newVersion === pu.newVersion,
+          ),
         )
 
         if (upToDate) {
@@ -448,14 +448,10 @@ cli
         }
       }
 
-      // Recreate the PR by closing current one and creating new one
-      logger.info('🔄 Recreating PR with latest updates...')
+      // Update the existing PR with latest updates (true rebase)
+      logger.info('🔄 Updating PR with latest updates...')
 
-      // Close existing PR
-      await gitProvider.closePullRequest(prNum)
-      logger.info(`✅ Closed PR #${prNum}`)
-
-      // Run update process to create new PR
+      // Get latest updates
       const buddy = new Buddy({
         ...config,
         verbose: options.verbose ?? config.verbose,
@@ -467,29 +463,63 @@ cli
         return
       }
 
-      await buddy.createPullRequests(scanResult)
-      logger.success('🔄 PR rebase completed!')
+      // Find the matching update group
+      const group = scanResult.groups.find(g =>
+        g.updates.length === packageUpdates.length
+        && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name)),
+      ) || scanResult.groups[0] // Fallback to first group
 
-    } catch (error) {
+      if (!group) {
+        logger.error('❌ Could not find matching update group')
+        return
+      }
+
+      // Generate new package.json changes
+      const packageJsonUpdates = await buddy.generatePackageJsonUpdates(group.updates)
+
+      // Update the branch with new commits
+      await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates)
+      logger.info(`✅ Updated branch ${pr.head} with latest changes`)
+
+      // Generate new PR content
+      const { PullRequestGenerator } = await import('../src/pr/pr-generator')
+      const prGenerator = new PullRequestGenerator()
+      const newBody = await prGenerator.generateBody(group)
+
+      // Update the PR with new title/body (and uncheck the rebase box)
+      const updatedBody = newBody.replace(
+        /- \[x\] <!-- rebase-check -->/g,
+        '- [ ] <!-- rebase-check -->',
+      )
+
+      await gitProvider.updatePullRequest(prNum, {
+        title: group.title,
+        body: updatedBody,
+      })
+
+      logger.success('🔄 PR rebase completed! Updated existing PR in place.')
+    }
+    catch (error) {
       logger.error('Rebase failed:', error)
       process.exit(1)
     }
   })
 
 // Helper function to extract package updates from PR body
-async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{name: string, currentVersion: string, newVersion: string}>> {
-  const updates: Array<{name: string, currentVersion: string, newVersion: string}> = []
+async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ name: string, currentVersion: string, newVersion: string }>> {
+  const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
 
   // Match table rows with package updates
-  const tableRowRegex = /\|\s*\[([^\]]+)\][^\|]*\|\s*\[`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]/g
+  const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]/g
 
   let match
+  // eslint-disable-next-line no-cond-assign
   while ((match = tableRowRegex.exec(body)) !== null) {
     const [, packageName, currentVersion, newVersion] = match
     updates.push({
       name: packageName,
-      currentVersion: currentVersion,
-      newVersion: newVersion
+      currentVersion,
+      newVersion,
     })
   }
 
@@ -532,10 +562,10 @@ cli
 
       // Get all open PRs
       const prs = await gitProvider.getPullRequests('open')
-      const buddyPRs = prs.filter(pr => 
-        pr.head.startsWith('buddy-bot/') || 
-        pr.author === 'github-actions[bot]' ||
-        pr.author.includes('buddy')
+      const buddyPRs = prs.filter(pr =>
+        pr.head.startsWith('buddy-bot/')
+        || pr.author === 'github-actions[bot]'
+        || pr.author.includes('buddy'),
       )
 
       if (buddyPRs.length === 0) {
@@ -550,61 +580,93 @@ cli
       for (const pr of buddyPRs) {
         // Check if rebase checkbox is checked
         const isRebaseChecked = checkRebaseCheckbox(pr.body)
-        
+
         if (isRebaseChecked) {
           logger.info(`🔄 PR #${pr.number} has rebase checkbox checked: ${pr.title}`)
-          
+
           if (options.dryRun) {
             logger.info('🔍 [DRY RUN] Would rebase this PR')
             rebasedCount++
-          } else {
+          }
+          else {
             logger.info(`🔄 Rebasing PR #${pr.number}...`)
-            
+
             try {
               // Extract package updates from PR body
               const packageUpdates = await extractPackageUpdatesFromPRBody(pr.body)
-              
+
               if (packageUpdates.length === 0) {
                 logger.warn(`⚠️ Could not extract package updates from PR #${pr.number}, skipping`)
                 continue
               }
 
-              // Close existing PR
-              await gitProvider.closePullRequest(pr.number)
-              logger.info(`✅ Closed PR #${pr.number}`)
-
-              // Run update process to create new PR
+              // Update the existing PR with latest updates (true rebase)
               const buddy = new Buddy({
                 ...config,
                 verbose: options.verbose ?? config.verbose,
               })
-              
+
               const scanResult = await buddy.scanForUpdates()
               if (scanResult.updates.length === 0) {
                 logger.info('✅ All dependencies are now up to date!')
                 continue
               }
 
-              await buddy.createPullRequests(scanResult)
-              logger.success(`🔄 Successfully rebased PR #${pr.number}!`)
+              // Find the matching update group
+              const group = scanResult.groups.find(g =>
+                g.updates.length === packageUpdates.length
+                && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name)),
+              ) || scanResult.groups[0] // Fallback to first group
+
+              if (!group) {
+                logger.warn(`⚠️ Could not find matching update group for PR #${pr.number}, skipping`)
+                continue
+              }
+
+              // Generate new package.json changes
+              const packageJsonUpdates = await buddy.generatePackageJsonUpdates(group.updates)
+
+              // Update the branch with new commits
+              await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates)
+              logger.info(`✅ Updated branch ${pr.head} with latest changes`)
+
+              // Generate new PR content
+              const { PullRequestGenerator } = await import('../src/pr/pr-generator')
+              const prGenerator = new PullRequestGenerator()
+              const newBody = await prGenerator.generateBody(group)
+
+              // Update the PR with new title/body (and uncheck the rebase box)
+              const updatedBody = newBody.replace(
+                /- \[x\] <!-- rebase-check -->/g,
+                '- [ ] <!-- rebase-check -->',
+              )
+
+              await gitProvider.updatePullRequest(pr.number, {
+                title: group.title,
+                body: updatedBody,
+              })
+
+              logger.success(`🔄 Successfully rebased PR #${pr.number} in place!`)
               rebasedCount++
-              
-            } catch (error) {
+            }
+            catch (error) {
               logger.error(`❌ Failed to rebase PR #${pr.number}:`, error)
             }
           }
-        } else {
+        }
+        else {
           logger.info(`📋 PR #${pr.number}: No rebase requested`)
         }
       }
 
       if (rebasedCount > 0) {
         logger.success(`✅ ${options.dryRun ? 'Would rebase' : 'Successfully rebased'} ${rebasedCount} PR(s)`)
-      } else {
+      }
+      else {
         logger.info('✅ No PRs need rebasing')
       }
-      
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Check-rebase failed:', error)
       process.exit(1)
     }
@@ -1377,7 +1439,7 @@ cli
           await execAsync(command)
           logger.success(`✅ Opened ${description}: ${url}`)
         }
-        catch (error) {
+        catch {
           logger.warn(`⚠️  Could not auto-open ${description}. Please visit manually:`)
           logger.info(`🔗 ${url}`)
         }
