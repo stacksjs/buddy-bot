@@ -93,14 +93,32 @@ export class PullRequestGenerator {
       const packageInfo = packageInfos.get(update.name)
       const info = packageInfo?.packageInfo || { name: update.name }
 
-      const packageName = update.name
-      const packageUrl = info.homepage || `https://www.npmjs.com/package/${packageName}`
-      const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+      // Clean package name (remove dependency type info)
+      const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
 
-      // Generate confidence badges
-      const badges = this.releaseNotesFetcher.generatePackageBadges(info, update.currentVersion, update.newVersion)
+      // Generate package URL with source link (Renovate style)
+      let packageCell: string
+      if (info.repository?.url) {
+        const repoUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName)
+        const sourceUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName, 'HEAD')
+        packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
+      } else {
+        // Fallback to npm page if no repository
+        packageCell = `[${cleanPackageName}](https://www.npmjs.com/package/${encodeURIComponent(cleanPackageName)})`
+      }
 
-      body += `| [${packageName}](${packageUrl}) | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
+      // Generate version change with diff link (Renovate style)
+      const diffUrl = `https://renovatebot.com/diffs/npm/${encodeURIComponent(cleanPackageName)}/${update.currentVersion}/${update.newVersion}`
+      const change = `[\`^${update.currentVersion}\` -> \`^${update.newVersion}\`](${diffUrl})`
+
+      // Generate confidence badges with clean package name
+      const badges = this.releaseNotesFetcher.generatePackageBadges(
+        { ...info, name: cleanPackageName },
+        update.currentVersion,
+        update.newVersion
+      )
+
+      body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
     }
 
     body += `\n---\n\n`
@@ -223,6 +241,39 @@ export class PullRequestGenerator {
       }
 
       return repositoryUrl
+    }
+    catch {
+      return repositoryUrl
+    }
+  }
+
+  /**
+   * Generate repository source URL for packages (Renovate style)
+   */
+  private getRepositorySourceUrl(repositoryUrl: string, packageName: string, ref: string = 'master'): string {
+    try {
+      const cleanUrl = repositoryUrl
+        .replace(/^git\+/, '')
+        .replace(/\.git$/, '')
+        .replace(/^git:\/\//, 'https://')
+        .replace(/^ssh:\/\/git@/, 'https://')
+        .replace(/^git@github\.com:/, 'https://github.com/')
+
+      const url = new URL(cleanUrl)
+
+      // For DefinitelyTyped packages, use the types subdirectory
+      if (packageName.startsWith('@types/') && url.pathname.includes('DefinitelyTyped')) {
+        const typeName = packageName.replace('@types/', '')
+        return `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/${ref}/types/${typeName}`
+      }
+
+      // For regular GitHub repositories
+      if (url.hostname === 'github.com') {
+        return `${cleanUrl}/tree/${ref}`
+      }
+
+      // Fallback to repository URL
+      return cleanUrl
     }
     catch {
       return repositoryUrl
