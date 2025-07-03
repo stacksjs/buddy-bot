@@ -21,7 +21,6 @@ export { GitHubActionsTemplate } from './templates/github-actions'
 
 // CLI exports
 export { createCLI } from './cli/cli'
-export { runCommand } from './cli/commands'
 
 // Utility functions
 export {
