@@ -14,6 +14,11 @@ export { Logger } from './utils/logger'
 // Main Buddy class
 export { Buddy } from './buddy'
 
+// Enhanced services
+export { ReleaseNotesFetcher } from './services/release-notes-fetcher'
+export { Scheduler } from './scheduler/scheduler'
+export { GitHubActionsTemplate } from './templates/github-actions'
+
 // CLI exports
 export { createCLI } from './cli/cli'
 export { runCommand } from './cli/commands'

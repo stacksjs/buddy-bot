@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'bun:test'
 
-describe('@stacksjs/buddy', () => {
+describe('buddy-bot', () => {
   beforeAll(() => {
     process.env.APP_ENV = 'test'
   })

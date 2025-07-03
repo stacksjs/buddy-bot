@@ -17,12 +17,16 @@ export function createCLI(): {
   scan: typeof scanCommand
   update: typeof updateCommand
   check: typeof checkCommand
+  schedule: typeof scheduleCommand
+  'generate-workflows': typeof generateWorkflowsCommand
   help: typeof helpCommand
 } {
   return {
     scan: scanCommand,
     update: updateCommand,
     check: checkCommand,
+    schedule: scheduleCommand,
+    'generate-workflows': generateWorkflowsCommand,
     help: helpCommand
   }
 }
@@ -194,6 +198,132 @@ export async function checkCommand(packages: string[], options: CLIOptions = {})
 }
 
 /**
+ * Run the scheduler for automated dependency updates
+ */
+export async function scheduleCommand(options: CLIOptions = {}): Promise<void> {
+  const { Scheduler } = await import('../scheduler/scheduler')
+  const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+  try {
+    logger.info('🕒 Starting Buddy Scheduler...')
+
+    const baseConfig = await ConfigManager.loadConfig()
+    const config: BuddyBotConfig = {
+      ...baseConfig,
+      verbose: options.verbose ?? baseConfig.verbose,
+      packages: {
+        ...baseConfig.packages,
+        strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
+        ignore: options.ignore ?? baseConfig.packages?.ignore
+      }
+    }
+
+    // Validate that repository is configured for scheduling
+    if (!config.repository?.provider || !config.repository?.owner || !config.repository?.name) {
+      logger.error('❌ Repository configuration required for scheduling. Please configure:')
+      logger.info('  - repository.provider (github, gitlab, etc.)')
+      logger.info('  - repository.owner')
+      logger.info('  - repository.name')
+      logger.info('  - repository.token (via environment variable)')
+      process.exit(1)
+    }
+
+    const scheduler = new Scheduler(options.verbose)
+    const job = Scheduler.createJobFromConfig(config, 'cli-schedule')
+
+    // Override cron if provided
+    if (options.strategy) {
+      switch (options.strategy) {
+        case 'major':
+          job.schedule.cron = Scheduler.PRESETS.WEEKLY
+          break
+        case 'minor':
+          job.schedule.cron = Scheduler.PRESETS.TWICE_WEEKLY
+          break
+        case 'patch':
+          job.schedule.cron = Scheduler.PRESETS.DAILY
+          break
+        default:
+          job.schedule.cron = Scheduler.PRESETS.WEEKLY
+      }
+    }
+
+    scheduler.addJob(job)
+    scheduler.start()
+
+    logger.success(`✅ Scheduler started with cron: ${job.schedule.cron}`)
+    logger.info('📅 Next run:', job.nextRun?.toISOString() || 'Unknown')
+    logger.info('🛑 Press Ctrl+C to stop the scheduler')
+
+    // Keep process alive
+    process.stdin.resume()
+
+  } catch (error) {
+    logger.error('Scheduler failed:', error)
+    process.exit(1)
+  }
+}
+
+/**
+ * Generate GitHub Actions workflows
+ */
+export async function generateWorkflowsCommand(options: CLIOptions = {}): Promise<void> {
+  const { GitHubActionsTemplate } = await import('../templates/github-actions')
+  const { writeFileSync, mkdirSync } = await import('node:fs')
+  const { resolve } = await import('node:path')
+  const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+  try {
+    const outputDir = resolve(process.cwd(), '.github', 'workflows')
+
+    logger.info('🚀 Generating GitHub Actions workflow templates...')
+
+    // Create output directory
+    try {
+      mkdirSync(outputDir, { recursive: true })
+    } catch {
+      // Directory already exists
+    }
+
+    // Generate workflows
+    const workflows = GitHubActionsTemplate.generateScheduledWorkflows()
+
+    for (const [filename, content] of Object.entries(workflows)) {
+      const filepath = resolve(outputDir, filename)
+      writeFileSync(filepath, content)
+      logger.success(`Generated: ${filename}`)
+    }
+
+    // Generate comprehensive workflow
+    const comprehensiveWorkflow = GitHubActionsTemplate.generateComprehensiveWorkflow()
+    writeFileSync(resolve(outputDir, 'buddy-comprehensive.yml'), comprehensiveWorkflow)
+    logger.success('Generated: buddy-comprehensive.yml')
+
+    // Generate specialized workflows
+    const dockerWorkflow = GitHubActionsTemplate.generateDockerWorkflow()
+    writeFileSync(resolve(outputDir, 'buddy-docker.yml'), dockerWorkflow)
+    logger.success('Generated: buddy-docker.yml')
+
+    const monorepoWorkflow = GitHubActionsTemplate.generateMonorepoWorkflow()
+    writeFileSync(resolve(outputDir, 'buddy-monorepo.yml'), monorepoWorkflow)
+    logger.success('Generated: buddy-monorepo.yml')
+
+    logger.success(`\n🎉 GitHub Actions workflows generated!`)
+    logger.info(`📁 Location: ${outputDir}`)
+    logger.info('\n💡 Next steps:')
+    logger.info('  1. Review and customize the workflows for your project')
+    logger.info('  2. Ensure GITHUB_TOKEN is available as a secret')
+    logger.info('  3. Configure buddy-bot.config.ts with your repository settings')
+    logger.info('  4. Enable GitHub Actions in your repository settings')
+    logger.info('\n🔗 Learn more: https://docs.github.com/en/actions')
+
+  } catch (error) {
+    logger.error('Failed to generate workflows:', error)
+    process.exit(1)
+  }
+}
+
+/**
  * Show help information
  */
 export function helpCommand(): void {
@@ -204,10 +334,12 @@ USAGE:
   buddy <command> [options]
 
 COMMANDS:
-  scan      Scan for dependency updates
-  update    Update dependencies and create PRs
-  check     Check specific packages for updates
-  help      Show this help message
+  scan               Scan for dependency updates
+  update             Update dependencies and create PRs
+  check              Check specific packages for updates
+  schedule           Run automated dependency updates on schedule
+  generate-workflows Generate GitHub Actions workflow templates
+  help               Show this help message
 
 OPTIONS:
   --verbose, -v         Enable verbose logging
@@ -227,6 +359,9 @@ EXAMPLES:
   buddy update --dry-run
   buddy update --strategy patch
   buddy check react typescript
+  buddy schedule --verbose
+  buddy schedule --strategy patch
+  buddy generate-workflows
 
 CONFIGURATION:
   Create a buddy-bot.config.ts file in your project root:
@@ -278,6 +413,12 @@ export async function runCLI(args: string[]): Promise<void> {
       break
     case 'check':
       await checkCommand(options.packages || [], options)
+      break
+    case 'schedule':
+      await scheduleCommand(options)
+      break
+    case 'generate-workflows':
+      await generateWorkflowsCommand(options)
       break
     case 'help':
     case '--help':

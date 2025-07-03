@@ -1,9 +1,2 @@
-#!/usr/bin/env sh
-
-# Try to use the QuickJS version if available
-if [ -f "./qjs" ] && [ -f "./bin/cli.js" ]; then
-  ./qjs --std ./bin/cli.js "$@"
-else
-  # Fall back to the original implementation
-  bun -e "import('./bin/cli.js')" "$@"
-fi
+#!/usr/bin/env bun
+import('./bin/cli')
