@@ -1,6 +1,21 @@
 # Changelog
 
 
+## v0.0.2...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.0.2...main)
+
+### 🏡 Chore
+
+- Wip ([31a967d](https://github.com/stacksjs/buddy-bot/commit/31a967d))
+- Wip ([ce2be50](https://github.com/stacksjs/buddy-bot/commit/ce2be50))
+- Wip ([b986c1a](https://github.com/stacksjs/buddy-bot/commit/b986c1a))
+- Wip ([faf9075](https://github.com/stacksjs/buddy-bot/commit/faf9075))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.0.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.0.1...main)
