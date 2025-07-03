@@ -316,6 +316,19 @@ export class GitHubProvider implements GitProvider {
 
       const response = await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, updateData)
 
+      // Update labels if specified
+      if (options.labels && options.labels.length > 0) {
+        try {
+          await this.apiRequest(`PUT /repos/${this.owner}/${this.repo}/issues/${prNumber}/labels`, {
+            labels: options.labels,
+          })
+          console.log(`✅ Updated labels for PR #${prNumber}: ${options.labels.join(', ')}`)
+        }
+        catch (labelError) {
+          console.warn(`⚠️ Failed to update labels for PR #${prNumber}: ${labelError}`)
+        }
+      }
+
       console.log(`✅ Updated PR #${prNumber}`)
 
       return {
@@ -330,7 +343,7 @@ export class GitHubProvider implements GitProvider {
         updatedAt: new Date(response.updated_at),
         author: response.user.login,
         reviewers: [],
-        labels: [],
+        labels: options.labels || [],
         draft: response.draft,
       }
     }

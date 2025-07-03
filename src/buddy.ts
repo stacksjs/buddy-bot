@@ -143,13 +143,17 @@ export class Buddy {
             if (existingUpdatesMatch) {
               this.logger.info(`✅ Existing PR has the same updates, skipping creation`)
               continue
-            } else {
+                        } else {
               this.logger.info(`🔄 Updates differ, will update existing PR with new content`)
+
+              // Generate dynamic labels for the update
+              const dynamicLabels = this.generatePRLabels(group)
 
               // Update existing PR with new content
               await gitProvider.updatePullRequest(existingPR.number, {
                 title: prTitle,
                 body: prBody,
+                labels: dynamicLabels,
               })
 
               this.logger.success(`✅ Updated existing PR #${existingPR.number}: ${prTitle}`)
@@ -171,6 +175,9 @@ export class Buddy {
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
 
+          // Generate dynamic labels based on update types
+          const dynamicLabels = this.generatePRLabels(group)
+
           // Create pull request
           const pr = await gitProvider.createPullRequest({
             title: prTitle,
@@ -179,7 +186,7 @@ export class Buddy {
             base: this.config.repository.baseBranch || 'main',
             draft: false,
             reviewers: this.config.pullRequest?.reviewers,
-            labels: this.config.pullRequest?.labels || ['dependencies'],
+            labels: dynamicLabels,
           })
 
           this.logger.success(`✅ Created PR #${pr.number}: ${pr.title}`)
@@ -376,7 +383,7 @@ export class Buddy {
            existingTitle.includes('update') && newTitle.includes('update')
   }
 
-  /**
+    /**
    * Check if existing PR body contains the same package updates
    */
   private checkIfUpdatesMatch(existingPRBody: string, newUpdates: PackageUpdate[]): boolean {
@@ -402,6 +409,64 @@ export class Buddy {
 
     // Check if existing PR has the same number of updates (avoid subset matches)
     return existingUpdates.size === newUpdates.length
+  }
+
+    /**
+   * Generate dynamic labels for PR based on update types and configuration
+   */
+  private generatePRLabels(group: UpdateGroup): string[] {
+    const labels = new Set<string>()
+
+    // Always add dependencies label
+    labels.add('dependencies')
+
+    // Add update type specific labels
+    const updateTypes = group.updates.map(u => u.updateType)
+    const hasUpdates = {
+      major: updateTypes.includes('major'),
+      minor: updateTypes.includes('minor'),
+      patch: updateTypes.includes('patch'),
+    }
+
+    // Add specific update type labels
+    if (hasUpdates.major) {
+      labels.add('major')
+    }
+    if (hasUpdates.minor) {
+      labels.add('minor')
+    }
+    if (hasUpdates.patch) {
+      labels.add('patch')
+    }
+
+    // Add additional contextual labels
+    if (group.updates.length === 1) {
+      labels.add('single-package')
+    } else if (group.updates.length > 5) {
+      labels.add('bulk-update')
+    }
+
+    // Add security label if any package might be security related
+    const securityPackages = ['helmet', 'express-rate-limit', 'cors', 'bcrypt', 'jsonwebtoken']
+    const hasSecurityPackage = group.updates.some(update =>
+      securityPackages.some(pkg => update.name.includes(pkg))
+    )
+    if (hasSecurityPackage) {
+      labels.add('security')
+    }
+
+    // Add configured labels from config if they exist (but avoid duplicates)
+    if (this.config.pullRequest?.labels) {
+      this.config.pullRequest.labels.forEach(label => {
+        // Only add if it's not 'dependencies' since we always add that
+        if (label !== 'dependencies') {
+          labels.add(label)
+        }
+      })
+    }
+
+    // Convert to array and return
+    return Array.from(labels)
   }
 
   /**
