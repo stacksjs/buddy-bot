@@ -381,100 +381,6 @@ export async function generateWorkflowsCommand(options: CLIOptions = {}): Promis
 }
 
 /**
- * Show help information
- */
-export function helpCommand(): void {
-  const help = `
-🤖 Buddy - Automated Dependency Updates
-
-USAGE:
-  buddy <command> [options]
-
-COMMANDS:
-  scan               Scan for dependency updates
-  update             Update dependencies and create PRs
-  check              Check specific packages for updates
-  schedule           Run automated dependency updates on schedule
-  generate-workflows Generate GitHub Actions workflow templates
-  help               Show this help message
-
-OPTIONS:
-  --verbose, -v         Enable verbose logging
-  --config <path>       Path to config file
-  --packages <names>    Comma-separated list of packages to check
-  --pattern <pattern>   Glob pattern to match packages
-  --strategy <type>     Update strategy: major|minor|patch|all
-  --ignore <names>      Comma-separated list of packages to ignore
-  --dry-run            Preview changes without making them
-
-EXAMPLES:
-  buddy scan
-  buddy scan --verbose
-  buddy scan --packages "react,typescript"
-  buddy scan --pattern "@types/*"
-  buddy scan --strategy minor
-  buddy update --dry-run
-  buddy update --strategy patch
-  buddy check react typescript
-  buddy schedule --verbose
-  buddy schedule --strategy patch
-  buddy generate-workflows
-
-CONFIGURATION:
-  Create a buddy-bot.config.ts file in your project root:
-
-  import type { BuddyBotConfig } from 'buddy-bot'
-
-  const config: BuddyBotConfig = {
-    verbose: false,
-    repository: {
-      provider: 'github',
-      owner: 'your-org',
-      name: 'your-repo',
-      token: process.env.GITHUB_TOKEN
-    },
-    packages: {
-      strategy: 'all',
-      ignore: ['package-to-ignore'],
-      groups: [{
-        name: 'TypeScript Types',
-        patterns: ['@types/*'],
-        strategy: 'minor'
-      }]
-    },
-    pullRequest: {
-      reviewers: ['maintainer'],
-      labels: ['dependencies'],
-      autoMerge: {
-        enabled: true,
-        strategy: 'squash',
-        conditions: ['patch-only']
-      }
-    },
-    workflows: {
-      enabled: true,
-      templates: {
-        comprehensive: true,
-        daily: true,
-        weekly: false,
-        monthly: false
-      },
-      custom: [{
-        name: 'Security Updates',
-        schedule: '0 6 * * *',
-        strategy: 'patch',
-        autoMerge: true
-      }]
-    }
-  }
-
-  export default config
-`
-
-  console.log(help)
-}
-
-/**
  * Parse CLI arguments and run appropriate command
  */
 export async function runCLI(args: string[]): Promise<void> {
@@ -497,20 +403,10 @@ export async function runCLI(args: string[]): Promise<void> {
     case 'generate-workflows':
       await generateWorkflowsCommand(options)
       break
-    case 'help':
-    case '--help':
-    case '-h':
-      helpCommand()
-      break
     default:
-      if (!command) {
-        helpCommand()
-      }
-      else {
-        console.error(`Unknown command: ${command}`)
-        console.error('Run "buddy help" for usage information')
-        process.exit(1)
-      }
+      console.error(`Unknown command: ${command}`)
+      console.error('Run "buddy help" for usage information')
+      process.exit(1)
   }
 }
 
