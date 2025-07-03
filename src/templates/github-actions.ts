@@ -16,6 +16,32 @@ export interface WorkflowConfig {
 
 export class GitHubActionsTemplate {
   /**
+   * Generate standard setup steps for workflows
+   */
+  private static getStandardSetupSteps(): string {
+    return `      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup GitHub CLI
+        uses: cli/cli@v2.36.0
+        with:
+          token: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build buddy-bot
+        run: bun run build`
+  }
+
+  /**
    * Generate GitHub Actions workflow
    */
   static generateWorkflow(config: WorkflowConfig): string {

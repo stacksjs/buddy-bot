@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
 import { Buffer } from 'node:buffer'
+import { spawn } from 'node:child_process'
 
 export class GitHubProvider implements GitProvider {
   private readonly apiUrl = 'https://api.github.com'
@@ -94,6 +95,82 @@ export class GitHubProvider implements GitProvider {
   }
 
   async createPullRequest(options: PullRequestOptions): Promise<PullRequest> {
+    // Try GitHub CLI first as it might have better permission handling
+    try {
+      return await this.createPullRequestWithCLI(options)
+    }
+    catch (cliError) {
+      console.warn(`⚠️ GitHub CLI failed, falling back to API: ${cliError}`)
+      return await this.createPullRequestWithAPI(options)
+    }
+  }
+
+  /**
+   * Create pull request using GitHub CLI
+   */
+  private async createPullRequestWithCLI(options: PullRequestOptions): Promise<PullRequest> {
+    try {
+      // Prepare the command
+      const args = [
+        'pr', 'create',
+        '--title', options.title,
+        '--body', options.body,
+        '--head', options.head,
+        '--base', options.base,
+      ]
+
+      if (options.draft) {
+        args.push('--draft')
+      }
+
+      if (options.reviewers && options.reviewers.length > 0) {
+        args.push('--reviewer', options.reviewers.join(','))
+      }
+
+      if (options.labels && options.labels.length > 0) {
+        args.push('--label', options.labels.join(','))
+      }
+
+      // Execute GitHub CLI command
+      const result = await this.runCommand('gh', args)
+
+      // Parse the PR URL from the output (GitHub CLI returns the PR URL)
+      const prUrlMatch = result.match(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/(\d+)/)
+      if (!prUrlMatch) {
+        throw new Error('Failed to parse PR number from GitHub CLI output')
+      }
+
+      const prNumber = parseInt(prUrlMatch[1])
+      const prUrl = prUrlMatch[0]
+
+      console.log(`✅ Created PR #${prNumber}: ${options.title}`)
+
+      return {
+        number: prNumber,
+        title: options.title,
+        body: options.body,
+        head: options.head,
+        base: options.base,
+        state: 'open',
+        url: prUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        author: 'github-actions[bot]',
+        reviewers: options.reviewers || [],
+        labels: options.labels || [],
+        draft: options.draft || false,
+      }
+    }
+    catch (error) {
+      console.error(`❌ Failed to create PR with GitHub CLI: ${options.title}`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Create pull request using GitHub API (fallback)
+   */
+  private async createPullRequestWithAPI(options: PullRequestOptions): Promise<PullRequest> {
     try {
       const response = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/pulls`, {
         title: options.title,
@@ -147,9 +224,49 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create PR: ${options.title}`, error)
+      console.error(`❌ Failed to create PR with API: ${options.title}`, error)
       throw error
     }
+  }
+
+  /**
+   * Run a command and return its output
+   */
+  private async runCommand(command: string, args: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, {
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          GITHUB_TOKEN: this.token,
+          GH_TOKEN: this.token
+        },
+      })
+
+      let stdout = ''
+      let stderr = ''
+
+      child.stdout?.on('data', (data) => {
+        stdout += data.toString()
+      })
+
+      child.stderr?.on('data', (data) => {
+        stderr += data.toString()
+      })
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout)
+        }
+        else {
+          reject(new Error(`Command failed with code ${code}: ${stderr}`))
+        }
+      })
+
+      child.on('error', (error) => {
+        reject(error)
+      })
+    })
   }
 
   async getPullRequests(state: 'open' | 'closed' | 'all' = 'open'): Promise<PullRequest[]> {
