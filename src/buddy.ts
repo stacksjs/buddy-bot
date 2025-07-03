@@ -119,6 +119,44 @@ export class Buddy {
         try {
           this.logger.info(`Creating PR for group: ${group.name} (${group.updates.length} updates)`)
 
+          // Generate PR content first to check for existing PRs
+          const prTitle = group.title
+          const prBody = await prGenerator.generateBody(group)
+
+          // Check for existing open PRs with similar content
+          const existingPRs = await gitProvider.getPullRequests('open')
+          const branchPattern = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-`
+
+          const existingPR = existingPRs.find(pr =>
+            pr.title === prTitle ||
+            pr.head.startsWith(branchPattern) ||
+            this.isSimilarPRTitle(pr.title, prTitle)
+          )
+
+          if (existingPR) {
+            this.logger.info(`🔄 Found existing PR #${existingPR.number}: ${existingPR.title}`)
+
+            // Check if the updates are the same by comparing package lists
+            const existingUpdatesMatch = this.checkIfUpdatesMatch(existingPR.body, group.updates)
+
+            if (existingUpdatesMatch) {
+              this.logger.info(`✅ Existing PR has the same updates, skipping creation`)
+              continue
+            } else {
+              this.logger.info(`🔄 Updates differ, will update existing PR with new content`)
+
+              // Update existing PR with new content
+              await gitProvider.updatePullRequest(existingPR.number, {
+                title: prTitle,
+                body: prBody,
+              })
+
+              this.logger.success(`✅ Updated existing PR #${existingPR.number}: ${prTitle}`)
+              this.logger.info(`🔗 ${existingPR.url}`)
+              continue
+            }
+          }
+
           // Generate unique branch name
           const timestamp = Date.now()
           const branchName = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-${timestamp}`
@@ -131,10 +169,6 @@ export class Buddy {
 
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
-
-          // Generate PR content
-          const prTitle = group.title
-          const prBody = await prGenerator.generateBody(group)
 
           // Create pull request
           const pr = await gitProvider.createPullRequest({
@@ -318,6 +352,55 @@ export class Buddy {
     if (updates.some(u => u.updateType === 'minor'))
       return 'minor'
     return 'patch'
+  }
+
+  /**
+   * Check if two PR titles are similar (for dependency updates)
+   */
+  private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
+    // Normalize titles by removing timestamps and similar variations
+    const normalize = (title: string) =>
+      title.toLowerCase()
+        .replace(/\b(non-major|major|minor|patch)\b/g, '') // Remove update type words
+        .replace(/\b\d+\b/g, '') // Remove numbers
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim()
+
+    const normalizedExisting = normalize(existingTitle)
+    const normalizedNew = normalize(newTitle)
+
+    // Check if titles are similar (considering common dependency update patterns)
+    return normalizedExisting === normalizedNew ||
+           existingTitle.includes('dependency') && newTitle.includes('dependency') ||
+           existingTitle.includes('update') && newTitle.includes('update')
+  }
+
+  /**
+   * Check if existing PR body contains the same package updates
+   */
+  private checkIfUpdatesMatch(existingPRBody: string, newUpdates: PackageUpdate[]): boolean {
+    if (!existingPRBody) return false
+
+    // Extract package names and versions from the existing PR body
+    const packageRegex = /([a-zA-Z0-9@\-_./]+):\s*(\d+\.\d+\.\d+[^\s]*)\s*→\s*(\d+\.\d+\.\d+[^\s]*)/g
+    const existingUpdates = new Map<string, { from: string, to: string }>()
+
+    let match
+    while ((match = packageRegex.exec(existingPRBody)) !== null) {
+      const [, packageName, fromVersion, toVersion] = match
+      existingUpdates.set(packageName, { from: fromVersion, to: toVersion })
+    }
+
+    // Check if all new updates are already covered
+    for (const update of newUpdates) {
+      const existing = existingUpdates.get(update.name)
+      if (!existing || existing.to !== update.newVersion) {
+        return false // Different or missing update
+      }
+    }
+
+    // Check if existing PR has the same number of updates (avoid subset matches)
+    return existingUpdates.size === newUpdates.length
   }
 
   /**
