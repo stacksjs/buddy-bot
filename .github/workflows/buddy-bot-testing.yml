@@ -56,11 +56,6 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup GitHub CLI
-        uses: cli/cli@v2.36.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install dependencies
         run: bun install
 
