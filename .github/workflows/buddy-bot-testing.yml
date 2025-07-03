@@ -55,6 +55,9 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build buddy-bot
+        run: bun run build
+
       - name: Display test configuration
         run: |
           echo "🧪 **Buddy Bot Testing Mode**"
@@ -76,15 +79,15 @@ jobs:
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              bunx buddy-bot scan --packages "$PACKAGES" --verbose
+              ./buddy scan --packages "$PACKAGES" --verbose
             else
-              bunx buddy-bot scan --packages "$PACKAGES"
+              ./buddy scan --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              bunx buddy-bot scan --strategy "$STRATEGY" --verbose
+              ./buddy scan --strategy "$STRATEGY" --verbose
             else
-              bunx buddy-bot scan --strategy "$STRATEGY"
+              ./buddy scan --strategy "$STRATEGY"
             fi
           fi
 
@@ -99,15 +102,15 @@ jobs:
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              bunx buddy-bot update --packages "$PACKAGES" --verbose
+              ./buddy update --packages "$PACKAGES" --verbose
             else
-              bunx buddy-bot update --packages "$PACKAGES"
+              ./buddy update --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              bunx buddy-bot update --strategy "$STRATEGY" --verbose
+              ./buddy update --strategy "$STRATEGY" --verbose
             else
-              bunx buddy-bot update --strategy "$STRATEGY"
+              ./buddy update --strategy "$STRATEGY"
             fi
           fi
 
