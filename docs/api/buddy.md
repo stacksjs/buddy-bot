@@ -5,7 +5,9 @@ The `Buddy` class is the main entry point for programmatic dependency management
 ## Constructor
 
 ```typescript
-new Buddy(config: BuddyBotConfig, projectPath?: string)
+interface BuddyConstructor {
+  new(config: BuddyBotConfig, projectPath?: string): Buddy
+}
 ```
 
 ### Parameters
@@ -39,7 +41,9 @@ const buddy = new Buddy({
 Scans the project for available dependency updates.
 
 ```typescript
-async scanForUpdates(): Promise<UpdateScanResult>
+interface BuddyMethods {
+  scanForUpdates: () => Promise<UpdateScanResult>
+}
 ```
 
 #### Returns
@@ -65,7 +69,7 @@ const buddy = new Buddy(config)
 const scanResult = await buddy.scanForUpdates()
 
 console.log(`Found ${scanResult.updates.length} updates`)
-scanResult.groups.forEach(group => {
+scanResult.groups.forEach((group) => {
   console.log(`${group.name}: ${group.updates.length} packages`)
 })
 ```
@@ -75,7 +79,9 @@ scanResult.groups.forEach(group => {
 Creates pull requests for dependency updates.
 
 ```typescript
-async createPullRequests(scanResult: UpdateScanResult): Promise<void>
+interface BuddyPRMethods {
+  createPullRequests: (scanResult: UpdateScanResult) => Promise<void>
+}
 ```
 
 #### Parameters
@@ -98,7 +104,9 @@ if (scanResult.updates.length > 0) {
 Runs the complete update process (scan + create PRs).
 
 ```typescript
-async run(): Promise<UpdateScanResult>
+interface BuddyRunMethod {
+  run: () => Promise<UpdateScanResult>
+}
 ```
 
 #### Returns
@@ -113,7 +121,8 @@ const result = await buddy.run()
 
 if (result.updates.length === 0) {
   console.log('No updates available!')
-} else {
+}
+else {
   console.log(`Created PRs for ${result.groups.length} update groups`)
 }
 ```
@@ -123,7 +132,9 @@ if (result.updates.length === 0) {
 Checks specific packages for updates.
 
 ```typescript
-async checkPackages(packageNames: string[]): Promise<PackageUpdate[]>
+interface BuddyCheckMethods {
+  checkPackages: (packageNames: string[]) => Promise<PackageUpdate[]>
+}
 ```
 
 #### Parameters
@@ -139,7 +150,7 @@ Array of `PackageUpdate` objects
 ```typescript
 const updates = await buddy.checkPackages(['react', 'typescript'])
 
-updates.forEach(update => {
+updates.forEach((update) => {
   console.log(`${update.name}: ${update.currentVersion} → ${update.newVersion}`)
 })
 ```
@@ -151,11 +162,15 @@ updates.forEach(update => {
 Generates package.json file changes for updates.
 
 ```typescript
-async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{
+interface FileChange {
   path: string
   content: string
   type: 'update'
-}>>
+}
+
+interface BuddyUtilityMethods {
+  generatePackageJsonUpdates: (updates: PackageUpdate[]) => Promise<FileChange[]>
+}
 ```
 
 #### Parameters
@@ -172,7 +187,7 @@ Array of file change objects
 const updates = await buddy.scanForUpdates()
 const fileChanges = await buddy.generatePackageJsonUpdates(updates.updates)
 
-fileChanges.forEach(change => {
+fileChanges.forEach((change) => {
   console.log(`Updated ${change.path}`)
   // change.content contains the new file content
 })
@@ -183,7 +198,9 @@ fileChanges.forEach(change => {
 Returns the current configuration.
 
 ```typescript
-getConfig(): BuddyBotConfig
+interface BuddyConfigMethods {
+  getConfig: () => BuddyBotConfig
+}
 ```
 
 #### Returns
@@ -296,7 +313,8 @@ The Buddy class throws errors for various failure scenarios:
 ```typescript
 try {
   const buddy = new Buddy(invalidConfig)
-} catch (error) {
+}
+catch (error) {
   if (error.message.includes('Repository configuration required')) {
     // Handle missing repository config
   }
@@ -308,7 +326,8 @@ try {
 ```typescript
 try {
   await buddy.createPullRequests(scanResult)
-} catch (error) {
+}
+catch (error) {
   if (error.message.includes('GITHUB_TOKEN')) {
     // Handle missing or invalid GitHub token
   }
@@ -320,7 +339,8 @@ try {
 ```typescript
 try {
   const scanResult = await buddy.scanForUpdates()
-} catch (error) {
+}
+catch (error) {
   if (error.code === 'ENOTFOUND') {
     // Handle network connectivity issues
   }
@@ -399,7 +419,8 @@ async function updateDependencies() {
     }
 
     console.log(`✅ Created ${result.groups.length} PR(s) for ${result.updates.length} updates`)
-  } catch (error) {
+  }
+  catch (error) {
     console.error('❌ Update failed:', error)
     process.exit(1)
   }

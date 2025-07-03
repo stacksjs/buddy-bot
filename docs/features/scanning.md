@@ -43,9 +43,9 @@ Skip specific packages from scanning:
 export default {
   packages: {
     ignore: [
-      '@types/node',     // Specific package
-      '@types/*',        // Glob patterns
-      'react',           // Dependencies you want to control manually
+      '@types/node', // Specific package
+      '@types/*', // Glob patterns
+      'react', // Dependencies you want to control manually
     ]
   }
 }
@@ -59,8 +59,8 @@ Lock packages to specific versions:
 export default {
   packages: {
     pin: {
-      'typescript': '^5.0.0',  // Pin to major version
-      'react': '18.2.0',       // Pin to exact version
+      typescript: '^5.0.0', // Pin to major version
+      react: '18.2.0', // Pin to exact version
     }
   }
 }

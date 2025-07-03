@@ -24,11 +24,11 @@ const config: BuddyBotConfig = {
   packages: {
     strategy: 'patch', // 'major' | 'minor' | 'patch' | 'all'
     ignore: [
-      '@types/node',     // Ignore specific packages
-      'eslint',          // Keep manual control
+      '@types/node', // Ignore specific packages
+      'eslint', // Keep manual control
     ],
     pin: {
-      'react': '^18.0.0', // Pin to specific version ranges
+      react: '^18.0.0', // Pin to specific version ranges
     },
   },
 

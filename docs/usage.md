@@ -125,7 +125,7 @@ const config: BuddyBotConfig = {
     strategy: 'all',
     ignore: ['react', 'vue'], // Keep frameworks stable
     pin: {
-      'typescript': '^5.0.0', // Pin TypeScript to v5
+      typescript: '^5.0.0', // Pin TypeScript to v5
     },
     groups: [
       {
@@ -178,8 +178,8 @@ try {
 
   const prs = await buddy.createPullRequests()
   console.log(`Successfully created ${prs.length} PRs`)
-
-} catch (error) {
+}
+catch (error) {
   if (error.code === 'GITHUB_TOKEN_MISSING') {
     console.error('GitHub token required for PR creation')
     process.exit(1)
@@ -209,9 +209,9 @@ jobs:
   update-dependencies:
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # Read repository and write changes
-      pull-requests: write   # Create and update pull requests
-      actions: write         # Update workflow files (optional)
+      contents: write # Read repository and write changes
+      pull-requests: write # Create and update pull requests
+      actions: write # Update workflow files (optional)
 
     steps:
       - name: Checkout

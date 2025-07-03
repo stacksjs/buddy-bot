@@ -62,9 +62,9 @@ Buddy automatically applies contextual labels based on update content:
 export default {
   pullRequest: {
     labels: [
-      'dependencies',      // Always included
-      'automated',         // Custom label
-      'needs-review',      // Custom workflow label
+      'dependencies', // Always included
+      'automated', // Custom label
+      'needs-review', // Custom workflow label
     ]
   }
 }
@@ -75,8 +75,11 @@ export default {
 ```typescript
 // Automatically detected labels
 const securityPackages = [
-  'helmet', 'express-rate-limit', 'cors',
-  'bcrypt', 'jsonwebtoken'
+  'helmet',
+  'express-rate-limit',
+  'cors',
+  'bcrypt',
+  'jsonwebtoken'
 ]
 
 // Applied when detected in updates
@@ -178,20 +181,20 @@ buddy-bot rebase 17 --force
 
 Buddy maintains your exact JSON formatting:
 
-```json
+```javascript
 // Before (your format)
-{
-  "files": ["README.md", "bin", "dist"],
-  "dependencies": {
-    "cac": "6.7.13"
+const beforeFormat = {
+  files: ['README.md', 'bin', 'dist'],
+  dependencies: {
+    cac: '6.7.13'
   }
 }
 
 // After (format preserved)
-{
-  "files": ["README.md", "bin", "dist"],
-  "dependencies": {
-    "cac": "6.7.14"
+const afterFormat = {
+  files: ['README.md', 'bin', 'dist'],
+  dependencies: {
+    cac: '6.7.14'
   }
 }
 ```
@@ -216,7 +219,20 @@ Buddy automatically fetches release notes from:
 ### Content Processing
 
 ```typescript
-async function fetchReleaseNotes(packageName: string, fromVersion: string, toVersion: string) {
+interface ReleaseNotesOptions {
+  packageName: string
+  fromVersion: string
+  toVersion: string
+}
+
+interface ReleaseNotesResult {
+  content: string
+  source: string
+}
+
+async function fetchReleaseNotes(
+  options: ReleaseNotesOptions
+): Promise<ReleaseNotesResult> {
   // 1. Try GitHub releases API
   const releases = await github.repos.listReleases()
 
@@ -224,7 +240,7 @@ async function fetchReleaseNotes(packageName: string, fromVersion: string, toVer
   const changelog = await fetchChangelog(repoUrl)
 
   // 3. Extract relevant sections
-  return extractVersionNotes(changelog, fromVersion, toVersion)
+  return extractVersionNotes(changelog, options.fromVersion, options.toVersion)
 }
 ```
 
@@ -329,10 +345,10 @@ export default {
 
 ```yaml
 permissions:
-  contents: write        # Create branches and commits
-  pull-requests: write   # Create and update PRs
-  issues: write         # Assign users and add labels
-  actions: read         # Read workflow status
+  contents: write # Create branches and commits
+  pull-requests: write # Create and update PRs
+  issues: write # Assign users and add labels
+  actions: read # Read workflow status
 ```
 
 ### API vs CLI
@@ -345,7 +361,8 @@ Buddy uses a dual approach:
 ```typescript
 try {
   return await this.createPullRequestWithCLI(options)
-} catch (error) {
+}
+catch (error) {
   console.warn('GitHub CLI failed, trying API...', error)
   return await this.createPullRequestWithAPI(options)
 }

@@ -159,9 +159,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # Read repository and write changes
-      pull-requests: write   # Create and update pull requests
-      actions: write         # Update workflow files (optional)
+      contents: write # Read repository and write changes
+      pull-requests: write # Create and update pull requests
+      actions: write # Update workflow files (optional)
 
     steps:
       - uses: actions/checkout@v4

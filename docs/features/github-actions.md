@@ -58,7 +58,7 @@ Check for updates 4 times per day (6AM, 12PM, 6PM, 12AM):
 ```yaml
 on:
   schedule:
-    - cron: '0 6,12,18,0 * * *'  # Every 6 hours
+    - cron: '0 6,12,18,0 * * *' # Every 6 hours
 ```
 
 ### Security Focused
@@ -68,8 +68,8 @@ Frequent patch updates with security-first approach:
 ```yaml
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Every 4 hours for patches
-    - cron: '0 2 * * 1'    # Weekly for minor/major
+    - cron: '0 */4 * * *' # Every 4 hours for patches
+    - cron: '0 2 * * 1' # Weekly for minor/major
 ```
 
 ### Minimal Updates
@@ -79,8 +79,8 @@ Weekly patch updates, monthly minor/major updates:
 ```yaml
 on:
   schedule:
-    - cron: '0 2 * * 1'    # Weekly patches
-    - cron: '0 2 1 * *'    # Monthly minor/major
+    - cron: '0 2 * * 1' # Weekly patches
+    - cron: '0 2 1 * *' # Monthly minor/major
 ```
 
 ## Required Permissions
@@ -101,12 +101,12 @@ buddy-bot open-settings
 
 ```yaml
 permissions:
-  contents: write        # Create branches and commits
-  pull-requests: write   # Create and update PRs
-  issues: write         # Assign users and add labels
-  actions: read         # Read workflow status
-  checks: read          # Read check status
-  statuses: read        # Read commit statuses
+  contents: write # Create branches and commits
+  pull-requests: write # Create and update PRs
+  issues: write # Assign users and add labels
+  actions: read # Read workflow status
+  checks: read # Read check status
+  statuses: read # Read commit statuses
 ```
 
 ### GitHub Token
@@ -136,18 +136,18 @@ name: Buddy Comprehensive Updates
 
 on:
   schedule:
-    - cron: '0 2 * * *'      # Daily patches
-    - cron: '0 2 * * 1,4'    # Bi-weekly minor
-    - cron: '0 2 1 * *'      # Monthly major
+    - cron: '0 2 * * *' # Daily patches
+    - cron: '0 2 * * 1,4' # Bi-weekly minor
+    - cron: '0 2 1 * *' # Monthly major
   workflow_dispatch:
     inputs:
       strategy:
-        description: 'Update strategy'
+        description: Update strategy
         type: choice
         options: [all, major, minor, patch]
-        default: 'all'
+        default: all
       dry_run:
-        description: 'Dry run mode'
+        description: Dry run mode
         type: boolean
         default: false
 
@@ -206,7 +206,7 @@ name: Buddy Docker Updates
 
 on:
   schedule:
-    - cron: '0 2 * * 1'  # Weekly
+    - cron: '0 2 * * 1' # Weekly
   workflow_dispatch:
 
 jobs:
@@ -239,7 +239,7 @@ on:
   workflow_dispatch:
     inputs:
       workspace:
-        description: 'Specific workspace to update'
+        description: Specific workspace to update
         required: false
 
 jobs:

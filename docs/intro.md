@@ -163,7 +163,6 @@ Buddy-bot is built with modern tools and best practices:
 | **Zero Config** | ✅ Yes | ✅ Yes | ❌ Complex |
 | **Self-hosted** | ✅ Yes | ❌ GitHub only | ✅ Yes |
 
-
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](https://github.com/stacksjs/buddy-bot/blob/main/CONTRIBUTING.md) for details.

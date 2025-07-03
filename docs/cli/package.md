@@ -1,547 +1,474 @@
 # Package Commands
 
-Commands for analyzing packages, checking versions, and exploring the npm registry.
+CLI commands for package analysis, management, and information retrieval.
 
-## check
+## Package Information
 
-Check specific packages for updates.
+### `info` - Package Details
 
-### Usage
-
-```bash
-buddy-bot check <packages...> [options]
-```
-
-### Parameters
-
-- `<packages...>` - One or more package names to check
-
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-- `--strategy <type>` - Update strategy: major|minor|patch|all (default: all)
-
-### Examples
-
-```bash
-# Check single package
-buddy-bot check react
-
-# Check multiple packages
-buddy-bot check react typescript eslint
-
-# Check with specific strategy
-buddy-bot check react --strategy minor
-
-# Verbose output
-buddy-bot check react typescript --verbose
-```
-
-### Output
-
-```bash
-Checking specific packages: react, typescript
-
-Found 2 updates:
-  react: ^18.2.0 → ^18.3.1 (minor)
-  typescript: ^5.3.3 → ^5.4.2 (minor)
-```
-
-## info
-
-Show detailed package information.
-
-### Usage
-
-```bash
-buddy-bot info <package> [options]
-```
-
-### Parameters
-
-- `<package>` - Package name to get information about
-
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-- `--json` - Output in JSON format
-
-### Examples
+Get comprehensive information about a package:
 
 ```bash
 # Basic package info
 buddy-bot info react
 
-# Package with version
-buddy-bot info typescript@latest
+# Detailed information
+buddy-bot info react --detailed
 
-# JSON output
+# Include dependencies
+buddy-bot info react --include-deps
+
+# Show version history
+buddy-bot info react --versions --limit 10
+
+# Output as JSON
 buddy-bot info react --json
 ```
 
-### Output
+**Options:**
+- `--detailed` - Show extended package information
+- `--include-deps` - Include dependency tree
+- `--versions` - Show available versions
+- `--limit <number>` - Limit version results
+- `--json` - Output as JSON
+
+### `versions` - Available Versions
+
+List all available versions for a package:
 
 ```bash
-📦 react@18.3.1
-📝 React is a JavaScript library for building user interfaces.
-🌐 https://react.dev
-📁 https://github.com/facebook/react
-⚖️  License: MIT
-👤 Author: React Team
-🏷️  Keywords: react, framework, javascript, library, ui
+# All versions
+buddy-bot versions typescript
+
+# Latest 10 versions
+buddy-bot versions typescript --limit 10
+
+# Include pre-releases
+buddy-bot versions typescript --include-pre
+
+# Filter by tag
+buddy-bot versions typescript --tag latest
+
+# Show release dates
+buddy-bot versions typescript --with-dates
 ```
 
-## versions
+### `latest` - Latest Version
 
-Show all available versions of a package.
-
-### Usage
+Get the latest version of a package:
 
 ```bash
-buddy-bot versions <package> [options]
+# Latest stable version
+buddy-bot latest vue
+
+# Latest including pre-releases
+buddy-bot latest vue --include-pre
+
+# Latest for specific tag
+buddy-bot latest vue --tag next
 ```
 
-### Parameters
+## Package Analysis
 
-- `<package>` - Package name to show versions for
+### `deps` - Dependency Analysis
 
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-- `--latest <count>` - Show only the latest N versions (default: 10)
-
-### Examples
+Analyze package dependencies:
 
 ```bash
-# Show recent versions
-buddy-bot versions react
+# Direct dependencies
+buddy-bot deps react
 
-# Show only 5 latest versions
-buddy-bot versions react --latest 5
+# Full dependency tree
+buddy-bot deps react --tree
 
-# Show more versions
-buddy-bot versions typescript --latest 20
+# Specific depth
+buddy-bot deps react --depth 2
+
+# Include dev dependencies
+buddy-bot deps react --include-dev
+
+# Show outdated dependencies
+buddy-bot deps react --outdated
+
+# Export dependency graph
+buddy-bot deps react --graph --output deps.json
 ```
 
-### Output
+**Options:**
+- `--tree` - Show full dependency tree
+- `--depth <number>` - Limit tree depth
+- `--include-dev` - Include devDependencies
+- `--outdated` - Show outdated dependencies
+- `--graph` - Generate dependency graph
+- `--output <file>` - Save output to file
+
+### `check` - Package Updates
+
+Check for available updates:
 
 ```bash
-📦 react - Available Versions
-📈 Total: 847 versions
-⭐ Latest: 18.3.1
+# Check all packages
+buddy-bot check
 
-📋 Recent versions:
-⭐ 18.3.1
-   18.3.0
-   18.2.0
-   18.1.0
-   18.0.0
-   17.0.2
-   17.0.1
-   17.0.0
-   16.14.0
-   16.13.1
-   ... and 837 older versions
+# Check specific packages
+buddy-bot check react vue typescript
+
+# Check with strategy
+buddy-bot check --strategy minor
+
+# Check security updates only
+buddy-bot check --security-only
+
+# Check by pattern
+buddy-bot check --pattern "@types/*"
+
+# Show changelogs
+buddy-bot check --with-changelog
+
+# Group by update type
+buddy-bot check --group-by-type
 ```
 
-## latest
+**Options:**
+- `--strategy <type>` - Update strategy (patch|minor|major|all)
+- `--security-only` - Security updates only
+- `--pattern <pattern>` - Package name pattern
+- `--with-changelog` - Include changelog information
+- `--group-by-type` - Group results by update type
 
-Get the latest version of a package.
+### `outdated` - Outdated Packages
 
-### Usage
+List packages that have updates available:
 
 ```bash
-buddy-bot latest <package> [options]
+# All outdated packages
+buddy-bot outdated
+
+# Outdated with severity
+buddy-bot outdated --severity
+
+# Outdated dev dependencies
+buddy-bot outdated --dev-only
+
+# Outdated production dependencies
+buddy-bot outdated --prod-only
+
+# Table format
+buddy-bot outdated --table
+
+# JSON output
+buddy-bot outdated --json
 ```
 
-### Parameters
+## Package Search
 
-- `<package>` - Package name to get latest version for
+### `search` - Package Search
 
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-
-### Examples
+Search for packages in registries:
 
 ```bash
-# Get latest version
-buddy-bot latest react
+# Basic search
+buddy-bot search "state management"
 
-# Get latest version of scoped package
-buddy-bot latest @types/node
+# Limit results
+buddy-bot search "testing" --limit 20
 
-# Verbose output
-buddy-bot latest typescript --verbose
+# Search by keywords
+buddy-bot search --keywords "typescript,testing"
+
+# Search by maintainer
+buddy-bot search --maintainer "facebook"
+
+# Include deprecated packages
+buddy-bot search "react" --include-deprecated
+
+# Sort by popularity
+buddy-bot search "ui components" --sort popularity
 ```
 
-### Output
+**Options:**
+- `--limit <number>` - Limit search results
+- `--keywords <keywords>` - Search by keywords (comma-separated)
+- `--maintainer <name>` - Filter by maintainer
+- `--include-deprecated` - Include deprecated packages
+- `--sort <field>` - Sort by field (popularity|quality|maintenance)
 
-```bash
-📦 react@18.3.1
-```
+### `exists` - Package Existence
 
-## exists
-
-Check if a package exists in the registry.
-
-### Usage
-
-```bash
-buddy-bot exists <package> [options]
-```
-
-### Parameters
-
-- `<package>` - Package name to check
-
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-
-### Examples
+Check if a package exists:
 
 ```bash
 # Check if package exists
-buddy-bot exists react
+buddy-bot exists @types/unknown-package
 
-# Check non-existent package
-buddy-bot exists nonexistent-package-xyz
+# Check multiple packages
+buddy-bot exists react vue angular
 
-# Verbose output
-buddy-bot exists @types/react --verbose
+# Check with version
+buddy-bot exists react@18.0.0
+
+# Silent mode (exit code only)
+buddy-bot exists react --silent
 ```
 
-### Output
+## Package Comparison
+
+### `compare` - Version Comparison
+
+Compare package versions:
 
 ```bash
-# Existing package (exit code 0)
-✅ Package "react" exists in the registry
-
-# Non-existent package (exit code 1)
-❌ Package "nonexistent-package-xyz" does not exist in the registry
-```
-
-## deps
-
-Show dependencies of a package.
-
-### Usage
-
-```bash
-buddy-bot deps <package> [options]
-```
-
-### Parameters
-
-- `<package>` - Package name to show dependencies for
-
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-- `--dev` - Show dev dependencies
-- `--peer` - Show peer dependencies
-- `--all` - Show all dependency types
-
-### Examples
-
-```bash
-# Show production dependencies
-buddy-bot deps react
-
-# Show dev dependencies
-buddy-bot deps react --dev
-
-# Show peer dependencies
-buddy-bot deps react --peer
-
-# Show all dependency types
-buddy-bot deps react --all
-```
-
-### Output
-
-```bash
-📦 react@18.3.1 - Dependencies
-
-📋 Production Dependencies (1):
-  loose-envify: ^1.4.0
-
-📋 Dev Dependencies (15):
-  @babel/core: ^7.20.0
-  @babel/preset-env: ^7.20.0
-  eslint: ^8.0.0
-  jest: ^29.0.0
-  ...
-
-📋 Peer Dependencies (0):
-  No peer dependencies
-```
-
-## compare
-
-Compare two versions of a package.
-
-### Usage
-
-```bash
-buddy-bot compare <package> <version1> <version2> [options]
-```
-
-### Parameters
-
-- `<package>` - Package name to compare
-- `<version1>` - First version to compare
-- `<version2>` - Second version to compare
-
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-
-### Examples
-
-```bash
-# Compare React versions
+# Compare two versions
 buddy-bot compare react 17.0.0 18.0.0
 
-# Compare TypeScript versions
-buddy-bot compare typescript 4.9.0 5.0.0
+# Compare with current
+buddy-bot compare react --current 17.0.0 --target 18.0.0
 
-# Verbose comparison
-buddy-bot compare react 18.2.0 18.3.1 --verbose
+# Show breaking changes
+buddy-bot compare react 17.0.0 18.0.0 --breaking-changes
+
+# Include changelog
+buddy-bot compare react 17.0.0 18.0.0 --changelog
+
+# Detailed comparison
+buddy-bot compare react 17.0.0 18.0.0 --detailed
 ```
 
-### Output
+### `diff` - Package Differences
+
+Show differences between package versions:
 
 ```bash
-📊 Comparing react: 17.0.0 vs 18.0.0
+# Show package.json differences
+buddy-bot diff react 17.0.0 18.0.0
 
-🔍 Version Analysis:
-   From: 17.0.0
-   To:   18.0.0
-   Type: major update
-   Gap:  47 versions between them
-   📈 18.0.0 is newer than 17.0.0
+# Show dependency differences
+buddy-bot diff react 17.0.0 18.0.0 --deps
 
-💡 Use 'buddy-bot versions react' to see all available versions
-💡 Use 'buddy-bot info react' for detailed package information
+# Show size differences
+buddy-bot diff react 17.0.0 18.0.0 --size
+
+# Show vulnerability differences
+buddy-bot diff react 17.0.0 18.0.0 --vulnerabilities
 ```
 
-## search
+## Registry Operations
 
-Search for packages in the registry.
+### `registry` - Registry Management
 
-### Usage
+Manage package registries:
 
 ```bash
-buddy-bot search <query> [options]
+# List configured registries
+buddy-bot registry list
+
+# Add new registry
+buddy-bot registry add --name company --url https://npm.company.com
+
+# Set default registry
+buddy-bot registry default company
+
+# Test registry connection
+buddy-bot registry test company
+
+# Remove registry
+buddy-bot registry remove company
 ```
 
-### Parameters
+### `whoami` - Registry Authentication
 
-- `<query>` - Search query (can include spaces)
-
-### Options
-
-- `--verbose, -v` - Enable verbose logging
-- `--limit <count>` - Limit number of results (default: 10)
-
-### Examples
+Check registry authentication:
 
 ```bash
-# Search for React packages
-buddy-bot search react
+# Check current user
+buddy-bot whoami
 
-# Search with multiple terms
-buddy-bot search "test framework"
+# Check for specific registry
+buddy-bot whoami --registry npm
 
-# Limit results
-buddy-bot search react --limit 5
-
-# Verbose search
-buddy-bot search typescript --verbose
+# Check all registries
+buddy-bot whoami --all
 ```
 
-### Output
+## Package Validation
+
+### `validate` - Package Validation
+
+Validate package configurations:
 
 ```bash
-🔍 Searching for: "test framework"
-📊 Showing top 10 results
+# Validate package.json
+buddy-bot validate
 
-1. 📦 jest@29.7.0
-   📝 A comprehensive JavaScript testing framework
-   🏷️  javascript, testing, framework
+# Validate dependencies
+buddy-bot validate --deps
 
-2. 📦 mocha@10.2.0
-   📝 Simple, flexible, fun test framework
-   🏷️  mocha, test, framework
+# Check for security issues
+buddy-bot validate --security
 
-3. 📦 vitest@1.1.0
-   📝 A blazing fast unit test framework powered by Vite
-   🏷️  vite, vitest, test
+# Check licenses
+buddy-bot validate --licenses
 
-✨ Use 'buddy-bot info <package>' for detailed information
+# Validate workspace packages
+buddy-bot validate --workspaces
 ```
 
-## Registry Integration
+### `audit` - Security Audit
 
-All package commands integrate with npm registry APIs to provide:
-
-### Package Information
-- **Metadata**: Description, homepage, repository, license
-- **Statistics**: Download counts, popularity metrics
-- **Versions**: Complete version history
-- **Dependencies**: All dependency types (prod, dev, peer, optional)
-
-### Search Capabilities
-- **Text Search**: Package names and descriptions
-- **Keyword Matching**: Based on package keywords
-- **Popularity Ranking**: Results sorted by relevance and downloads
-- **Scoped Packages**: Supports @org/package format
-
-### Version Analysis
-- **Semantic Versioning**: Proper semver comparison
-- **Update Classification**: Major, minor, patch detection
-- **Gap Analysis**: Version count between releases
-- **Timeline Information**: Release dates and patterns
-
-## Performance & Caching
-
-### Registry Client Optimization
-- **Parallel Requests**: Multiple packages checked simultaneously
-- **Response Caching**: Intelligent caching of registry responses
-- **Request Deduplication**: Avoid duplicate API calls
-- **Retry Logic**: Automatic retry for failed requests
-
-### Error Handling
-- **Network Errors**: Graceful handling of connectivity issues
-- **Rate Limiting**: Respect registry rate limits
-- **Invalid Packages**: Clear error messages for non-existent packages
-- **API Failures**: Fallback strategies for registry unavailability
-
-## Use Cases
-
-### Development Workflow
+Perform security audit:
 
 ```bash
-# Check if a package exists before adding
-buddy-bot exists some-new-package
+# Basic audit
+buddy-bot audit
 
-# Get package info before deciding
-buddy-bot info some-new-package
+# Audit with fix suggestions
+buddy-bot audit --fix
 
-# Check current versions in project
-buddy-bot check react typescript eslint
+# Audit specific severity
+buddy-bot audit --severity high
 
-# Find test frameworks
-buddy-bot search "testing framework"
+# Audit production only
+buddy-bot audit --production
+
+# Generate audit report
+buddy-bot audit --report --output audit-report.json
 ```
 
-### CI/CD Integration
+## Package Management
+
+### `install` - Install Packages
+
+Install or update packages:
 
 ```bash
-# Validate package existence in scripts
-if buddy-bot exists "$PACKAGE_NAME"; then
-  echo "Package exists, proceeding..."
-else
-  echo "Package not found!"
-  exit 1
-fi
+# Install package
+buddy-bot install lodash
 
-# Get latest version for automated updates
-LATEST=$(buddy-bot latest typescript | cut -d'@' -f2)
-echo "Latest TypeScript: $LATEST"
+# Install with version
+buddy-bot install lodash@4.17.21
+
+# Install as dev dependency
+buddy-bot install --dev @types/lodash
+
+# Install globally
+buddy-bot install --global typescript
+
+# Install from specific registry
+buddy-bot install lodash --registry company
 ```
 
-### Package Analysis
+### `uninstall` - Remove Packages
+
+Remove packages:
 
 ```bash
-# Compare current vs latest
-CURRENT=$(grep '"typescript":' package.json | cut -d'"' -f4)
-LATEST=$(buddy-bot latest typescript | cut -d'@' -f2)
-buddy-bot compare typescript "$CURRENT" "$LATEST"
+# Remove package
+buddy-bot uninstall lodash
 
-# Analyze dependencies
-buddy-bot deps typescript --all > typescript-deps.txt
+# Remove dev dependency
+buddy-bot uninstall --dev @types/lodash
+
+# Remove global package
+buddy-bot uninstall --global typescript
+
+# Remove and update dependencies
+buddy-bot uninstall lodash --update-deps
+```
+
+## Workspace Operations
+
+### `workspace` - Workspace Commands
+
+Manage monorepo workspaces:
+
+```bash
+# List workspaces
+buddy-bot workspace list
+
+# Show workspace info
+buddy-bot workspace info packages/ui
+
+# Check workspace dependencies
+buddy-bot workspace deps packages/ui
+
+# Update workspace
+buddy-bot workspace update packages/ui
+
+# Validate workspace
+buddy-bot workspace validate packages/ui
+```
+
+## Output Formats
+
+All package commands support multiple output formats:
+
+```bash
+# JSON output
+buddy-bot info react --json
+
+# Table format
+buddy-bot outdated --table
+
+# YAML output
+buddy-bot check --yaml
+
+# CSV format
+buddy-bot outdated --csv
+
+# Custom format
+buddy-bot info react --format "{name}@{version}"
 ```
 
 ## Configuration
 
 Package commands respect global configuration:
 
-```typescript
-// buddy-bot.config.ts
-export default {
-  verbose: true, // Affects all commands
-  registry: {
-    url: 'https://registry.npmjs.org', // Custom registry
-    timeout: 10000, // Request timeout
-    retries: 3 // Retry failed requests
-  }
-}
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Package not found:**
 ```bash
-❌ Package "nonexistent-package" not found
+# Use specific config file
+buddy-bot check --config custom-config.ts
+
+# Override registry
+buddy-bot info react --registry https://npm.company.com
+
+# Override strategy
+buddy-bot check --strategy major
+
+# Debug mode
+buddy-bot check --debug
+
+# Verbose output
+buddy-bot check --verbose
 ```
-- Verify package name spelling
-- Check if package is scoped (@org/package)
-- Confirm package exists on npm registry
 
-**Network errors:**
-```bash
-❌ Failed to fetch package information: ENOTFOUND
-```
-- Check internet connectivity
-- Verify registry URL accessibility
-- Check firewall/proxy settings
+## Examples
 
-**Rate limiting:**
-```bash
-❌ Registry API rate limit exceeded
-```
-- Wait before retrying
-- Use authenticated requests if available
-- Consider caching responses
-
-### Debug Mode
-
-Enable verbose output for debugging:
+### Daily Package Health Check
 
 ```bash
-buddy-bot info react --verbose
-buddy-bot search test --verbose --limit 3
+# Comprehensive package health check
+buddy-bot outdated --table && \
+buddy-bot audit --severity high && \
+buddy-bot validate --deps
 ```
 
-## Integration Examples
-
-### NPM Scripts
-
-```json
-{
-  "scripts": {
-    "check-deps": "buddy-bot check react typescript",
-    "find-test-tools": "buddy-bot search 'testing framework' --limit 5",
-    "latest-versions": "buddy-bot versions react --latest 3"
-  }
-}
-```
-
-### Shell Scripts
+### Security-Focused Analysis
 
 ```bash
-#!/bin/bash
-# check-outdated.sh
+# Check for security updates
+buddy-bot check --security-only --with-changelog
 
-PACKAGES=("react" "typescript" "eslint")
-
-for package in "${PACKAGES[@]}"; do
-  echo "Checking $package..."
-  buddy-bot check "$package"
-done
+# Audit for vulnerabilities
+buddy-bot audit --production --report
 ```
+
+### Monorepo Package Management
+
+```bash
+# Check all workspaces
+buddy-bot workspace list | xargs -I {} buddy-bot check --workspace {}
+
+# Validate workspace dependencies
+buddy-bot workspace validate --all
+```
+
+See [Package Management](/features/package-management) for more details on package handling features.
