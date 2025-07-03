@@ -1,11 +1,10 @@
-import type {
-  Logger,
-  PackageMetadata,
-  PackageUpdate,
-} from '../types'
-import { spawn } from 'node:child_process'
+import { spawn } from 'child_process'
+import type { Logger } from '../utils/logger'
+import type { PackageMetadata, PackageUpdate } from '../types'
 import { PackageRegistryError } from '../types'
 import { getUpdateType } from '../utils/helpers'
+import path from 'path'
+import fs from 'fs'
 
 export interface BunOutdatedResult {
   name: string
@@ -27,10 +26,32 @@ export class RegistryClient {
     this.logger.info('Checking for outdated packages...')
 
     try {
+      // Get updates from bun outdated (compares installed vs available)
       const bunResults = await this.runBunOutdated(filter)
+
+      // Get updates from package.json comparison (package.json version vs latest available)
+      const packageJsonResults = await this.getPackageJsonOutdated(filter)
+
+      // Merge results, prioritizing bun outdated for current version info
+      const allResults = new Map<string, BunOutdatedResult>()
+
+      // Add bun outdated results first
+      for (const result of bunResults) {
+        allResults.set(result.name, result)
+      }
+
+      // Add package.json results if not already present or if they show a different issue
+      for (const result of packageJsonResults) {
+        const existing = allResults.get(result.name)
+        if (!existing) {
+          // Package not in bun outdated, but package.json has old version
+          allResults.set(result.name, result)
+        }
+      }
+
       const updates: PackageUpdate[] = []
 
-      for (const result of bunResults) {
+      for (const result of allResults.values()) {
         const updateType = getUpdateType(result.current, result.latest)
 
         // Get additional metadata for the package
@@ -77,12 +98,12 @@ export class RegistryClient {
   }
 
   /**
-   * Get package metadata from npm registry
+   * Get package metadata from registry using bun
    */
   async getPackageMetadata(packageName: string): Promise<PackageMetadata | undefined> {
     try {
-      // Use bun's built-in registry access or npm view
-      const result = await this.runCommand('npm', ['view', packageName, '--json'])
+      // Use bun info to get package metadata
+      const result = await this.runCommand('bun', ['info', packageName, '--json'])
       const data = JSON.parse(result)
 
       return {
@@ -91,7 +112,7 @@ export class RegistryClient {
         repository: typeof data.repository === 'string' ? data.repository : data.repository?.url,
         homepage: data.homepage,
         license: data.license,
-        author: data.author,
+        author: typeof data.author === 'string' ? data.author : data.author?.name,
         keywords: data.keywords,
         latestVersion: data.version,
         versions: data.versions || [data.version],
@@ -112,7 +133,7 @@ export class RegistryClient {
    */
   async packageExists(packageName: string): Promise<boolean> {
     try {
-      await this.runCommand('npm', ['view', packageName, 'name'])
+      await this.runCommand('bun', ['info', packageName])
       return true
     }
     catch {
@@ -125,8 +146,9 @@ export class RegistryClient {
    */
   async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      const result = await this.runCommand('npm', ['view', packageName, 'version'])
-      return result.trim()
+      const result = await this.runCommand('bun', ['info', packageName, '--json'])
+      const data = JSON.parse(result)
+      return data.version?.trim() || null
     }
     catch {
       return null
@@ -146,16 +168,9 @@ export class RegistryClient {
       const output = await this.runCommand('bun', args)
       return this.parseBunOutdatedOutput(output)
     }
-    catch {
-      // If bun is not available, fall back to npm outdated
-      this.logger.warn('Bun not available, falling back to npm outdated')
-      try {
-        const output = await this.runCommand('npm', ['outdated', '--json'])
-        return this.parseNpmOutdatedOutput(output)
-      }
-      catch {
-        throw new PackageRegistryError('Neither bun nor npm outdated commands are available')
-      }
+    catch (error) {
+      this.logger.error('Failed to run bun outdated:', error)
+      throw new PackageRegistryError('bun outdated command failed')
     }
   }
 
@@ -163,12 +178,15 @@ export class RegistryClient {
    * Parse bun outdated command output
    */
   private parseBunOutdatedOutput(output: string): BunOutdatedResult[] {
-    const lines = output.split('\n').filter(line => line.trim())
     const results: BunOutdatedResult[] = []
+
+    // Remove ANSI color codes
+    const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '')
+    const cleanLines = cleanOutput.split('\n').filter(line => line.trim())
 
     // Skip header lines and parse table format
     let dataStarted = false
-    for (const line of lines) {
+    for (const line of cleanLines) {
       if (line.includes('Package') && line.includes('Current') && line.includes('Update')) {
         dataStarted = true
         continue
@@ -177,15 +195,36 @@ export class RegistryClient {
       if (!dataStarted || !line.trim())
         continue
 
-      // Parse table format: Package | Current | Update | Latest
-      const parts = line.split('|').map(part => part.trim())
+      // Skip lines that are just separators (both | and Unicode characters)
+      if (line.match(/^[│├─┼┤└┴┘┌┬┐|\-\s]+$/))
+        continue
+
+      // Parse table format - handle both | and │ separators
+      let parts: string[]
+      if (line.includes('│')) {
+        // Unicode box-drawing characters (terminal output)
+        parts = line.split('│').map(part => part.trim())
+      } else {
+        // Regular pipe characters (programmatic output)
+        parts = line.split('|').map(part => part.trim())
+      }
+
       if (parts.length >= 4) {
-        results.push({
-          name: parts[0],
-          current: parts[1],
-          update: parts[2],
-          latest: parts[3],
-        })
+        // For Unicode format, indices are 1,2,3,4 (first is empty)
+        // For pipe format, indices are 1,2,3,4 (first is empty)
+        const name = parts[1]?.trim() || ''
+        const current = parts[2]?.trim() || ''
+        const update = parts[3]?.trim() || ''
+        const latest = parts[4]?.trim() || ''
+
+        if (name && current && latest && name !== 'Package') {
+          results.push({
+            name,
+            current,
+            update,
+            latest,
+          })
+        }
       }
     }
 
@@ -193,29 +232,67 @@ export class RegistryClient {
   }
 
   /**
-   * Parse npm outdated JSON output
+   * Check package.json versions against latest available versions
    */
-  private parseNpmOutdatedOutput(output: string): BunOutdatedResult[] {
+  private async getPackageJsonOutdated(filter?: string): Promise<BunOutdatedResult[]> {
     try {
-      const data = JSON.parse(output)
-      const results: BunOutdatedResult[] = []
+      const packageJsonPath = path.join(this.projectPath, 'package.json')
 
-      for (const [name, info] of Object.entries(data)) {
-        const packageInfo = info as any
-        results.push({
-          name,
-          current: packageInfo.current,
-          update: packageInfo.wanted,
-          latest: packageInfo.latest,
-        })
+      if (!fs.existsSync(packageJsonPath)) {
+        return []
+      }
+
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+      const allDeps = {
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies,
+        ...packageJson.peerDependencies,
+      }
+
+      const results: BunOutdatedResult[] = []
+      const packageNames = Object.keys(allDeps)
+
+      // Apply filter if provided
+      const filteredPackages = filter
+        ? packageNames.filter(name => filter.split(' ').some(f => name.includes(f)))
+        : packageNames
+
+      for (const packageName of filteredPackages) {
+        const packageJsonVersion = allDeps[packageName]
+        if (!packageJsonVersion) continue
+
+        // Get the actual version from package.json (strip caret, tilde, etc.)
+        const cleanVersion = this.cleanVersionRange(packageJsonVersion)
+
+        // Get latest version from registry
+        const latestVersion = await this.getLatestVersion(packageName)
+        if (!latestVersion) continue
+
+        // Check if package.json version is older than latest using Bun's semver
+        if (Bun.semver.order(cleanVersion, latestVersion) < 0) {
+          results.push({
+            name: packageName,
+            current: cleanVersion,
+            update: latestVersion,
+            latest: latestVersion,
+          })
+        }
       }
 
       return results
     }
-    catch {
-      // If JSON parsing fails, return empty array
+    catch (error) {
+      this.logger.warn('Failed to check package.json versions:', error)
       return []
     }
+  }
+
+  /**
+   * Clean version range to get the base version (remove ^, ~, etc.)
+   */
+  private cleanVersionRange(version: string): string {
+    // Remove common range indicators
+    return version.replace(/^[\^~>=<]/, '').trim()
   }
 
   /**
@@ -320,6 +397,41 @@ export class RegistryClient {
     }
     catch (error) {
       this.logger.warn(`Failed to get updates for workspace ${workspaceName}:`, error)
+      return []
+    }
+  }
+
+  /**
+   * Search packages using npm registry API (doesn't require npm CLI)
+   */
+  async searchPackages(query: string, limit = 10): Promise<Array<{
+    name: string
+    version: string
+    description?: string
+    keywords?: string[]
+  }>> {
+    try {
+      const encodedQuery = encodeURIComponent(query)
+      const url = `https://registry.npmjs.org/-/v1/search?text=${encodedQuery}&size=${limit}`
+
+      // Use fetch if available, otherwise use bun's built-in fetch
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json() as any
+
+      return data.objects?.map((obj: any) => ({
+        name: obj.package.name,
+        version: obj.package.version,
+        description: obj.package.description,
+        keywords: obj.package.keywords,
+      })) || []
+    }
+    catch (error) {
+      this.logger.warn(`Failed to search packages via registry API:`, error)
       return []
     }
   }

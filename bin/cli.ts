@@ -11,7 +11,32 @@ import { Logger } from '../src/utils/logger'
 
 const cli = new CAC('buddy-bot')
 
-cli.usage('[command] [options]')
+cli.usage(`[command] [options]
+
+🤖 Buddy Bot - Your companion dependency manager
+
+DEPENDENCY MANAGEMENT:
+  setup         🚀 Interactive setup for automated updates (recommended)
+  scan          🔍 Scan for dependency updates
+  update        ⬆️  Update dependencies and create PRs
+  check         📋 Check specific packages for updates
+  schedule      ⏰ Run automated updates on schedule
+
+PACKAGE INFORMATION:
+  info          📦 Show detailed package information
+  versions      📈 Show all available versions of a package
+  latest        ⭐ Get the latest version of a package
+  exists        ✅ Check if a package exists in the registry
+  deps          🔗 Show package dependencies
+  compare       ⚖️  Compare two versions of a package
+  search        🔍 Search for packages in the registry
+
+Examples:
+  buddy-bot setup                      # Interactive setup
+  buddy-bot scan --verbose             # Scan for updates
+  buddy-bot info react                 # Get package info
+  buddy-bot versions react --latest 5  # Show recent versions
+  buddy-bot search "test framework"    # Search packages`)
 
 // Define CLI options interface to match our core types
 interface CLIOptions {
@@ -566,6 +591,441 @@ cli
     catch (error) {
       logger.error('Failed to generate workflows:', error)
       process.exit(1)
+    }
+  })
+
+cli
+  .command('info <package>', 'Show detailed package information')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--json', 'Output in JSON format')
+  .example('buddy-bot info react')
+  .example('buddy-bot info react --json')
+  .example('buddy-bot info typescript@latest')
+  .action(async (packageName: string, options: CLIOptions & { json?: boolean }) => {
+    const { RegistryClient } = await import('../src/registry/registry-client')
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const registryClient = new RegistryClient(process.cwd(), logger)
+
+      if (options.json) {
+        // Output raw JSON from bun info
+        const { spawn } = await import('node:child_process')
+        const child = spawn('bun', ['info', packageName, '--json'], {
+          stdio: 'inherit'
+        })
+
+        child.on('close', (code) => {
+          process.exit(code || 0)
+        })
+        return
+      }
+
+      // Get package metadata and display in a nice format
+      const metadata = await registryClient.getPackageMetadata(packageName)
+
+      if (!metadata) {
+        logger.error(`Package "${packageName}" not found or failed to fetch metadata`)
+        process.exit(1)
+      }
+
+      console.log(`📦 ${metadata.name}@${metadata.latestVersion}`)
+
+      if (metadata.description) {
+        console.log(`📝 ${metadata.description}`)
+      }
+
+      if (metadata.homepage) {
+        console.log(`🌐 ${metadata.homepage}`)
+      }
+
+      if (metadata.repository) {
+        console.log(`📁 ${metadata.repository}`)
+      }
+
+      if (metadata.license) {
+        console.log(`⚖️  License: ${metadata.license}`)
+      }
+
+      if (metadata.author) {
+        console.log(`👤 Author: ${metadata.author}`)
+      }
+
+      if (metadata.keywords && metadata.keywords.length > 0) {
+        console.log(`🏷️  Keywords: ${metadata.keywords.join(', ')}`)
+      }
+
+      const depCounts = {
+        deps: Object.keys(metadata.dependencies || {}).length,
+        devDeps: Object.keys(metadata.devDependencies || {}).length,
+        peerDeps: Object.keys(metadata.peerDependencies || {}).length,
+      }
+
+      console.log(`📊 Dependencies: ${depCounts.deps} | Dev: ${depCounts.devDeps} | Peer: ${depCounts.peerDeps}`)
+
+      if (metadata.versions && metadata.versions.length > 1) {
+        console.log(`📈 ${metadata.versions.length} versions available`)
+
+        if (options.verbose && metadata.versions.length <= 10) {
+          console.log(`   Latest versions: ${metadata.versions.slice(-5).join(', ')}`)
+        }
+      }
+    }
+    catch (error) {
+      logger.error('Failed to get package info:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('versions <package>', 'Show all available versions of a package')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--latest <count>', 'Show only the latest N versions', { default: '10' })
+  .example('buddy-bot versions react')
+  .example('buddy-bot versions react --latest 5')
+  .action(async (packageName: string, options: CLIOptions & { latest?: string }) => {
+    const { RegistryClient } = await import('../src/registry/registry-client')
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const registryClient = new RegistryClient(process.cwd(), logger)
+      const metadata = await registryClient.getPackageMetadata(packageName)
+
+      if (!metadata) {
+        logger.error(`Package "${packageName}" not found`)
+        process.exit(1)
+      }
+
+      const latestCount = parseInt(options.latest || '10', 10)
+
+      console.log(`📦 ${metadata.name} - Available Versions`)
+      console.log(`📈 Total: ${metadata.versions?.length || 0} versions`)
+      console.log(`⭐ Latest: ${metadata.latestVersion}`)
+
+      if (metadata.versions && metadata.versions.length > 0) {
+        console.log('\n📋 Recent versions:')
+        const versionsToShow = metadata.versions.slice(-latestCount).reverse()
+
+        versionsToShow.forEach((version, index) => {
+          const isLatest = version === metadata.latestVersion
+          const prefix = isLatest ? '⭐' : '  '
+          console.log(`${prefix} ${version}`)
+        })
+
+        if (metadata.versions.length > latestCount) {
+          console.log(`   ... and ${metadata.versions.length - latestCount} older versions`)
+        }
+      }
+    }
+    catch (error) {
+      logger.error('Failed to get package versions:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('exists <package>', 'Check if a package exists in the registry')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot exists react')
+  .example('buddy-bot exists nonexistent-package-xyz')
+  .action(async (packageName: string, options: CLIOptions) => {
+    const { RegistryClient } = await import('../src/registry/registry-client')
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const registryClient = new RegistryClient(process.cwd(), logger)
+      const exists = await registryClient.packageExists(packageName)
+
+      if (exists) {
+        console.log(`✅ Package "${packageName}" exists in the registry`)
+        process.exit(0)
+      } else {
+        console.log(`❌ Package "${packageName}" does not exist in the registry`)
+        process.exit(1)
+      }
+    }
+    catch (error) {
+      logger.error('Failed to check package existence:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('latest <package>', 'Get the latest version of a package')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot latest react')
+  .example('buddy-bot latest @types/node')
+  .action(async (packageName: string, options: CLIOptions) => {
+    const { RegistryClient } = await import('../src/registry/registry-client')
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const registryClient = new RegistryClient(process.cwd(), logger)
+      const latestVersion = await registryClient.getLatestVersion(packageName)
+
+      if (latestVersion) {
+        console.log(`📦 ${packageName}@${latestVersion}`)
+      } else {
+        logger.error(`Package "${packageName}" not found`)
+        process.exit(1)
+      }
+    }
+    catch (error) {
+      logger.error('Failed to get latest version:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('deps <package>', 'Show dependencies of a package')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--dev', 'Show dev dependencies')
+  .option('--peer', 'Show peer dependencies')
+  .option('--all', 'Show all dependency types')
+  .example('buddy-bot deps react')
+  .example('buddy-bot deps react --dev')
+  .example('buddy-bot deps react --all')
+  .action(async (packageName: string, options: CLIOptions & { dev?: boolean; peer?: boolean; all?: boolean }) => {
+    const { RegistryClient } = await import('../src/registry/registry-client')
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const registryClient = new RegistryClient(process.cwd(), logger)
+      const metadata = await registryClient.getPackageMetadata(packageName)
+
+      if (!metadata) {
+        logger.error(`Package "${packageName}" not found`)
+        process.exit(1)
+      }
+
+      console.log(`📦 ${metadata.name}@${metadata.latestVersion} - Dependencies`)
+
+      const showProd = !options.dev && !options.peer
+      const showDev = options.dev || options.all
+      const showPeer = options.peer || options.all
+
+      if (showProd || options.all) {
+        const deps = metadata.dependencies || {}
+        const depCount = Object.keys(deps).length
+
+        console.log(`\n📋 Production Dependencies (${depCount}):`)
+        if (depCount > 0) {
+          Object.entries(deps).forEach(([name, version]) => {
+            console.log(`  ${name}: ${version}`)
+          })
+        } else {
+          console.log('  No production dependencies')
+        }
+      }
+
+      if (showDev) {
+        const devDeps = metadata.devDependencies || {}
+        const devDepCount = Object.keys(devDeps).length
+
+        console.log(`\n🛠️  Dev Dependencies (${devDepCount}):`)
+        if (devDepCount > 0) {
+          Object.entries(devDeps).forEach(([name, version]) => {
+            console.log(`  ${name}: ${version}`)
+          })
+        } else {
+          console.log('  No dev dependencies')
+        }
+      }
+
+      if (showPeer) {
+        const peerDeps = metadata.peerDependencies || {}
+        const peerDepCount = Object.keys(peerDeps).length
+
+        console.log(`\n🤝 Peer Dependencies (${peerDepCount}):`)
+        if (peerDepCount > 0) {
+          Object.entries(peerDeps).forEach(([name, version]) => {
+            console.log(`  ${name}: ${version}`)
+          })
+        } else {
+          console.log('  No peer dependencies')
+        }
+      }
+    }
+    catch (error) {
+      logger.error('Failed to get package dependencies:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('compare <package> <version1> <version2>', 'Compare two versions of a package')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot compare react 17.0.0 18.0.0')
+  .example('buddy-bot compare typescript 4.9.0 5.0.0')
+  .action(async (packageName: string, version1: string, version2: string, options: CLIOptions) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      console.log(`📊 Comparing ${packageName}: ${version1} vs ${version2}`)
+
+      // Get package metadata to validate versions exist
+      const { RegistryClient } = await import('../src/registry/registry-client')
+      const registryClient = new RegistryClient(process.cwd(), logger)
+      const metadata = await registryClient.getPackageMetadata(packageName)
+
+      if (!metadata) {
+        logger.error(`Package "${packageName}" not found`)
+        process.exit(1)
+      }
+
+      const availableVersions = metadata.versions || []
+
+      if (!availableVersions.includes(version1)) {
+        console.log(`⚠️  Version ${version1} not found in available versions`)
+      }
+
+      if (!availableVersions.includes(version2)) {
+        console.log(`⚠️  Version ${version2} not found in available versions`)
+      }
+
+      // Basic version comparison using semver-like logic
+      const { getUpdateType } = await import('../src/utils/helpers')
+      const updateType = getUpdateType(version1, version2)
+
+      console.log(`\n🔍 Version Analysis:`)
+      console.log(`   From: ${version1}`)
+      console.log(`   To:   ${version2}`)
+      console.log(`   Type: ${updateType} update`)
+
+      // Show version position in the list
+      const v1Index = availableVersions.indexOf(version1)
+      const v2Index = availableVersions.indexOf(version2)
+
+      if (v1Index !== -1 && v2Index !== -1) {
+        const versionsBetween = Math.abs(v2Index - v1Index) - 1
+        console.log(`   Gap:  ${versionsBetween} versions between them`)
+
+        if (v2Index > v1Index) {
+          console.log(`   📈 ${version2} is newer than ${version1}`)
+        } else {
+          console.log(`   📉 ${version2} is older than ${version1}`)
+        }
+      }
+
+      console.log(`\n💡 Use 'buddy-bot versions ${packageName}' to see all available versions`)
+      console.log(`💡 Use 'buddy-bot info ${packageName}' for detailed package information`)
+    }
+    catch (error) {
+      logger.error('Failed to compare versions:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('search <query>', 'Search for packages in the registry')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--limit <count>', 'Limit number of results', { default: '10' })
+  .example('buddy-bot search react')
+  .example('buddy-bot search "test framework" --limit 5')
+    .action(async (query: string, options: CLIOptions & { limit?: string }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      const { spawn } = await import('node:child_process')
+      const limit = parseInt(options.limit || '10', 10)
+
+      console.log(`🔍 Searching for: "${query}"`)
+      console.log(`📊 Showing top ${limit} results\n`)
+
+            // Check if npm is available first
+      const checkNpm = spawn('which', ['npm'], { stdio: 'pipe' })
+
+      checkNpm.on('close', async (code) => {
+        if (code !== 0) {
+          // npm not available, use registry API search
+          console.log('📡 Using npm registry API search...')
+          try {
+            const { RegistryClient } = await import('../src/registry/registry-client')
+            const registryClient = new RegistryClient(process.cwd(), logger)
+            const results = await registryClient.searchPackages(query, limit)
+
+            if (results.length === 0) {
+              console.log(`❌ No packages found for "${query}"`)
+              console.log('💡 Try different search terms or browse https://www.npmjs.com')
+              return
+            }
+
+            results.forEach((pkg, index) => {
+              console.log(`${index + 1}. 📦 ${pkg.name}@${pkg.version}`)
+              if (pkg.description) {
+                console.log(`   📝 ${pkg.description}`)
+              }
+              if (pkg.keywords && pkg.keywords.length > 0) {
+                console.log(`   🏷️  ${pkg.keywords.slice(0, 3).join(', ')}${pkg.keywords.length > 3 ? '...' : ''}`)
+              }
+              console.log()
+            })
+
+            console.log(`✨ Use 'buddy-bot info <package>' for detailed information`)
+          } catch (error) {
+            console.log('❌ Registry API search failed')
+            console.log('💡 Alternative search options:')
+            console.log('   • Visit https://www.npmjs.com/search?q=' + encodeURIComponent(query))
+            console.log('   • Use: bun add <package-name> to test if a package exists')
+            console.log('   • Use: buddy-bot exists <package-name> to check existence')
+          }
+          return
+        }
+
+        // npm is available, proceed with search
+        const child = spawn('npm', ['search', query, '--json'], {
+          stdio: 'pipe'
+        })
+
+        let output = ''
+        child.stdout?.on('data', (data) => {
+          output += data.toString()
+        })
+
+        child.stderr?.on('data', (data) => {
+          if (options.verbose) {
+            logger.warn('npm search stderr:', data.toString())
+          }
+        })
+
+        child.on('close', (code) => {
+          if (code === 0) {
+            try {
+              const results = JSON.parse(output)
+              const limitedResults = results.slice(0, limit)
+
+              if (limitedResults.length === 0) {
+                console.log(`❌ No packages found for "${query}"`)
+                console.log('💡 Try different search terms or browse https://www.npmjs.com')
+                return
+              }
+
+              limitedResults.forEach((pkg: any, index: number) => {
+                console.log(`${index + 1}. 📦 ${pkg.name}@${pkg.version}`)
+                if (pkg.description) {
+                  console.log(`   📝 ${pkg.description}`)
+                }
+                if (pkg.keywords && pkg.keywords.length > 0) {
+                  console.log(`   🏷️  ${pkg.keywords.slice(0, 3).join(', ')}${pkg.keywords.length > 3 ? '...' : ''}`)
+                }
+                console.log()
+              })
+
+              console.log(`✨ Use 'buddy-bot info <package>' for detailed information`)
+            } catch (error) {
+              logger.error('Failed to parse search results:', error)
+              console.log('💡 Try searching at https://www.npmjs.com/search?q=' + encodeURIComponent(query))
+            }
+          } else {
+            console.log('❌ Search failed')
+            console.log('💡 Try searching at https://www.npmjs.com/search?q=' + encodeURIComponent(query))
+          }
+        })
+      })
+    }
+    catch (error) {
+      logger.error('Failed to search packages:', error)
+      console.log('💡 Try searching at https://www.npmjs.com/search?q=' + encodeURIComponent(query))
     }
   })
 
