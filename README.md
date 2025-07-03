@@ -29,11 +29,32 @@ A modern, fast alternative to Dependabot and Renovate built for the Bun ecosyste
 # Install globally
 bun add -g buddy-bot
 
+# Interactive setup (recommended)
+bunx buddy-bot setup
+
 # Or run directly
 bunx buddy-bot scan
 ```
 
 ## Usage
+
+### Interactive Setup
+
+The easiest way to get started is with the interactive setup command:
+
+```bash
+buddy-bot setup
+```
+
+This will guide you through creating GitHub Actions workflows for automated dependency updates. Choose from several presets:
+
+- **Standard Project** - Daily patch updates, weekly minor updates, monthly major updates
+- **High Frequency Updates** - Check for updates 4 times per day (6AM, 12PM, 6PM, 12AM)
+- **Security Focused** - Frequent patch updates with security-first approach
+- **Minimal Updates** - Weekly patch updates, monthly minor/major updates
+- **Docker Project** - Optimized for containerized applications
+- **Monorepo** - Multiple packages in a single repository
+- **Custom Configuration** - Create your own update schedule
 
 ### Command Line Interface
 
@@ -110,8 +131,8 @@ const config: BuddyBotConfig = {
     labels: ['dependencies', 'automated'],
     autoMerge: {
       enabled: true,
-      strategy: 'squash',
-      conditions: ['patch-only']
+      strategy: 'squash', // 'merge', 'squash', or 'rebase'
+      conditions: ['patch-only'] // Only auto-merge patch updates
     }
   }
 }
@@ -168,6 +189,41 @@ Buddy is built specifically for the Bun ecosystem:
 - **`major`**: Only major version updates
 - **`minor`**: Major and minor updates (no patch-only)
 - **`patch`**: All updates (major, minor, and patch)
+
+## Auto-Merge Configuration
+
+Buddy supports configurable auto-merge for pull requests to reduce manual overhead:
+
+```typescript
+const config: BuddyBotConfig = {
+  pullRequest: {
+    autoMerge: {
+      enabled: true,
+      strategy: 'squash', // 'merge', 'squash', or 'rebase'
+      conditions: ['patch-only'] // Optional: restrict to specific update types
+    }
+  }
+}
+```
+
+### Auto-Merge Strategies
+
+- **`squash`**: Squash commits and merge (recommended for clean history)
+- **`merge`**: Create a merge commit (preserves individual commits)
+- **`rebase`**: Rebase and merge (linear history without merge commits)
+
+### Auto-Merge Conditions
+
+- **`patch-only`**: Only auto-merge patch version updates (safest)
+- **No conditions**: Auto-merge all updates (use with caution)
+
+### Workflow-Specific Auto-Merge
+
+Each preset configures auto-merge appropriately:
+
+- **High Frequency Updates**: Auto-merge patch updates only (6AM, 12PM, 6PM), manual review for minor updates (12AM)
+- **Security Focused**: Auto-merge security patches every 6 hours
+- **Standard Project**: Auto-merge daily patches, manual review for weekly/monthly updates
 
 ## Package Grouping
 

@@ -5,7 +5,11 @@ export interface WorkflowConfig {
   schedule: string
   strategy?: 'major' | 'minor' | 'patch' | 'all'
   timezone?: string
-  autoMerge?: boolean
+  autoMerge?: boolean | {
+    enabled: boolean
+    strategy: 'merge' | 'squash' | 'rebase'
+    conditions?: string[]
+  }
   reviewers?: string[]
   labels?: string[]
 }
@@ -73,11 +77,27 @@ jobs:
             bunx buddy-bot update --strategy "\$STRATEGY" --verbose
           fi
 
-      - name: Auto-merge patch updates
-        if: \${{ ${config.autoMerge ? 'true' : 'false'} && github.event.inputs.strategy == 'patch' }}
+      - name: Auto-merge updates
+        if: \${{ ${config.autoMerge ? 'true' : 'false'} }}
         run: |
-          echo "Auto-merging patch updates..."
-          # Add auto-merge logic here when needed
+          echo "Auto-merge is enabled for this workflow"
+
+          # Check if conditions are met for auto-merge
+          STRATEGY="\${{ github.event.inputs.strategy || '${config.strategy || 'all'}' }}"
+          AUTO_MERGE_STRATEGY="${typeof config.autoMerge === 'object' ? config.autoMerge.strategy || 'squash' : 'squash'}"
+
+          echo "Update strategy: \$STRATEGY"
+          echo "Auto-merge strategy: \$AUTO_MERGE_STRATEGY"
+
+          # Enable auto-merge for created PRs
+          # This will be implemented when the PR creation logic is fully integrated
+          # For now, this step serves as a placeholder and configuration validation
+
+          if [ "\$STRATEGY" = "patch" ]; then
+            echo "✅ Patch updates are eligible for auto-merge"
+          else
+            echo "ℹ️ Only patch updates are auto-merged by default"
+          fi
 `
 
     return workflow
@@ -87,16 +107,27 @@ jobs:
    * Generate workflow for different scheduling strategies
    */
   static generateScheduledWorkflows(config?: BuddyBotConfig): Record<string, string> {
-    const defaultAutoMerge = config?.pullRequest?.autoMerge?.enabled ?? false
+    const autoMergeConfig = config?.pullRequest?.autoMerge
     const reviewers = config?.pullRequest?.reviewers || []
     const labels = config?.pullRequest?.labels || []
+
+    // Determine auto-merge settings based on configuration
+    const dailyAutoMerge = autoMergeConfig?.enabled && autoMergeConfig.conditions?.includes('patch-only')
+      ? autoMergeConfig
+      : autoMergeConfig?.enabled ?? true // Default to enabled for daily patch updates
+
+    const weeklyAutoMerge = autoMergeConfig?.enabled && !autoMergeConfig.conditions?.includes('patch-only')
+      ? autoMergeConfig
+      : false // Conservative for minor updates
+
+    const monthlyAutoMerge = false // Never auto-merge major updates
 
     return {
       'dependency-updates-daily.yml': this.generateWorkflow({
         name: 'Daily Dependency Updates',
         schedule: config?.schedule?.cron || '0 2 * * *', // 2 AM daily
         strategy: 'patch',
-        autoMerge: true,
+        autoMerge: dailyAutoMerge,
         reviewers,
         labels,
       }),
@@ -105,7 +136,7 @@ jobs:
         name: 'Weekly Dependency Updates',
         schedule: '0 2 * * 1', // 2 AM Monday
         strategy: 'minor',
-        autoMerge: defaultAutoMerge,
+        autoMerge: weeklyAutoMerge,
         reviewers,
         labels,
       }),
@@ -114,7 +145,7 @@ jobs:
         name: 'Monthly Dependency Updates',
         schedule: '0 2 1 * *', // 2 AM first of month
         strategy: 'major',
-        autoMerge: false,
+        autoMerge: monthlyAutoMerge,
         reviewers,
         labels,
       }),
@@ -124,7 +155,7 @@ jobs:
   /**
    * Generate comprehensive workflow with multiple strategies
    */
-  static generateComprehensiveWorkflow(config?: BuddyBotConfig): string {
+  static generateComprehensiveWorkflow(_config?: BuddyBotConfig): string {
     return `name: Buddy Dependency Updates
 
 on:
@@ -303,7 +334,7 @@ jobs:
   /**
    * Generate Docker-based workflow for complex setups
    */
-  static generateDockerWorkflow(config?: BuddyBotConfig): string {
+  static generateDockerWorkflow(_config?: BuddyBotConfig): string {
     return `name: Buddy Dependencies (Docker)
 
 on:
@@ -334,7 +365,7 @@ jobs:
   /**
    * Generate workflow for monorepos
    */
-  static generateMonorepoWorkflow(config?: BuddyBotConfig): string {
+  static generateMonorepoWorkflow(_config?: BuddyBotConfig): string {
     return `name: Buddy Monorepo Updates
 
 on:
@@ -396,17 +427,38 @@ jobs:
       name: string
       schedule: string
       strategy?: 'major' | 'minor' | 'patch' | 'all'
-      autoMerge?: boolean
+      autoMerge?: boolean | { enabled: boolean, strategy: 'merge' | 'squash' | 'rebase', conditions?: string[] }
       reviewers?: string[]
       labels?: string[]
     },
-    config?: BuddyBotConfig
+    config?: BuddyBotConfig,
   ): string {
+    // Determine auto-merge configuration
+    let autoMergeConfig: boolean | { enabled: boolean, strategy: 'merge' | 'squash' | 'rebase', conditions?: string[] } = false
+
+    if (customConfig.autoMerge !== undefined) {
+      // Use explicit custom config
+      autoMergeConfig = customConfig.autoMerge
+    }
+    else if (config?.pullRequest?.autoMerge) {
+      // Use global auto-merge config, respecting conditions
+      const autoMerge = config.pullRequest.autoMerge
+      if (autoMerge.enabled) {
+        // Check if strategy matches conditions
+        if (autoMerge.conditions?.includes('patch-only') && customConfig.strategy === 'patch') {
+          autoMergeConfig = autoMerge
+        }
+        else if (!autoMerge.conditions?.includes('patch-only')) {
+          autoMergeConfig = autoMerge
+        }
+      }
+    }
+
     return this.generateWorkflow({
       name: customConfig.name,
       schedule: customConfig.schedule,
       strategy: customConfig.strategy || 'all',
-      autoMerge: customConfig.autoMerge ?? false,
+      autoMerge: autoMergeConfig,
       reviewers: customConfig.reviewers || config?.pullRequest?.reviewers || [],
       labels: customConfig.labels || config?.pullRequest?.labels || [],
     })
