@@ -114,7 +114,26 @@ export class PullRequestGenerator {
       const compareUrl = packageInfo?.compareUrl
 
       body += `<details>\n`
-      body += `<summary>${info.repository?.url ? this.getRepositoryName(info.repository.url) : update.name} (${update.name})</summary>\n\n`
+
+      // Generate summary title - show repository name if available, otherwise just package name
+      let summaryTitle: string
+      if (info.repository?.url) {
+        const repoName = this.getRepositoryName(info.repository.url)
+        // Clean package name for comparison (remove dependency type info like "(dev)")
+        const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+
+        // Only add package name in parentheses if it's different from repo name
+        if (repoName !== cleanPackageName && !repoName.includes(cleanPackageName)) {
+          summaryTitle = `${repoName} (${cleanPackageName})`
+        } else {
+          summaryTitle = repoName
+        }
+      } else {
+        // No repository info, just use the package name (cleaned)
+        summaryTitle = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+      }
+
+      body += `<summary>${summaryTitle}</summary>\n\n`
 
       if (releaseNotes.length > 0) {
         for (const release of releaseNotes.slice(0, 3)) { // Limit to 3 most recent releases
