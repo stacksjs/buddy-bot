@@ -12,7 +12,7 @@
 
 A modern, fast alternative to Dependabot and Renovate built for the JavaScript and TypeScript ecosystem. Buddy automatically scans your projects for outdated dependencies and creates well-formatted pull requests with detailed changelogs and metadata.
 
-![Buddy Bot Pull Request Example](screenshot.png)
+![Buddy Bot Pull Request Example](.github/art/screenshot.png)
 
 ## Features
 
