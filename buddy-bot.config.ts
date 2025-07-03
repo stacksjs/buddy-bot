@@ -17,7 +17,7 @@ const config: BuddyBotConfig = {
 
   // Pull request configuration
   pullRequest: {
-    reviewers: ['chris-breuer'],
+    reviewers: ['chrisbbreuer'],
     labels: ['dependencies', 'automated'],
     autoMerge: {
       enabled: true,
