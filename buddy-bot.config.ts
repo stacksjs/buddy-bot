@@ -1,7 +1,11 @@
-import type { BuddyBotOptions } from './src/types'
+import type { BuddyBotConfig } from './src/types'
 
-const config: BuddyBotOptions = {
-  verbose: false,
+const config: BuddyBotConfig = {
+  verbose: true,
+  packages: {
+    strategy: 'all',
+    ignore: ['@types/bun'] // Example ignore
+  }
 }
 
 export default config

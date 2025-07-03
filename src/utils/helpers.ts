@@ -1,3 +1,4 @@
+import { semver } from 'bun'
 import type { PackageFile, PackageUpdate, UpdateGroup, Dependency } from '../types'
 
 /**
@@ -236,7 +237,7 @@ export function sortUpdatesByPriority(updates: PackageUpdate[]): PackageUpdate[]
 }
 
 /**
- * Parse version string and determine update type
+ * Parse version string and determine update type using Bun's semver
  */
 export function getUpdateType(currentVersion: string, newVersion: string): 'major' | 'minor' | 'patch' {
   // Remove any prefixes like ^, ~, >=, etc.

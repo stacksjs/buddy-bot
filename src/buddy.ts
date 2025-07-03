@@ -1,5 +1,5 @@
 import type {
-  BuddyConfig,
+  BuddyBotConfig,
   UpdateScanResult,
   PackageUpdate,
   UpdateGroup,
@@ -16,7 +16,7 @@ export class Buddy {
   private readonly registryClient: RegistryClient
 
   constructor(
-    private readonly config: BuddyConfig,
+    private readonly config: BuddyBotConfig,
     private readonly projectPath: string = process.cwd()
   ) {
     this.logger = new Logger(false) // Will be configurable
@@ -222,7 +222,7 @@ export class Buddy {
   /**
    * Get configuration summary
    */
-  getConfig(): BuddyConfig {
+  getConfig(): BuddyBotConfig {
     return this.config
   }
 

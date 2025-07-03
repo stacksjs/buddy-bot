@@ -50,6 +50,9 @@
   "bin": {
     "buddy-bot": "./dist/bin/cli.js"
   },
+  "dependencies": {
+    "bunfig": "^0.10.0"
+  },
   "devDependencies": {
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
@@ -65,8 +68,5 @@
   },
   "lint-staged": {
     "*.{js,ts}": "bunx eslint . --fix"
-  },
-  "dependencies": {
-    "bunfig": "^0.10.0"
   }
 }

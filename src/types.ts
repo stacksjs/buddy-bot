@@ -1,7 +1,10 @@
 // Core configuration types
 export interface BuddyBotConfig {
+  /** Enable verbose logging */
+  verbose?: boolean
+
   /** Repository settings */
-  repository: {
+  repository?: {
     /** Git provider (github, gitlab, etc.) */
     provider: 'github' | 'gitlab' | 'bitbucket'
     /** Repository owner/organization */
@@ -54,8 +57,7 @@ export interface BuddyBotConfig {
     labels?: string[]
   }
 
-  /** Verbosity */
-  verbose?: boolean
+
 }
 
 export type BuddyBotOptions = Partial<BuddyBotConfig>
