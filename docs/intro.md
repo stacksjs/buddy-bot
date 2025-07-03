@@ -154,14 +154,15 @@ Buddy-bot is built with modern tools and best practices:
 
 ## Comparison
 
-| Feature | Buddy-bot | Renovate | Dependabot |
-|---------|-----------|----------|------------|
-| **Speed** | ⚡ Bun-powered | Moderate | Moderate |
-| **PR Quality** | 🏆 Professional | Good | Basic |
-| **Customization** | 🎨 Extensive | Good | Limited |
-| **Team Features** | 👥 Advanced | Basic | Basic |
-| **Scheduling** | 📅 Flexible | Good | Limited |
-| **Rebasing** | 🔄 Interactive | Manual | Automatic |
+| Feature | Buddy | Dependabot | Renovate |
+|---------|-------|------------|----------|
+| **Speed** | ⚡ Bun-native | 🐌 Slower | 🐌 Slower |
+| **Package Managers** | Bun, npm, yarn, pnpm, Launchpad, pkgx | Limited | Limited |
+| **Configuration** | TypeScript, YAML, JSON/JS, package.json | YAML | JSON/JS |
+| **Grouping** | ✅ Flexible | ✅ Basic | ✅ Advanced |
+| **Zero Config** | ✅ Yes | ✅ Yes | ❌ Complex |
+| **Self-hosted** | ✅ Yes | ❌ GitHub only | ✅ Yes |
+
 
 ## Contributing
 
