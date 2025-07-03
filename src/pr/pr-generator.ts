@@ -28,6 +28,7 @@ export class PullRequestGenerator {
         updatedAt: new Date(),
         author: 'buddy-bot',
         reviewers: [],
+        assignees: [],
         labels: ['dependencies', 'automated'],
         draft: false,
       }

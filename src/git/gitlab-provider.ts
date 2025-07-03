@@ -33,6 +33,7 @@ export class GitLabProvider implements GitProvider {
       updatedAt: new Date(),
       author: 'buddy',
       reviewers: options.reviewers || [],
+      assignees: options.assignees || [],
       labels: options.labels || [],
       draft: options.draft || false,
     }
