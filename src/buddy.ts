@@ -4,14 +4,14 @@ import type {
   UpdateGroup,
   UpdateScanResult,
 } from './types'
+import fs from 'node:fs'
 import process from 'node:process'
+import { GitHubProvider } from './git/github-provider'
+import { PullRequestGenerator } from './pr/pr-generator'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger } from './utils/logger'
-import { GitHubProvider } from './git/github-provider'
-import { PullRequestGenerator } from './pr/pr-generator'
-import fs from 'node:fs'
 
 export class Buddy {
   private readonly logger: Logger
@@ -178,15 +178,17 @@ export class Buddy {
       // Find which dependency type this package belongs to
       if (packageJson.dependencies && packageJson.dependencies[update.name]) {
         packageJson.dependencies[update.name] = `^${update.newVersion}`
-      } else if (packageJson.devDependencies && packageJson.devDependencies[update.name]) {
+      }
+      else if (packageJson.devDependencies && packageJson.devDependencies[update.name]) {
         packageJson.devDependencies[update.name] = `^${update.newVersion}`
-      } else if (packageJson.peerDependencies && packageJson.peerDependencies[update.name]) {
+      }
+      else if (packageJson.peerDependencies && packageJson.peerDependencies[update.name]) {
         packageJson.peerDependencies[update.name] = `^${update.newVersion}`
       }
     }
 
     // Generate new package.json content
-    const newContent = JSON.stringify(packageJson, null, 2) + '\n'
+    const newContent = `${JSON.stringify(packageJson, null, 2)}\n`
 
     return [{
       path: packageJsonPath,

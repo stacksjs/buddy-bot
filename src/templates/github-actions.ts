@@ -16,7 +16,7 @@ export interface WorkflowConfig {
 
 export class GitHubActionsTemplate {
   /**
-   * Generate a complete GitHub Actions workflow for dependency updates
+   * Generate GitHub Actions workflow
    */
   static generateWorkflow(config: WorkflowConfig): string {
     const workflow = `name: ${config.name}
@@ -45,12 +45,17 @@ on:
 env:
   GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  checks: read
+  statuses: read
+
 jobs:
   dependency-updates:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -66,15 +71,18 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build buddy-bot
+        run: bun run build
+
       - name: Run Buddy dependency updates
         run: |
           STRATEGY="\${{ github.event.inputs.strategy || '${config.strategy || 'all'}' }}"
           DRY_RUN="\${{ github.event.inputs.dry_run || 'false' }}"
 
           if [ "\$DRY_RUN" = "true" ]; then
-            bunx buddy-bot update --strategy "\$STRATEGY" --dry-run --verbose
+            ./buddy update --strategy "\$STRATEGY" --dry-run --verbose
           else
-            bunx buddy-bot update --strategy "\$STRATEGY" --verbose
+            ./buddy update --strategy "\$STRATEGY" --verbose
           fi
 
       - name: Auto-merge updates
@@ -192,6 +200,14 @@ on:
 env:
   GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  checks: read
+  statuses: read
+
 jobs:
   determine-strategy:
     runs-on: ubuntu-latest
@@ -217,117 +233,67 @@ jobs:
           fi
 
   dependency-updates:
-    needs: determine-strategy
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+    needs: determine-strategy
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: \${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: \${{ runner.os }}-bun-\${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            \${{ runner.os }}-bun-
-
       - name: Install dependencies
         run: bun install
 
-      - name: Configure Git
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+      - name: Build buddy-bot
+        run: bun run build
 
-      - name: Run Buddy dependency scan
-        id: scan
+      - name: Scan for updates
         run: |
           STRATEGY="\${{ needs.determine-strategy.outputs.strategy }}"
+          PACKAGES="\${{ github.event.inputs.packages || '' }}"
 
-          if [ "\${{ github.event.inputs.packages }}" != "" ]; then
-            echo "Checking specific packages: \${{ github.event.inputs.packages }}"
-            bunx buddy-bot scan --packages "\${{ github.event.inputs.packages }}" --verbose
+          if [ "\$PACKAGES" != "" ]; then
+            ./buddy scan --packages "\$PACKAGES" --verbose
           else
-            echo "Running \$STRATEGY dependency scan..."
-            bunx buddy-bot scan --strategy "\$STRATEGY" --verbose
+            ./buddy scan --strategy "\$STRATEGY" --verbose
           fi
 
-      - name: Update dependencies
-        if: \${{ !github.event.inputs.dry_run }}
+      - name: Apply updates
+        if: \${{ github.event.inputs.dry_run != 'true' }}
         run: |
           STRATEGY="\${{ needs.determine-strategy.outputs.strategy }}"
+          PACKAGES="\${{ github.event.inputs.packages || '' }}"
 
-          if [ "\${{ github.event.inputs.packages }}" != "" ]; then
-            bunx buddy-bot update --packages "\${{ github.event.inputs.packages }}" --verbose
+          if [ "\$PACKAGES" != "" ]; then
+            ./buddy update --packages "\$PACKAGES" --verbose
           else
-            bunx buddy-bot update --strategy "\$STRATEGY" --verbose
+            ./buddy update --strategy "\$STRATEGY" --verbose
           fi
 
-      - name: Auto-merge safe updates
-        if: \${{ needs.determine-strategy.outputs.auto_merge == 'true' && !github.event.inputs.dry_run }}
+      - name: Dry run mode
+        if: \${{ github.event.inputs.dry_run == 'true' }}
         run: |
-          echo "Auto-merging patch updates..."
-          # Auto-merge logic for patch updates
-          # This would be implemented when Git providers are fully integrated
+          echo "🔍 Dry run mode - showing what would be updated"
+          STRATEGY="\${{ needs.determine-strategy.outputs.strategy }}"
+          PACKAGES="\${{ github.event.inputs.packages || '' }}"
 
-      - name: Create summary
-        if: always()
-        run: |
-          echo "## 🤖 Buddy Dependency Update Summary" >> \$GITHUB_STEP_SUMMARY
-          echo "" >> \$GITHUB_STEP_SUMMARY
-          echo "- **Strategy**: \${{ needs.determine-strategy.outputs.strategy }}" >> \$GITHUB_STEP_SUMMARY
-          echo "- **Triggered by**: \${{ github.event_name }}" >> \$GITHUB_STEP_SUMMARY
-          echo "- **Auto-merge**: \${{ needs.determine-strategy.outputs.auto_merge }}" >> \$GITHUB_STEP_SUMMARY
-
-          if [ "\${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "- **Mode**: Dry run (preview only)" >> \$GITHUB_STEP_SUMMARY
+          if [ "\$PACKAGES" != "" ]; then
+            ./buddy update --packages "\$PACKAGES" --dry-run --verbose
+          else
+            ./buddy update --strategy "\$STRATEGY" --dry-run --verbose
           fi
 
-          echo "" >> \$GITHUB_STEP_SUMMARY
-          echo "View the [workflow run](\${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }}) for detailed logs." >> \$GITHUB_STEP_SUMMARY
-
-  notify-on-failure:
-    needs: [determine-strategy, dependency-updates]
-    runs-on: ubuntu-latest
-    if: failure()
-    steps:
-      - name: Create issue on failure
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = 'Buddy Dependency Update Failed';
-            const body = \`## 🚨 Dependency Update Failure
-
-            The automated dependency update process failed.
-
-            **Details:**
-            - Strategy: \${{ needs.determine-strategy.outputs.strategy }}
-            - Workflow: [\${{ github.run_id }}](\${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }})
-            - Triggered by: \${{ github.event_name }}
-
-            Please review the workflow logs and resolve any issues.
-            \`;
-
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['bug', 'dependencies', 'automation']
-            });
+      - name: Auto-merge eligible updates
+        if: \${{ needs.determine-strategy.outputs.auto_merge == 'true' && github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "🤖 Auto-merge enabled for patch updates"
+          echo "This feature will be implemented in future versions"
 `
   }
 
@@ -458,13 +424,17 @@ on:
 env:
   GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  checks: read
+  statuses: read
+
 jobs:
   test-dependency-updates:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
 
     steps:
       - name: Checkout repository
@@ -479,6 +449,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Build buddy-bot
+        run: bun run build
 
       - name: Display test configuration
         run: |
@@ -501,15 +474,15 @@ jobs:
 
           if [ "\$PACKAGES" != "" ]; then
             if [ "\$VERBOSE" = "true" ]; then
-              bunx buddy-bot scan --packages "\$PACKAGES" --verbose
+              ./buddy scan --packages "\$PACKAGES" --verbose
             else
-              bunx buddy-bot scan --packages "\$PACKAGES"
+              ./buddy scan --packages "\$PACKAGES"
             fi
           else
             if [ "\$VERBOSE" = "true" ]; then
-              bunx buddy-bot scan --strategy "\$STRATEGY" --verbose
+              ./buddy scan --strategy "\$STRATEGY" --verbose
             else
-              bunx buddy-bot scan --strategy "\$STRATEGY"
+              ./buddy scan --strategy "\$STRATEGY"
             fi
           fi
 
@@ -524,15 +497,15 @@ jobs:
 
           if [ "\$PACKAGES" != "" ]; then
             if [ "\$VERBOSE" = "true" ]; then
-              bunx buddy-bot update --packages "\$PACKAGES" --verbose
+              ./buddy update --packages "\$PACKAGES" --verbose
             else
-              bunx buddy-bot update --packages "\$PACKAGES"
+              ./buddy update --packages "\$PACKAGES"
             fi
           else
             if [ "\$VERBOSE" = "true" ]; then
-              bunx buddy-bot update --strategy "\$STRATEGY" --verbose
+              ./buddy update --strategy "\$STRATEGY" --verbose
             else
-              bunx buddy-bot update --strategy "\$STRATEGY"
+              ./buddy update --strategy "\$STRATEGY"
             fi
           fi
 

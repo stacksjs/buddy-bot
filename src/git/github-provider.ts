@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
+import { Buffer } from 'node:buffer'
 
 export class GitHubProvider implements GitProvider {
   private readonly apiUrl = 'https://api.github.com'
@@ -50,7 +51,8 @@ export class GitHubProvider implements GitProvider {
             type: 'blob',
             sha: null,
           })
-        } else {
+        }
+        else {
           // Create blob for file content
           const blob = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/git/blobs`, {
             content: Buffer.from(file.content).toString('base64'),
@@ -180,10 +182,14 @@ export class GitHubProvider implements GitProvider {
   async updatePullRequest(prNumber: number, options: Partial<PullRequestOptions>): Promise<PullRequest> {
     try {
       const updateData: any = {}
-      if (options.title) updateData.title = options.title
-      if (options.body) updateData.body = options.body
-      if (options.base) updateData.base = options.base
-      if (options.draft !== undefined) updateData.draft = options.draft
+      if (options.title)
+        updateData.title = options.title
+      if (options.body)
+        updateData.body = options.body
+      if (options.base)
+        updateData.base = options.base
+      if (options.draft !== undefined)
+        updateData.draft = options.draft
 
       const response = await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, updateData)
 
