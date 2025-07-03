@@ -10,13 +10,13 @@
 
 > Automated dependency updates for the JavaScript and TypeScript ecosystem.
 
-A modern, fast alternative to Dependabot and Renovate built for the Bun ecosystem. Buddy automatically scans your projects for outdated dependencies and creates well-formatted pull requests with detailed changelogs and metadata.
+A modern, fast alternative to Dependabot and Renovate built for the JavaScript and TypeScript ecosystem. Buddy automatically scans your projects for outdated dependencies and creates well-formatted pull requests with detailed changelogs and metadata.
 
 ## Features
 
-- 🚀 **Lightning Fast**: Built on Bun with 20x faster semver operations
+- 🚀 **Lightning Fast**: Built with Bun & performance in mind
 - 🎯 **Smart Updates**: Configurable update strategies (major, minor, patch, all)
-- 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, and pnpm
+- 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, and pkgx
 - 🔍 **Intelligent Scanning**: Uses `bun outdated` for accurate dependency detection
 - 📋 **Flexible Grouping**: Group related packages for cleaner PRs
 - 🎨 **Rich PR Format**: Detailed changelogs, release notes, and metadata
@@ -209,23 +209,23 @@ const config: BuddyBotConfig = {
 
 ### Auto-Merge Strategies
 
-- **`squash`**: Squash commits and merge (recommended for clean history)
-- **`merge`**: Create a merge commit (preserves individual commits)
-- **`rebase`**: Rebase and merge (linear history without merge commits)
+- **`squash`**: Squash commits and merge _(recommended for clean history)_
+- **`merge`**: Create a merge commit _(preserves individual commits)_
+- **`rebase`**: Rebase and merge _(linear history without merge commits)_
 
 ### Auto-Merge Conditions
 
-- **`patch-only`**: Only auto-merge patch version updates (safest)
-- **No conditions**: Auto-merge all updates (use with caution)
+- **`patch-only`**: Only auto-merge patch version updates _(safest)_
+- **No conditions**: Auto-merge all updates _(use with caution)_
 
 ### Workflow-Specific Auto-Merge
 
 Each preset configures auto-merge appropriately:
 
-- **High Frequency Updates**: Auto-merge patch updates only (6AM, 12PM, 6PM), manual review for minor updates (12AM)
+- **High Frequency Updates**: Auto-merge patch updates only _(6AM, 12PM, 6PM)_, manual review for minor updates _(12AM)_
 - **Security Focused**: Auto-merge security patches every 6 hours
 - **Standard Project**: Auto-merge daily patches, manual review for weekly/monthly updates
-- **Development/Testing**: No auto-merge, dry-run by default, enhanced testing features
+- **Development/Testing**: No auto-merge, dry-run by default, enhanced testing features.
 
 ## Development & Testing
 
