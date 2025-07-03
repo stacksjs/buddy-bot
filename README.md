@@ -17,7 +17,7 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 ## Features
 
 - 🚀 **Lightning Fast**: Built with Bun & performance in mind
-- 🎯 **Smart Updates**: Configurable update strategies (major, minor, patch, all)
+- 🎯 **Smart Updates**: Configurable update strategies _(major, minor, patch, all)_
 - 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, and pkgx
 - 🔍 **Intelligent Scanning**: Uses `bun outdated` for accurate dependency detection
 - 📋 **Flexible Grouping**: Group related packages for cleaner PRs
