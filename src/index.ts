@@ -1,8 +1,6 @@
 // Main Buddy class
 export { Buddy } from './buddy'
 
-// CLI exports
-export { createCLI } from './cli/cli'
 export { GitHubProvider } from './git/github-provider'
 export { GitLabProvider } from './git/gitlab-provider'
 export { PullRequestGenerator } from './pr/pr-generator'

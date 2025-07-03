@@ -51,7 +51,10 @@
     "preview:docs": "bun --bun vitepress preview docs"
   },
   "dependencies": {
-    "bunfig": "^0.10.1"
+    "@types/prompts": "^2.4.9",
+    "bunfig": "^0.10.1",
+    "cac": "^6.7.14",
+    "prompts": "^2.4.2"
   },
   "devDependencies": {
     "@stacksjs/docs": "^0.70.23",
