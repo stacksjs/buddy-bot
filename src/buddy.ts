@@ -1,6 +1,5 @@
 import type {
   BuddyBotConfig,
-  Logger as ILogger,
   PackageUpdate,
   UpdateGroup,
   UpdateScanResult,
@@ -12,7 +11,7 @@ import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger } from './utils/logger'
 
 export class Buddy {
-  private readonly logger: ILogger
+  private readonly logger: Logger
   private readonly scanner: PackageScanner
   private readonly registryClient: RegistryClient
 
