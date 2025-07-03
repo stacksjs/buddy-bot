@@ -1,6 +1,49 @@
 # Changelog
 
 
+## v0.0.3...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.0.3...main)
+
+### 🚀 Enhancements
+
+- Add GitHub CLI fallback for PR creation ([72411a4](https://github.com/stacksjs/buddy-bot/commit/72411a4))
+- Add GitHub Actions permissions documentation and open-settings command ([e2a518b](https://github.com/stacksjs/buddy-bot/commit/e2a518b))
+- Implement dynamic PR labeling system ([f3a2625](https://github.com/stacksjs/buddy-bot/commit/f3a2625))
+- Adopt Renovate-style release notes summary format ([d8d81c4](https://github.com/stacksjs/buddy-bot/commit/d8d81c4))
+- Implement Renovate-style package table format ([f3f1c4a](https://github.com/stacksjs/buddy-bot/commit/f3f1c4a))
+
+### 🩹 Fixes
+
+- Update config to avoid GitHub CLI/API issues ([d396a70](https://github.com/stacksjs/buddy-bot/commit/d396a70))
+- Prevent duplicate PR creation in testing workflow ([a296fe1](https://github.com/stacksjs/buddy-bot/commit/a296fe1))
+- Clean up release notes summary duplication ([e9fd53b](https://github.com/stacksjs/buddy-bot/commit/e9fd53b))
+
+### 🏡 Chore
+
+- Wip ([8011990](https://github.com/stacksjs/buddy-bot/commit/8011990))
+- Wip ([8a108dd](https://github.com/stacksjs/buddy-bot/commit/8a108dd))
+- Wip ([0eb1a97](https://github.com/stacksjs/buddy-bot/commit/0eb1a97))
+- Wip ([da38242](https://github.com/stacksjs/buddy-bot/commit/da38242))
+- Wip ([28e96d1](https://github.com/stacksjs/buddy-bot/commit/28e96d1))
+- Wip ([8dbc32c](https://github.com/stacksjs/buddy-bot/commit/8dbc32c))
+- Wip ([b7d1476](https://github.com/stacksjs/buddy-bot/commit/b7d1476))
+- Wip ([8990d50](https://github.com/stacksjs/buddy-bot/commit/8990d50))
+- Wip ([52cbb71](https://github.com/stacksjs/buddy-bot/commit/52cbb71))
+- Wip ([5568baf](https://github.com/stacksjs/buddy-bot/commit/5568baf))
+- Wip ([f45dc4a](https://github.com/stacksjs/buddy-bot/commit/f45dc4a))
+- Wip ([32dbaa9](https://github.com/stacksjs/buddy-bot/commit/32dbaa9))
+- Wip ([de64e21](https://github.com/stacksjs/buddy-bot/commit/de64e21))
+- Wip ([371bbb9](https://github.com/stacksjs/buddy-bot/commit/371bbb9))
+- Wip ([3956568](https://github.com/stacksjs/buddy-bot/commit/3956568))
+- Wip ([53081e0](https://github.com/stacksjs/buddy-bot/commit/53081e0))
+- Wip ([1486a81](https://github.com/stacksjs/buddy-bot/commit/1486a81))
+- Wip ([23fc1c6](https://github.com/stacksjs/buddy-bot/commit/23fc1c6))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.0.2...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.0.2...main)
