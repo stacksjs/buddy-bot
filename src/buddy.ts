@@ -128,9 +128,10 @@ export class Buddy {
           const branchPattern = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-`
 
           const existingPR = existingPRs.find(pr =>
-            pr.title === prTitle ||
-            pr.head.startsWith(branchPattern) ||
-            this.isSimilarPRTitle(pr.title, prTitle)
+            (pr.title === prTitle ||
+             pr.head.startsWith(branchPattern) ||
+             this.isSimilarPRTitle(pr.title, prTitle)) &&
+            (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/'))
           )
 
           if (existingPR) {
