@@ -27,10 +27,10 @@ A modern, fast alternative to Dependabot and Renovate built for the Bun ecosyste
 
 ```bash
 # Install globally
-bun add -g @stacksjs/buddy
+bun add -g buddy-bot
 
 # Or run directly
-bunx @stacksjs/buddy scan
+bunx buddy-bot scan
 ```
 
 ## Usage
@@ -67,7 +67,7 @@ buddy help
 Create a `buddy-bot.config.ts` file in your project root:
 
 ```typescript
-import type { BuddyBotConfig } from '@stacksjs/buddy'
+import type { BuddyBotConfig } from 'buddy-bot'
 
 const config: BuddyBotConfig = {
   verbose: false,
@@ -122,7 +122,7 @@ export default config
 ### Programmatic Usage
 
 ```typescript
-import { Buddy, ConfigManager } from '@stacksjs/buddy'
+import { Buddy, ConfigManager } from 'buddy-bot'
 
 // Load configuration
 const config = await ConfigManager.loadConfig()
@@ -271,7 +271,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install
-      - run: bunx @stacksjs/buddy update --strategy patch --verbose
+      - run: bunx buddy-bot update --strategy patch --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -356,8 +356,8 @@ The MIT License (MIT). Please see [LICENSE](https://github.com/stacksjs/stacks/t
 Made with 💙
 
 <!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/@stacksjs/buddy?style=flat-square
-[npm-version-href]: https://npmjs.com/package/@stacksjs/buddy
+[npm-version-src]: https://img.shields.io/npm/v/buddy-bot?style=flat-square
+[npm-version-href]: https://npmjs.com/package/buddy-bot
 [github-actions-src]: https://img.shields.io/github/actions/workflow/status/stacksjs/buddy/ci.yml?style=flat-square&branch=main
 [github-actions-href]: https://github.com/stacksjs/buddy/actions?query=workflow%3Aci
 

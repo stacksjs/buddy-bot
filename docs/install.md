@@ -9,36 +9,36 @@ Choose your package manager of choice:
 ::: code-group
 
 ```sh [npm]
-npm install --save-dev @stacksjs/buddy
-# npm i -d @stacksjs/buddy
+npm install --save-dev buddy-bot
+# npm i -d buddy-bot
 
 # or, install globally via
-npm i -g @stacksjs/buddy
+npm i -g buddy-bot
 ```
 
 ```sh [bun]
-bun install --dev @stacksjs/buddy
-# bun add --dev @stacksjs/buddy
-# bun i -d @stacksjs/buddy
+bun install --dev buddy-bot
+# bun add --dev buddy-bot
+# bun i -d buddy-bot
 
 # or, install globally via
-bun add --global @stacksjs/buddy
+bun add --global buddy-bot
 ```
 
 ```sh [pnpm]
-pnpm add --save-dev @stacksjs/buddy
-# pnpm i -d @stacksjs/buddy
+pnpm add --save-dev buddy-bot
+# pnpm i -d buddy-bot
 
 # or, install globally via
-pnpm add --global @stacksjs/buddy
+pnpm add --global buddy-bot
 ```
 
 ```sh [yarn]
-yarn add --dev @stacksjs/buddy
-# yarn i -d @stacksjs/buddy
+yarn add --dev buddy-bot
+# yarn i -d buddy-bot
 
 # or, install globally via
-yarn global add @stacksjs/buddy
+yarn global add buddy-bot
 ```
 
 ```sh [brew]

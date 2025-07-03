@@ -1,7 +1,7 @@
 import type { BuddyBotConfig } from '../types'
 import process from 'node:process'
 import { Buddy } from '../buddy'
-import { ConfigManager } from '../config/config-manager'
+import { config } from '../config'
 import { Logger } from '../utils/logger'
 
 export interface CLIOptions {
@@ -40,20 +40,19 @@ export async function scanCommand(options: CLIOptions = {}): Promise<void> {
 
   try {
     logger.info('Loading configuration...')
-    const baseConfig = await ConfigManager.loadConfig()
 
     // Override config with CLI options
-    const config: BuddyBotConfig = {
-      ...baseConfig,
-      verbose: options.verbose ?? baseConfig.verbose,
+    const finalConfig: BuddyBotConfig = {
+      ...config,
+      verbose: options.verbose ?? config.verbose,
       packages: {
-        ...baseConfig.packages,
-        strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
-        ignore: options.ignore ?? baseConfig.packages?.ignore,
+        ...config.packages,
+        strategy: options.strategy ?? config.packages?.strategy ?? 'all',
+        ignore: options.ignore ?? config.packages?.ignore,
       },
     }
 
-    const buddy = new Buddy(config)
+    const buddy = new Buddy(finalConfig)
 
     if (options.packages?.length) {
       logger.info(`Checking specific packages: ${options.packages.join(', ')}`)
@@ -148,18 +147,17 @@ export async function updateCommand(options: CLIOptions = {}): Promise<void> {
   try {
     logger.info('Starting dependency update process...')
 
-    const baseConfig = await ConfigManager.loadConfig()
-    const config: BuddyBotConfig = {
-      ...baseConfig,
-      verbose: options.verbose ?? baseConfig.verbose,
+    const finalConfig: BuddyBotConfig = {
+      ...config,
+      verbose: options.verbose ?? config.verbose,
       packages: {
-        ...baseConfig.packages,
-        strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
-        ignore: options.ignore ?? baseConfig.packages?.ignore,
+        ...config.packages,
+        strategy: options.strategy ?? config.packages?.strategy ?? 'all',
+        ignore: options.ignore ?? config.packages?.ignore,
       },
     }
 
-    const buddy = new Buddy(config)
+    const buddy = new Buddy(finalConfig)
     const scanResult = await buddy.scanForUpdates()
 
     if (scanResult.updates.length === 0) {
@@ -210,19 +208,18 @@ export async function scheduleCommand(options: CLIOptions = {}): Promise<void> {
   try {
     logger.info('🕒 Starting Buddy Scheduler...')
 
-    const baseConfig = await ConfigManager.loadConfig()
-    const config: BuddyBotConfig = {
-      ...baseConfig,
-      verbose: options.verbose ?? baseConfig.verbose,
+    const finalConfig: BuddyBotConfig = {
+      ...config,
+      verbose: options.verbose ?? config.verbose,
       packages: {
-        ...baseConfig.packages,
-        strategy: options.strategy ?? baseConfig.packages?.strategy ?? 'all',
-        ignore: options.ignore ?? baseConfig.packages?.ignore,
+        ...config.packages,
+        strategy: options.strategy ?? config.packages?.strategy ?? 'all',
+        ignore: options.ignore ?? config.packages?.ignore,
       },
     }
 
     // Validate that repository is configured for scheduling
-    if (!config.repository?.provider || !config.repository?.owner || !config.repository?.name) {
+    if (!finalConfig.repository?.provider || !finalConfig.repository?.owner || !finalConfig.repository?.name) {
       logger.error('❌ Repository configuration required for scheduling. Please configure:')
       logger.info('  - repository.provider (github, gitlab, etc.)')
       logger.info('  - repository.owner')
@@ -232,7 +229,7 @@ export async function scheduleCommand(options: CLIOptions = {}): Promise<void> {
     }
 
     const scheduler = new Scheduler(options.verbose)
-    const job = Scheduler.createJobFromConfig(config, 'cli-schedule')
+    const job = Scheduler.createJobFromConfig(finalConfig, 'cli-schedule')
 
     // Override cron if provided
     if (options.strategy) {
@@ -277,7 +274,14 @@ export async function generateWorkflowsCommand(options: CLIOptions = {}): Promis
   const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
   try {
-    const outputDir = resolve(process.cwd(), '.github', 'workflows')
+    const finalConfig: BuddyBotConfig = {
+      ...config,
+      verbose: options.verbose ?? config.verbose,
+    }
+
+    const outputDir = finalConfig.workflows?.outputDir
+      ? resolve(process.cwd(), finalConfig.workflows.outputDir)
+      : resolve(process.cwd(), '.github', 'workflows')
 
     logger.info('🚀 Generating GitHub Actions workflow templates...')
 
@@ -289,30 +293,79 @@ export async function generateWorkflowsCommand(options: CLIOptions = {}): Promis
       // Directory already exists
     }
 
-    // Generate workflows
-    const workflows = GitHubActionsTemplate.generateScheduledWorkflows()
+    // Generate workflows based on configuration
+    const templates = finalConfig.workflows?.templates || {
+      comprehensive: true,
+      daily: true,
+      weekly: true,
+      monthly: true,
+      docker: true,
+      monorepo: true,
+    }
 
-    for (const [filename, content] of Object.entries(workflows)) {
-      const filepath = resolve(outputDir, filename)
-      writeFileSync(filepath, content)
-      logger.success(`Generated: ${filename}`)
+    let generatedCount = 0
+
+    // Generate standard scheduled workflows
+    if (templates.daily || templates.weekly || templates.monthly) {
+      const workflows = GitHubActionsTemplate.generateScheduledWorkflows(finalConfig)
+
+      for (const [filename, content] of Object.entries(workflows)) {
+        const shouldGenerate = (
+          (filename.includes('daily') && templates.daily) ||
+          (filename.includes('weekly') && templates.weekly) ||
+          (filename.includes('monthly') && templates.monthly)
+        )
+
+        if (shouldGenerate) {
+          const filepath = resolve(outputDir, filename)
+          writeFileSync(filepath, content)
+          logger.success(`Generated: ${filename}`)
+          generatedCount++
+        }
+      }
     }
 
     // Generate comprehensive workflow
-    const comprehensiveWorkflow = GitHubActionsTemplate.generateComprehensiveWorkflow()
-    writeFileSync(resolve(outputDir, 'buddy-comprehensive.yml'), comprehensiveWorkflow)
-    logger.success('Generated: buddy-comprehensive.yml')
+    if (templates.comprehensive) {
+      const comprehensiveWorkflow = GitHubActionsTemplate.generateComprehensiveWorkflow(finalConfig)
+      writeFileSync(resolve(outputDir, 'buddy-comprehensive.yml'), comprehensiveWorkflow)
+      logger.success('Generated: buddy-comprehensive.yml')
+      generatedCount++
+    }
 
     // Generate specialized workflows
-    const dockerWorkflow = GitHubActionsTemplate.generateDockerWorkflow()
-    writeFileSync(resolve(outputDir, 'buddy-docker.yml'), dockerWorkflow)
-    logger.success('Generated: buddy-docker.yml')
+    if (templates.docker) {
+      const dockerWorkflow = GitHubActionsTemplate.generateDockerWorkflow(finalConfig)
+      writeFileSync(resolve(outputDir, 'buddy-docker.yml'), dockerWorkflow)
+      logger.success('Generated: buddy-docker.yml')
+      generatedCount++
+    }
 
-    const monorepoWorkflow = GitHubActionsTemplate.generateMonorepoWorkflow()
-    writeFileSync(resolve(outputDir, 'buddy-monorepo.yml'), monorepoWorkflow)
-    logger.success('Generated: buddy-monorepo.yml')
+    if (templates.monorepo) {
+      const monorepoWorkflow = GitHubActionsTemplate.generateMonorepoWorkflow(finalConfig)
+      writeFileSync(resolve(outputDir, 'buddy-monorepo.yml'), monorepoWorkflow)
+      logger.success('Generated: buddy-monorepo.yml')
+      generatedCount++
+    }
 
-    logger.success(`\n🎉 GitHub Actions workflows generated!`)
+    // Generate custom workflows
+    if (finalConfig.workflows?.custom?.length) {
+      for (const customWorkflow of finalConfig.workflows.custom) {
+        const workflowContent = GitHubActionsTemplate.generateCustomWorkflow(customWorkflow, finalConfig)
+        const filename = `buddy-${customWorkflow.name.toLowerCase().replace(/\s+/g, '-')}.yml`
+        writeFileSync(resolve(outputDir, filename), workflowContent)
+        logger.success(`Generated: ${filename}`)
+        generatedCount++
+      }
+    }
+
+    if (generatedCount === 0) {
+      logger.warn('No workflows were generated. Check your configuration in buddy-bot.config.ts')
+      logger.info('Set workflows.templates to enable specific templates or add custom workflows.')
+      return
+    }
+
+    logger.success(`\n🎉 ${generatedCount} GitHub Actions workflow(s) generated!`)
     logger.info(`📁 Location: ${outputDir}`)
     logger.info('\n💡 Next steps:')
     logger.info('  1. Review and customize the workflows for your project')
@@ -370,7 +423,7 @@ EXAMPLES:
 CONFIGURATION:
   Create a buddy-bot.config.ts file in your project root:
 
-  import type { BuddyBotConfig } from '@stacksjs/buddy'
+  import type { BuddyBotConfig } from 'buddy-bot'
 
   const config: BuddyBotConfig = {
     verbose: false,
@@ -391,7 +444,27 @@ CONFIGURATION:
     },
     pullRequest: {
       reviewers: ['maintainer'],
-      labels: ['dependencies']
+      labels: ['dependencies'],
+      autoMerge: {
+        enabled: true,
+        strategy: 'squash',
+        conditions: ['patch-only']
+      }
+    },
+    workflows: {
+      enabled: true,
+      templates: {
+        comprehensive: true,
+        daily: true,
+        weekly: false,
+        monthly: false
+      },
+      custom: [{
+        name: 'Security Updates',
+        schedule: '0 6 * * *',
+        strategy: 'patch',
+        autoMerge: true
+      }]
     }
   }
 

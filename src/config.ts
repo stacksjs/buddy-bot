@@ -1,6 +1,5 @@
 import type { BuddyBotConfig } from './types'
 import { resolve } from 'node:path'
-// @ts-expect-error this is a known bunfig issue
 import { loadConfig } from 'bunfig'
 
 export const defaultConfig: BuddyBotConfig = {

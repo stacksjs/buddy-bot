@@ -1,3 +1,5 @@
+import type { BuddyBotConfig } from '../types'
+
 export interface WorkflowConfig {
   name: string
   schedule: string
@@ -66,9 +68,9 @@ jobs:
           DRY_RUN="\${{ github.event.inputs.dry_run || 'false' }}"
 
           if [ "\$DRY_RUN" = "true" ]; then
-            bunx @stacksjs/buddy update --strategy "\$STRATEGY" --dry-run --verbose
+            bunx buddy-bot update --strategy "\$STRATEGY" --dry-run --verbose
           else
-            bunx @stacksjs/buddy update --strategy "\$STRATEGY" --verbose
+            bunx buddy-bot update --strategy "\$STRATEGY" --verbose
           fi
 
       - name: Auto-merge patch updates
@@ -84,20 +86,28 @@ jobs:
   /**
    * Generate workflow for different scheduling strategies
    */
-  static generateScheduledWorkflows(): Record<string, string> {
+  static generateScheduledWorkflows(config?: BuddyBotConfig): Record<string, string> {
+    const defaultAutoMerge = config?.pullRequest?.autoMerge?.enabled ?? false
+    const reviewers = config?.pullRequest?.reviewers || []
+    const labels = config?.pullRequest?.labels || []
+
     return {
       'dependency-updates-daily.yml': this.generateWorkflow({
         name: 'Daily Dependency Updates',
-        schedule: '0 2 * * *', // 2 AM daily
+        schedule: config?.schedule?.cron || '0 2 * * *', // 2 AM daily
         strategy: 'patch',
         autoMerge: true,
+        reviewers,
+        labels,
       }),
 
       'dependency-updates-weekly.yml': this.generateWorkflow({
         name: 'Weekly Dependency Updates',
         schedule: '0 2 * * 1', // 2 AM Monday
         strategy: 'minor',
-        autoMerge: false,
+        autoMerge: defaultAutoMerge,
+        reviewers,
+        labels,
       }),
 
       'dependency-updates-monthly.yml': this.generateWorkflow({
@@ -105,6 +115,8 @@ jobs:
         schedule: '0 2 1 * *', // 2 AM first of month
         strategy: 'major',
         autoMerge: false,
+        reviewers,
+        labels,
       }),
     }
   }
@@ -112,7 +124,7 @@ jobs:
   /**
    * Generate comprehensive workflow with multiple strategies
    */
-  static generateComprehensiveWorkflow(): string {
+  static generateComprehensiveWorkflow(config?: BuddyBotConfig): string {
     return `name: Buddy Dependency Updates
 
 on:
@@ -216,10 +228,10 @@ jobs:
 
           if [ "\${{ github.event.inputs.packages }}" != "" ]; then
             echo "Checking specific packages: \${{ github.event.inputs.packages }}"
-            bunx @stacksjs/buddy scan --packages "\${{ github.event.inputs.packages }}" --verbose
+            bunx buddy-bot scan --packages "\${{ github.event.inputs.packages }}" --verbose
           else
             echo "Running \$STRATEGY dependency scan..."
-            bunx @stacksjs/buddy scan --strategy "\$STRATEGY" --verbose
+            bunx buddy-bot scan --strategy "\$STRATEGY" --verbose
           fi
 
       - name: Update dependencies
@@ -228,9 +240,9 @@ jobs:
           STRATEGY="\${{ needs.determine-strategy.outputs.strategy }}"
 
           if [ "\${{ github.event.inputs.packages }}" != "" ]; then
-            bunx @stacksjs/buddy update --packages "\${{ github.event.inputs.packages }}" --verbose
+            bunx buddy-bot update --packages "\${{ github.event.inputs.packages }}" --verbose
           else
-            bunx @stacksjs/buddy update --strategy "\$STRATEGY" --verbose
+            bunx buddy-bot update --strategy "\$STRATEGY" --verbose
           fi
 
       - name: Auto-merge safe updates
@@ -291,7 +303,7 @@ jobs:
   /**
    * Generate Docker-based workflow for complex setups
    */
-  static generateDockerWorkflow(): string {
+  static generateDockerWorkflow(config?: BuddyBotConfig): string {
     return `name: Buddy Dependencies (Docker)
 
 on:
@@ -313,7 +325,7 @@ jobs:
         run: bun install
 
       - name: Run Buddy updates
-        run: bunx @stacksjs/buddy update --verbose
+        run: bunx buddy-bot update --verbose
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 `
@@ -322,7 +334,7 @@ jobs:
   /**
    * Generate workflow for monorepos
    */
-  static generateMonorepoWorkflow(): string {
+  static generateMonorepoWorkflow(config?: BuddyBotConfig): string {
     return `name: Buddy Monorepo Updates
 
 on:
@@ -370,9 +382,33 @@ jobs:
       - name: Update workspace dependencies
         run: |
           cd \${{ matrix.workspace }}
-          bunx @stacksjs/buddy update --verbose
+          bunx buddy-bot update --verbose
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 `
+  }
+
+  /**
+   * Generate custom workflow from configuration
+   */
+  static generateCustomWorkflow(
+    customConfig: {
+      name: string
+      schedule: string
+      strategy?: 'major' | 'minor' | 'patch' | 'all'
+      autoMerge?: boolean
+      reviewers?: string[]
+      labels?: string[]
+    },
+    config?: BuddyBotConfig
+  ): string {
+    return this.generateWorkflow({
+      name: customConfig.name,
+      schedule: customConfig.schedule,
+      strategy: customConfig.strategy || 'all',
+      autoMerge: customConfig.autoMerge ?? false,
+      reviewers: customConfig.reviewers || config?.pullRequest?.reviewers || [],
+      labels: customConfig.labels || config?.pullRequest?.labels || [],
+    })
   }
 }

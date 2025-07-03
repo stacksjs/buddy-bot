@@ -6,9 +6,9 @@ on:
   workflow_dispatch: # Allow manual triggering
     inputs:
       strategy:
-        description: Update strategy
+        description: 'Update strategy'
         required: false
-        default: minor
+        default: 'minor'
         type: choice
         options:
           - all
@@ -16,7 +16,7 @@ on:
           - minor
           - patch
       dry_run:
-        description: Dry run (preview only)
+        description: 'Dry run (preview only)'
         required: false
         default: false
         type: boolean
@@ -51,13 +51,13 @@ jobs:
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
 
           if [ "$DRY_RUN" = "true" ]; then
-            bunx @stacksjs/buddy update --strategy "$STRATEGY" --dry-run --verbose
+            bunx buddy-bot update --strategy "$STRATEGY" --dry-run --verbose
           else
-            bunx @stacksjs/buddy update --strategy "$STRATEGY" --verbose
+            bunx buddy-bot update --strategy "$STRATEGY" --verbose
           fi
 
       - name: Auto-merge patch updates
-        if: ${{ false && github.event.inputs.strategy == 'patch' }}
+        if: ${{ true && github.event.inputs.strategy == 'patch' }}
         run: |
           echo "Auto-merging patch updates..."
           # Add auto-merge logic here when needed

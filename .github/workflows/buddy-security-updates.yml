@@ -1,14 +1,14 @@
-name: Monthly Dependency Updates
+name: Security Updates
 
 on:
   schedule:
-    - cron: '0 2 1 * *'
+    - cron: '0 6 * * *'
   workflow_dispatch: # Allow manual triggering
     inputs:
       strategy:
         description: 'Update strategy'
         required: false
-        default: 'major'
+        default: 'patch'
         type: choice
         options:
           - all
@@ -47,7 +47,7 @@ jobs:
 
       - name: Run Buddy dependency updates
         run: |
-          STRATEGY="${{ github.event.inputs.strategy || 'major' }}"
+          STRATEGY="${{ github.event.inputs.strategy || 'patch' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
 
           if [ "$DRY_RUN" = "true" ]; then
@@ -57,7 +57,7 @@ jobs:
           fi
 
       - name: Auto-merge patch updates
-        if: ${{ false && github.event.inputs.strategy == 'patch' }}
+        if: ${{ true && github.event.inputs.strategy == 'patch' }}
         run: |
           echo "Auto-merging patch updates..."
           # Add auto-merge logic here when needed

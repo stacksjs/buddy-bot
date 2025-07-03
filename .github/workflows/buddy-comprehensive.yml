@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       strategy:
-        description: Update strategy
+        description: 'Update strategy'
         required: true
-        default: all
+        default: 'all'
         type: choice
         options:
           - all
@@ -22,12 +22,12 @@ on:
           - minor
           - patch
       dry_run:
-        description: Dry run (preview only)
+        description: 'Dry run (preview only)'
         required: false
         default: false
         type: boolean
       packages:
-        description: Specific packages (comma-separated)
+        description: 'Specific packages (comma-separated)'
         required: false
         type: string
 
@@ -101,10 +101,10 @@ jobs:
 
           if [ "${{ github.event.inputs.packages }}" != "" ]; then
             echo "Checking specific packages: ${{ github.event.inputs.packages }}"
-            bunx @stacksjs/buddy scan --packages "${{ github.event.inputs.packages }}" --verbose
+            bunx buddy-bot scan --packages "${{ github.event.inputs.packages }}" --verbose
           else
             echo "Running $STRATEGY dependency scan..."
-            bunx @stacksjs/buddy scan --strategy "$STRATEGY" --verbose
+            bunx buddy-bot scan --strategy "$STRATEGY" --verbose
           fi
 
       - name: Update dependencies
@@ -113,9 +113,9 @@ jobs:
           STRATEGY="${{ needs.determine-strategy.outputs.strategy }}"
 
           if [ "${{ github.event.inputs.packages }}" != "" ]; then
-            bunx @stacksjs/buddy update --packages "${{ github.event.inputs.packages }}" --verbose
+            bunx buddy-bot update --packages "${{ github.event.inputs.packages }}" --verbose
           else
-            bunx @stacksjs/buddy update --strategy "$STRATEGY" --verbose
+            bunx buddy-bot update --strategy "$STRATEGY" --verbose
           fi
 
       - name: Auto-merge safe updates

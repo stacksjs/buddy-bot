@@ -4,7 +4,7 @@ The Reverse Proxy can be configured using a `reverse-proxy.config.ts` _(or `reve
 
 ```ts
 // reverse-proxy.config.{ts,js}
-import type { ReverseProxyOptions } from '@stacksjs/buddy'
+import type { ReverseProxyOptions } from 'buddy-bot'
 import os from 'node:os'
 import path from 'node:path'
 

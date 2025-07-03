@@ -7,8 +7,8 @@ There are two ways of using this reverse proxy: _as a library or as a CLI._
 Given the npm package is installed:
 
 ```ts
-import type { TlsConfig } from '@stacksjs/buddy'
-import { startProxy } from '@stacksjs/buddy'
+import type { TlsConfig } from 'buddy-bot'
+import { startProxy } from 'buddy-bot'
 
 export interface CleanupConfig {
   hosts: boolean // clean up /etc/hosts, defaults to false
@@ -39,7 +39,7 @@ In case you are trying to start multiple proxies, you may use this configuration
 
 ```ts
 // reverse-proxy.config.{ts,js}
-import type { ReverseProxyOptions } from '@stacksjs/buddy'
+import type { ReverseProxyOptions } from 'buddy-bot'
 import os from 'node:os'
 import path from 'node:path'
 

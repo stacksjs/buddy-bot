@@ -27,7 +27,7 @@ As mentioned before, the whole core of the Stacks Framework is built using `dtsx
 - [`@stacksjs/arrays`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/arrays)
 - [`@stacksjs/auth`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/auth)
 - [`@stacksjs/browser`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/browser)
-- [`@stacksjs/buddy`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/buddy)
+- [`buddy-bot`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/buddy)
 - [`@stacksjs/build`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/build)
 - [`@stacksjs/cache`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/cache)
 - [`@stacksjs/calendar`](https://github.com/stacksjs/stacks/tree/main/storage/framework/core/calendar)

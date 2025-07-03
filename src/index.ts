@@ -3,7 +3,6 @@ export { Buddy } from './buddy'
 
 // CLI exports
 export { createCLI } from './cli/cli'
-export { ConfigManager } from './config/config-manager'
 export { GitHubProvider } from './git/github-provider'
 export { GitLabProvider } from './git/gitlab-provider'
 export { PullRequestGenerator } from './pr/pr-generator'

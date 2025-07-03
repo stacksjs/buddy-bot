@@ -7,12 +7,52 @@ const config: BuddyBotConfig = {
     ignore: ['@types/bun'], // Example ignore
   },
 
+  // Repository settings for PR creation
+  repository: {
+    provider: 'github',
+    owner: 'stacksjs',
+    name: 'buddy-bot',
+    baseBranch: 'main',
+  },
+
+  // Pull request configuration
+  pullRequest: {
+    reviewers: ['chris-breuer'],
+    labels: ['dependencies', 'automated'],
+    autoMerge: {
+      enabled: true,
+      strategy: 'squash',
+      conditions: ['patch-only'],
+    },
+  },
+
+  // Workflow generation settings
+  workflows: {
+    enabled: true,
+    outputDir: '.github/workflows',
+    templates: {
+      comprehensive: true,
+      daily: true,
+      weekly: true,
+      monthly: true,
+      docker: false, // Disable Docker workflow
+      monorepo: false, // Disable monorepo workflow
+    },
+    custom: [
+      {
+        name: 'Security Updates',
+        schedule: '0 6 * * *', // 6 AM daily
+        strategy: 'patch',
+        autoMerge: true,
+        labels: ['security', 'dependencies'],
+      },
+    ],
+  },
+
   // Scheduling (uncomment to enable automated runs)
   // schedule: {
   //   cron: '0 2 * * 1', // Monday 2 AM
   //   timezone: 'America/New_York',
-  //   runOnStartup: false,
-  //   maxRuntime: 30 * 60 * 1000 // 30 minutes
   // }
 }
 

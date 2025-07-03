@@ -57,6 +57,44 @@ export interface BuddyBotConfig {
     labels?: string[]
   }
 
+  /** Workflow generation settings */
+  workflows?: {
+    /** Enable workflow generation */
+    enabled?: boolean
+    /** Output directory for workflows */
+    outputDir?: string
+    /** Workflow templates to generate */
+    templates?: {
+      /** Generate comprehensive multi-strategy workflow */
+      comprehensive?: boolean
+      /** Generate daily patch updates workflow */
+      daily?: boolean
+      /** Generate weekly minor updates workflow */
+      weekly?: boolean
+      /** Generate monthly major updates workflow */
+      monthly?: boolean
+      /** Generate Docker-based workflow */
+      docker?: boolean
+      /** Generate monorepo workflow */
+      monorepo?: boolean
+    }
+    /** Custom workflow configurations */
+    custom?: {
+      /** Workflow name */
+      name: string
+      /** Cron schedule */
+      schedule: string
+      /** Update strategy */
+      strategy?: 'major' | 'minor' | 'patch' | 'all'
+      /** Auto-merge enabled */
+      autoMerge?: boolean
+      /** Reviewers */
+      reviewers?: string[]
+      /** Labels */
+      labels?: string[]
+    }[]
+  }
+
 }
 
 export type BuddyBotOptions = Partial<BuddyBotConfig>
