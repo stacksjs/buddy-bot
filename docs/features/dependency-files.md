@@ -24,8 +24,8 @@ Buddy uses the `ts-pkgx` library to parse and resolve dependency files, ensuring
 ```bash
 # Buddy automatically scans for these files:
 my-project/
-├── package.json              # ✅ npm/Bun dependencies
-├── deps.yaml                 # ✅ pkgx/Launchpad dependencies
+├── package.json              # ✅ npm dependencies
+├── deps.yaml                 # ✅ Launchpad/pkgx dependencies
 ├── dependencies.yml          # ✅ Alternative format
 ├── .deps.yaml               # ✅ Hidden config
 ├── frontend/
@@ -193,7 +193,7 @@ export default {
     // Different strategies for different file types
     fileStrategies: {
       'package.json': 'minor', // npm packages
-      'deps.yaml': 'patch', // pkgx/Launchpad tools
+      'deps.yaml': 'patch', // Launchpad/pkgx tools
       '.deps.yaml': 'all' // Hidden config files
     }
   }

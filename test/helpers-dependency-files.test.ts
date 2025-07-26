@@ -1,23 +1,33 @@
 import type { PackageFile } from '../src/types'
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+// Import for spying
+import * as dependencyFileParser from '../src/utils/dependency-file-parser'
+
 import { parsePackageFile } from '../src/utils/helpers'
 
-// Mock dependency file parser
+// Create mocks
 const mockParseDependencyFile = mock()
 const mockIsDependencyFile = mock()
-mock.module('../src/utils/dependency-file-parser', () => ({
-  parseDependencyFile: mockParseDependencyFile,
-  isDependencyFile: mockIsDependencyFile,
-}))
 
 describe('Helpers - Dependency Files Integration', () => {
+  let parseDependencyFileSpy: any
+  let isDependencyFileSpy: any
+
   beforeEach(() => {
+    // Setup spies
+    parseDependencyFileSpy = spyOn(dependencyFileParser, 'parseDependencyFile').mockImplementation(mockParseDependencyFile)
+    isDependencyFileSpy = spyOn(dependencyFileParser, 'isDependencyFile').mockImplementation(mockIsDependencyFile)
+
     // Reset all mocks
     mockParseDependencyFile.mockReset()
     mockIsDependencyFile.mockReset()
   })
 
   afterEach(() => {
+    // Restore spies
+    parseDependencyFileSpy?.mockRestore()
+    isDependencyFileSpy?.mockRestore()
+
     // Clear all mocks
     mockParseDependencyFile.mockClear()
     mockIsDependencyFile.mockClear()
@@ -131,7 +141,7 @@ devDependencies:
         mockIsDependencyFile.mockReturnValue(true)
         mockParseDependencyFile.mockResolvedValue({
           path: fileName,
-          type: fileName,
+          type: fileName as any, // Cast to satisfy PackageFile['type'] union
           content: mockDepsYamlContent,
           dependencies: [],
         })
@@ -140,7 +150,7 @@ devDependencies:
 
         expect(result).toBeDefined()
         expect(result?.path).toBe(fileName)
-        expect(result?.type).toBe(fileName)
+        expect(result?.type).toBe(fileName as any)
         expect(mockParseDependencyFile).toHaveBeenCalledWith(fileName, mockDepsYamlContent)
       }
     })

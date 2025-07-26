@@ -2,7 +2,7 @@ name: Buddy Testing Updates
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Every 5 minutes for testing
+    - cron: '0 */2 * * *' # Every 2 hours for testing (more reasonable for testing)
   workflow_dispatch: # Manual triggering for development
     inputs:
       strategy:
@@ -80,20 +80,29 @@ jobs:
           VERBOSE="${{ github.event.inputs.verbose || 'true' }}"
 
           echo "🔍 Scanning for dependency updates..."
+          echo "Strategy: $STRATEGY"
+          echo "Packages: ${PACKAGES:-all}"
+          echo "Verbose: $VERBOSE"
+          echo ""
+
+          set -e  # Exit on any error
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              ./buddy scan --packages "$PACKAGES" --verbose
+              bun buddy scan --packages "$PACKAGES" --verbose
             else
-              ./buddy scan --packages "$PACKAGES"
+              bun buddy scan --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              ./buddy scan --strategy "$STRATEGY" --verbose
+              bun buddy scan --strategy "$STRATEGY" --verbose
             else
-              ./buddy scan --strategy "$STRATEGY"
+              bun buddy scan --strategy "$STRATEGY"
             fi
           fi
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Buddy dependency updates
         if: ${{ github.event.inputs.dry_run != 'true' }}
@@ -103,20 +112,27 @@ jobs:
           VERBOSE="${{ github.event.inputs.verbose || 'true' }}"
 
           echo "🚀 Running dependency updates..."
+          echo "This will create/update PRs if outdated dependencies are found"
+          echo ""
+
+          set -e  # Exit on any error
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              ./buddy update --packages "$PACKAGES" --verbose
+              bun buddy update --packages "$PACKAGES" --verbose
             else
-              ./buddy update --packages "$PACKAGES"
+              bun buddy update --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              ./buddy update --strategy "$STRATEGY" --verbose
+              bun buddy update --strategy "$STRATEGY" --verbose
             else
-              ./buddy update --strategy "$STRATEGY"
+              bun buddy update --strategy "$STRATEGY"
             fi
           fi
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Dry run notification
         if: ${{ github.event.inputs.dry_run == 'true' }}
@@ -138,11 +154,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "⏰ **Scheduled Run**: This was triggered automatically every 5 minutes" >> $GITHUB_STEP_SUMMARY
+            echo "⏰ **Scheduled Run**: This was triggered automatically every 2 hours" >> $GITHUB_STEP_SUMMARY
             echo "💡 **Tip**: Use 'Actions' tab to manually trigger with custom settings" >> $GITHUB_STEP_SUMMARY
           else
             echo "🖱️ **Manual Trigger**: This was triggered manually from the Actions tab" >> $GITHUB_STEP_SUMMARY
-            echo "⏰ **Auto-Schedule**: This workflow also runs every 5 minutes for testing" >> $GITHUB_STEP_SUMMARY
+            echo "⏰ **Auto-Schedule**: This workflow also runs every 2 hours for testing" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY

@@ -77,14 +77,14 @@ export class PullRequestGenerator {
       update.file.includes('.yaml') || update.file.includes('.yml'),
     )
 
+    // Fetch package information for package.json updates only
+    const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
+
     // Package.json updates table (with full badges)
     if (packageJsonUpdates.length > 0) {
-      body += `### npm/Bun Dependencies\n\n`
+      body += `### npm Dependencies\n\n`
       body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
       body += `|---|---|---|---|---|---|\n`
-
-      // Fetch package information for package.json updates only
-      const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
 
       for (const update of packageJsonUpdates) {
         try {
@@ -148,7 +148,7 @@ export class PullRequestGenerator {
 
     // Dependency files table (simplified, without badges)
     if (dependencyFileUpdates.length > 0) {
-      body += `### pkgx/Launchpad Dependencies\n\n`
+      body += `### Launchpad/pkgx Dependencies\n\n`
       body += `| Package | Change | File | Status |\n`
       body += `|---|---|---|---|\n`
 

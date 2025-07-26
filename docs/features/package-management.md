@@ -53,8 +53,8 @@ All dependency files are parsed using the `ts-pkgx` library to ensure compatibil
 // Automatically detected files
 const packageStructure = {
   packageFiles: [
-    'package.json', // Root npm/Bun dependencies
-    'deps.yaml', // pkgx/Launchpad dependencies
+    'package.json', // Root npm dependencies
+    'deps.yaml', // Launchpad/pkgx dependencies
     'deps.yml', // Alternative extension
     'dependencies.yaml', // Alternative format
     'pkgx.yaml', // pkgx-specific

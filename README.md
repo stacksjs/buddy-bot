@@ -183,8 +183,8 @@ Buddy leverages Bun's built-in capabilities for maximum performance:
 
 Buddy automatically detects and updates the following dependency file formats:
 
-- **package.json** - Traditional npm/Bun dependencies
-- **deps.yaml** / **deps.yml** - pkgx/Launchpad dependency declarations
+- **package.json** - Traditional npm dependencies
+- **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
 - **dependencies.yaml** / **dependencies.yml** - Alternative dependency file format
 - **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
 - **.deps.yaml** / **.deps.yml** - Hidden dependency configuration files

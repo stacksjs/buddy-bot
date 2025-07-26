@@ -24,9 +24,9 @@ Buddy automatically detects and scans these dependency file formats:
 
 ```bash
 # Traditional package files
-package.json                 # npm/Bun dependencies
+package.json                 # npm dependencies
 
-# pkgx/Launchpad dependency files
+# Launchpad/pkgx dependency files
 deps.yaml                    # Main dependency format
 deps.yml                     # Alternative extension
 dependencies.yaml            # Alternative naming

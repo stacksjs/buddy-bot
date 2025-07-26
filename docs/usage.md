@@ -397,7 +397,7 @@ Buddy automatically detects and updates various dependency file formats:
 ### Supported File Types
 
 ```yaml
-# deps.yaml - pkgx/Launchpad dependencies
+# deps.yaml - Launchpad/pkgx dependencies
 dependencies:
   node: ^20.0.0
   typescript: ^5.0.0
@@ -415,8 +415,8 @@ Projects can use multiple dependency file formats simultaneously:
 
 ```bash
 my-project/
-├── package.json          # npm/Bun dependencies
-├── deps.yaml             # pkgx/Launchpad dependencies
+├── package.json          # npm dependencies
+├── deps.yaml             # Launchpad/pkgx dependencies
 ├── frontend/
 │   ├── package.json      # Frontend-specific deps
 │   └── deps.yml          # Additional tooling deps

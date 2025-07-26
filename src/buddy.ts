@@ -1,5 +1,6 @@
 import type {
   BuddyBotConfig,
+  PackageFile,
   PackageUpdate,
   UpdateGroup,
   UpdateScanResult,
@@ -357,9 +358,15 @@ export class Buddy {
     }
 
     // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
-    const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
-    const dependencyFileUpdates = await generateDependencyFileUpdates(updates)
-    fileUpdates.push(...dependencyFileUpdates)
+    try {
+      const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
+      const dependencyFileUpdates = await generateDependencyFileUpdates(updates)
+      fileUpdates.push(...dependencyFileUpdates)
+    }
+    catch (error) {
+      this.logger.error('Failed to generate dependency file updates:', error)
+      // Continue with package.json updates even if dependency file updates fail
+    }
 
     return fileUpdates
   }

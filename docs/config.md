@@ -65,9 +65,9 @@ Buddy automatically scans your project for various dependency file formats:
 ```typescript
 // Buddy automatically detects these file types:
 const supportedFiles = [
-  'package.json', // npm/Bun dependencies
-  'deps.yaml', // pkgx/Launchpad dependencies
-  'deps.yml', // pkgx/Launchpad dependencies (alternative extension)
+  'package.json', // npm dependencies
+  'deps.yaml', // Launchpad/pkgx dependencies
+  'deps.yml', // Launchpad/pkgx dependencies (alternative extension)
   'dependencies.yaml', // Alternative dependency format
   'dependencies.yml', // Alternative dependency format
   'pkgx.yaml', // pkgx-specific dependencies

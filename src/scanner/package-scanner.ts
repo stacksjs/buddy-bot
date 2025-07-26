@@ -261,7 +261,10 @@ export class PackageScanner {
           }
         }
         else if (stats.isFile() && entry === fileName) {
-          files.push(fullPath)
+          // Convert absolute path to relative path from project root
+          const path = await import('node:path')
+          const relativePath = path.relative(this.projectPath, fullPath)
+          files.push(relativePath)
         }
       }
     }
@@ -302,7 +305,10 @@ export class PackageScanner {
         const stats = await stat(fullPath)
 
         if (stats.isFile() && entry.endsWith(`.${extension}`)) {
-          files.push(fullPath)
+          // Convert absolute path to relative path from project root
+          const path = await import('node:path')
+          const relativePath = path.relative(this.projectPath, fullPath)
+          files.push(relativePath)
         }
         else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
           // Recursively search subdirectories
@@ -333,7 +339,10 @@ export class PackageScanner {
         const stats = await stat(fullPath)
 
         if (stats.isFile() && entry.endsWith(`.${extension}`)) {
-          files.push(fullPath)
+          // Convert absolute path to relative path from project root
+          const path = await import('node:path')
+          const relativePath = path.relative(this.projectPath, fullPath)
+          files.push(relativePath)
         }
         else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
           const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)

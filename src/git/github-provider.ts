@@ -46,9 +46,12 @@ export class GitHubProvider implements GitProvider {
       // Create new tree with file changes
       const tree = []
       for (const file of files) {
+        // Ensure path doesn't start with ./ or have leading slashes (GitHub API requires clean relative paths)
+        const cleanPath = file.path.replace(/^\.\//, '').replace(/^\/+/, '')
+
         if (file.type === 'delete') {
           tree.push({
-            path: file.path,
+            path: cleanPath,
             mode: '100644',
             type: 'blob',
             sha: null,
@@ -62,7 +65,7 @@ export class GitHubProvider implements GitProvider {
           })
 
           tree.push({
-            path: file.path,
+            path: cleanPath,
             mode: '100644',
             type: 'blob',
             sha: blob.sha,

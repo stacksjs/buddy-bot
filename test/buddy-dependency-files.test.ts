@@ -1,27 +1,19 @@
 import type { BuddyBotConfig, PackageUpdate } from '../src/types'
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import fs from 'node:fs'
+
+// Import Buddy AFTER mocks are set up
 import { Buddy } from '../src/buddy'
 
-// Mock fs
+// Import for spying
+import * as dependencyFileParser from '../src/utils/dependency-file-parser'
+
+// Create spies instead of global mocks
 const mockReadFileSync = mock()
 const mockExistsSync = mock()
 
-// Mock fs properly
-mock.module('node:fs', () => {
-  // eslint-disable-next-line ts/no-require-imports
-  const originalFs = require('node:fs')
-  return {
-    ...originalFs,
-    readFileSync: mockReadFileSync,
-    existsSync: mockExistsSync,
-  }
-})
-
-// Mock dependency file parser
+// Create mock
 const mockGenerateDependencyFileUpdates = mock()
-mock.module('../src/utils/dependency-file-parser', () => ({
-  generateDependencyFileUpdates: mockGenerateDependencyFileUpdates,
-}))
 
 // Mock package scanner
 const mockScanProject = mock()
@@ -41,6 +33,10 @@ mock.module('../src/registry/registry-client', () => ({
 
 describe('Buddy - Dependency Files Integration', () => {
   let buddy: Buddy
+  let readFileSyncSpy: any
+  let existsSyncSpy: any
+  let generateDependencyFileUpdatesSpy: any
+
   const mockConfig: BuddyBotConfig = {
     verbose: false,
     packages: { strategy: 'all' },
@@ -53,6 +49,13 @@ describe('Buddy - Dependency Files Integration', () => {
   }
 
   beforeEach(() => {
+    // Setup spies on fs methods
+    readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(mockReadFileSync)
+    existsSyncSpy = spyOn(fs, 'existsSync').mockImplementation(mockExistsSync)
+
+    // Setup spy on dependency file parser
+    generateDependencyFileUpdatesSpy = spyOn(dependencyFileParser, 'generateDependencyFileUpdates').mockImplementation(mockGenerateDependencyFileUpdates)
+
     buddy = new Buddy(mockConfig)
 
     // Reset all mocks
@@ -64,6 +67,11 @@ describe('Buddy - Dependency Files Integration', () => {
   })
 
   afterEach(() => {
+    // Restore spies
+    readFileSyncSpy?.mockRestore()
+    existsSyncSpy?.mockRestore()
+    generateDependencyFileUpdatesSpy?.mockRestore()
+
     // Clear all mocks
     mockReadFileSync.mockClear()
     mockExistsSync.mockClear()
@@ -125,7 +133,14 @@ describe('Buddy - Dependency Files Integration', () => {
     const mixedUpdates = [...packageJsonUpdates, ...dependencyFileUpdates]
 
     beforeEach(() => {
-      mockReadFileSync.mockReturnValue(mockPackageJsonContent)
+      // Setup specific mocks for package.json reading
+      mockReadFileSync.mockImplementation((filePath: string) => {
+        if (filePath === 'package.json') {
+          return mockPackageJsonContent
+        }
+        // Return empty string for other files to avoid errors
+        return ''
+      })
       mockExistsSync.mockReturnValue(true)
     })
 
@@ -342,7 +357,7 @@ describe('Buddy - Dependency Files Integration', () => {
       expect(result).toHaveLength(4) // 1 package.json + 3 dependency files
 
       const paths = result.map(r => r.path).sort()
-      expect(paths).toEqual(['deps.yaml', 'dependencies.yml', 'package.json', 'pkgx.yaml'])
+      expect(paths).toEqual(['deps.yaml', 'dependencies.yml', 'package.json', 'pkgx.yaml'].sort())
     })
   })
 

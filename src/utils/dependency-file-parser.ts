@@ -48,16 +48,8 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
         }
       }
 
-      // Fallback: try to parse standard structure if allDependencies is not available
-      if (dependencies.length === 0) {
-        if (resolvedDeps.dependencies) {
-          extractDependencies(resolvedDeps.dependencies, 'dependencies', filePath, dependencies)
-        }
-
-        if (resolvedDeps.devDependencies) {
-          extractDependencies(resolvedDeps.devDependencies, 'devDependencies', filePath, dependencies)
-        }
-      }
+      // Note: ts-pkgx only provides allDependencies, not separate dependencies/devDependencies
+      // The fallback parsing is no longer needed since ts-pkgx handles all dependencies in allDependencies
     }
 
     const fileName = filePath.split('/').pop() || ''
@@ -71,31 +63,6 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
   catch (error) {
     console.warn(`Failed to parse dependency file ${filePath}:`, error)
     return null
-  }
-}
-
-/**
- * Extract dependencies from dependency object
- */
-function extractDependencies(
-  deps: Record<string, any> | undefined,
-  type: Dependency['type'],
-  filePath: string,
-  dependencies: Dependency[],
-): void {
-  if (!deps || typeof deps !== 'object') {
-    return
-  }
-
-  for (const [name, version] of Object.entries(deps)) {
-    if (typeof version === 'string') {
-      dependencies.push({
-        name,
-        currentVersion: version,
-        type,
-        file: filePath,
-      })
-    }
   }
 }
 
