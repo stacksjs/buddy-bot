@@ -69,12 +69,15 @@ export class PullRequestGenerator {
   async generateBody(group: UpdateGroup): Promise<string> {
     let body = `This PR contains the following updates:\n\n`
 
-    // Separate package.json updates from dependency file updates
+    // Separate updates by type
     const packageJsonUpdates = group.updates.filter(update =>
-      update.file === 'package.json' || (!update.file.includes('.yaml') && !update.file.includes('.yml')),
+      update.file === 'package.json' || (!update.file.includes('.yaml') && !update.file.includes('.yml') && !update.file.includes('.github/workflows/')),
     )
     const dependencyFileUpdates = group.updates.filter(update =>
       update.file.includes('.yaml') || update.file.includes('.yml'),
+    ).filter(update => !update.file.includes('.github/workflows/'))
+    const githubActionsUpdates = group.updates.filter(update =>
+      update.file.includes('.github/workflows/'),
     )
 
     // Fetch package information for package.json updates only
@@ -177,6 +180,32 @@ export class PullRequestGenerator {
       body += `\n`
     }
 
+    // GitHub Actions table (simplified, without badges)
+    if (githubActionsUpdates.length > 0) {
+      body += `### GitHub Actions\n\n`
+      body += `| Action | Change | File | Status |\n`
+      body += `|---|---|---|---|\n`
+
+      for (const update of githubActionsUpdates) {
+        // Generate action link
+        const actionUrl = `https://github.com/${update.name}`
+        const actionCell = `[${update.name}](${actionUrl})`
+
+        // Simple version change display
+        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+
+        // File reference
+        const fileName = update.file.split('/').pop() || update.file
+
+        // Status (simple)
+        const status = '✅ Available'
+
+        body += `| ${actionCell} | ${change} | ${fileName} | ${status} |\n`
+      }
+
+      body += `\n`
+    }
+
     body += `\n---\n\n`
 
     // Enhanced release notes section
@@ -270,10 +299,19 @@ export class PullRequestGenerator {
       body += `</details>\n\n`
     }
 
+    // Process GitHub Actions updates with simple release notes
+    for (const update of githubActionsUpdates) {
+      body += `<details>\n`
+      body += `<summary>${update.name}</summary>\n\n`
+      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+      body += `Visit [${update.name}](https://github.com/${update.name}/releases) for release notes.\n\n`
+      body += `</details>\n\n`
+    }
+
     body += `---\n\n`
 
     // Package statistics section
-    if (packageInfos.size > 0 || dependencyFileUpdates.length > 0) {
+    if (packageInfos.size > 0 || dependencyFileUpdates.length > 0 || githubActionsUpdates.length > 0) {
       body += `### 📊 Package Statistics\n\n`
 
       // Stats for package.json updates
@@ -294,6 +332,11 @@ export class PullRequestGenerator {
         else {
           body += `- **${displayName}**: Available via pkgx package manager\n`
         }
+      }
+
+      // Stats for GitHub Actions updates (simplified)
+      for (const update of githubActionsUpdates) {
+        body += `- **${update.name}**: GitHub Action for workflow automation\n`
       }
 
       body += `\n---\n\n`

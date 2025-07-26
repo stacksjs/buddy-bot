@@ -130,7 +130,7 @@ export interface Dependency {
   /** Current version or range */
   currentVersion: string
   /** Dependency type */
-  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies'
+  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'github-actions'
   /** File where dependency is defined */
   file: string
   /** Line number in file */
@@ -147,7 +147,7 @@ export interface PackageUpdate {
   /** Update type */
   updateType: 'major' | 'minor' | 'patch'
   /** Dependency type */
-  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies'
+  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'github-actions'
   /** Source file */
   file: string
   /** Package metadata from registry */

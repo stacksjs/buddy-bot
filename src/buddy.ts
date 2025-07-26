@@ -55,8 +55,11 @@ export class Buddy {
       // Get outdated packages from dependency files using ts-pkgx
       const dependencyFileUpdates = await this.checkDependencyFilesForUpdates(packageFiles)
 
+      // Get outdated GitHub Actions
+      const githubActionsUpdates = await this.checkGitHubActionsForUpdates(packageFiles)
+
       // Merge all updates
-      let updates = [...packageJsonUpdates, ...dependencyFileUpdates]
+      let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates]
 
       // Apply ignore filter to dependency file updates
       if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
@@ -277,6 +280,61 @@ export class Buddy {
   }
 
   /**
+   * Check GitHub Actions for updates
+   */
+  private async checkGitHubActionsForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
+    const { isGitHubActionsFile } = await import('./utils/github-actions-parser')
+    const { fetchLatestActionVersion } = await import('./utils/github-actions-parser')
+
+    const updates: PackageUpdate[] = []
+
+    // Filter to only GitHub Actions files
+    const githubActionsFiles = packageFiles.filter(file => isGitHubActionsFile(file.path))
+
+    for (const file of githubActionsFiles) {
+      try {
+        this.logger.info(`Checking GitHub Actions file: ${file.path}`)
+
+        // Get all GitHub Actions dependencies from this file
+        for (const dep of file.dependencies) {
+          if (dep.type === 'github-actions') {
+            try {
+              // Fetch latest version for this action
+              const latestVersion = await fetchLatestActionVersion(dep.name)
+
+              if (latestVersion && latestVersion !== dep.currentVersion) {
+                // Determine update type
+                const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
+
+                updates.push({
+                  name: dep.name,
+                  currentVersion: dep.currentVersion,
+                  newVersion: latestVersion,
+                  updateType,
+                  dependencyType: 'github-actions',
+                  file: file.path,
+                  metadata: undefined,
+                  releaseNotesUrl: `https://github.com/${dep.name}/releases`,
+                  changelogUrl: undefined,
+                  homepage: `https://github.com/${dep.name}`,
+                })
+              }
+            }
+            catch (error) {
+              this.logger.warn(`Failed to check version for action ${dep.name}:`, error)
+            }
+          }
+        }
+      }
+      catch (error) {
+        this.logger.error(`Failed to check GitHub Actions file ${file.path}:`, error)
+      }
+    }
+
+    return updates
+  }
+
+  /**
    * Determine update type based on version comparison
    */
   private getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' {
@@ -366,6 +424,17 @@ export class Buddy {
     catch (error) {
       this.logger.error('Failed to generate dependency file updates:', error)
       // Continue with package.json updates even if dependency file updates fail
+    }
+
+    // Handle GitHub Actions updates
+    try {
+      const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')
+      const githubActionsUpdates = await generateGitHubActionsUpdates(updates)
+      fileUpdates.push(...githubActionsUpdates)
+    }
+    catch (error) {
+      this.logger.error('Failed to generate GitHub Actions updates:', error)
+      // Continue with other updates even if GitHub Actions updates fail
     }
 
     return fileUpdates

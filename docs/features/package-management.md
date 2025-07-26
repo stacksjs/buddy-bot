@@ -16,11 +16,13 @@ Buddy works with multiple package managers and dependency file formats:
 - **pnpm** - Efficient disk usage and fast installs
 - **pkgx** - Cross-platform package manager with YAML dependency files
 - **Launchpad** - Fast package manager using pkgx registry format
+- **GitHub Actions** - Workflow dependency automation
 
 ### Dependency File Formats
 
 Buddy automatically detects and updates various dependency file formats:
 
+#### Package Dependencies
 ```yaml
 # deps.yaml / deps.yml - pkgx and Launchpad
 dependencies:
@@ -45,7 +47,25 @@ devDependencies:
 #   bun: latest
 ```
 
-All dependency files are parsed using the `ts-pkgx` library to ensure compatibility with the pkgx registry ecosystem.
+#### GitHub Actions
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # ← Automatically updated
+      - uses: oven-sh/setup-bun@v2 # ← Automatically updated
+      - uses: actions/cache@v4.1.0 # ← Automatically updated
+      - name: Install dependencies
+        run: bun install
+      - name: Run tests
+        run: bun test
+```
+
+All dependency files are parsed using the `ts-pkgx` library to ensure compatibility with the pkgx registry ecosystem. GitHub Actions are detected by parsing `uses:` statements in workflow files and checking for updates via the GitHub releases API.
 
 ### Project Structure Detection
 

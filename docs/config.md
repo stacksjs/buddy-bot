@@ -2,7 +2,7 @@
 
 Buddy can be configured using a `buddy-bot.config.ts` _(or `buddy-bot.config.js`)_ file and it will be automatically loaded when running buddy commands.
 
-Buddy automatically detects and updates multiple dependency file formats including `package.json`, pkgx dependency files (`deps.yaml`, `pkgx.yaml`), and Launchpad dependency files that use the same registry format.
+Buddy automatically detects and updates multiple dependency file formats including `package.json`, pkgx dependency files (`deps.yaml`, `pkgx.yaml`), Launchpad dependency files that use the same registry format, and GitHub Actions workflow dependencies.
 
 ## Basic Configuration
 
@@ -28,6 +28,7 @@ const config: BuddyBotConfig = {
     ignore: [
       '@types/node', // Ignore specific packages
       'eslint', // Keep manual control
+      'actions/checkout', // Ignore specific GitHub Actions
     ],
     pin: {
       react: '^18.0.0', // Pin to specific version ranges
@@ -325,5 +326,74 @@ _Then run:_
 ```bash
 buddy-bot update
 ```
+
+## Supported Dependency Types
+
+Buddy provides comprehensive dependency management across three categories:
+
+### Package Dependencies
+
+#### npm Ecosystem
+- **package.json** - Traditional npm, Bun, yarn, pnpm dependencies
+- Managed via `bun outdated` for accurate version detection
+
+#### pkgx/Launchpad Ecosystem
+- **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
+- **dependencies.yaml** / **dependencies.yml** - Alternative format
+- **pkgx.yaml** / **pkgx.yml** - pkgx-specific files
+- **.deps.yaml** / **.deps.yml** - Hidden configuration files
+- Managed via `ts-pkgx` library integration
+
+### GitHub Actions
+
+#### Workflow Files
+- **.github/workflows/*.yml** - GitHub Actions workflow files
+- **.github/workflows/*.yaml** - Alternative YAML extension
+- Managed via GitHub releases API
+
+#### Action Detection
+Buddy automatically detects `uses:` statements in workflow files:
+
+```yaml
+# All these formats are supported:
+steps:
+  - uses: actions/checkout@v4 # Standard format
+  - uses: oven-sh/setup-bun@v2 # Quoted
+  - uses: actions/cache@v4.1.0 # Single quoted
+  - uses: crazy-max/ghaction-docker@v3 # Third-party
+```
+
+#### Excluded Actions
+- Local actions: `./local-action`
+- Docker actions: `docker://node:18`
+- Actions without versions: `actions/checkout`
+
+### Configuration Examples
+
+#### Ignore Specific Actions
+```typescript
+const config: BuddyBotConfig = {
+  packages: {
+    ignore: [
+      'actions/checkout', // Skip action updates
+      'oven-sh/setup-bun', // Keep specific version
+    ],
+  },
+}
+```
+
+#### Strategy Application
+Update strategies apply to all dependency types:
+
+```typescript
+const config: BuddyBotConfig = {
+  packages: {
+    strategy: 'patch', // Applies to npm, pkgx, AND GitHub Actions
+  },
+}
+```
+
+#### Pull Request Integration
+All three dependency types appear in separate tables within pull requests, providing clear organization and appropriate metadata for each ecosystem.
 
 To learn more, head over to the [documentation](https://buddy.sh/).

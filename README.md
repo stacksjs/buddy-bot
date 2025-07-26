@@ -19,9 +19,10 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 - 🚀 **Lightning Fast**: Built with Bun & performance in mind
 - 🎯 **Smart Updates**: Configurable update strategies _(major, minor, patch, all)_
 - 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, pkgx, and Launchpad dependency files
-- 🔍 **Intelligent Scanning**: Uses `bun outdated` for accurate dependency detection
+- ⚡ **GitHub Actions**: Automatically updates workflow dependencies (`actions/checkout@v4`, etc.)
+- 🔍 **Intelligent Scanning**: Uses `bun outdated` and GitHub releases for accurate dependency detection
 - 📋 **Flexible Grouping**: Group related packages for cleaner PRs
-- 🎨 **Rich PR Format**: Detailed changelogs, release notes, and metadata
+- 🎨 **Rich PR Format**: Three separate tables (npm, Launchpad/pkgx, GitHub Actions) with detailed metadata
 - ⚙️ **Zero Config**: Works out of the box with sensible defaults
 - 🔧 **Highly Configurable**: Customize everything via `buddy-bot.config.ts`
 
@@ -183,13 +184,49 @@ Buddy leverages Bun's built-in capabilities for maximum performance:
 
 Buddy automatically detects and updates the following dependency file formats:
 
+#### Package Dependencies
 - **package.json** - Traditional npm dependencies
 - **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
 - **dependencies.yaml** / **dependencies.yml** - Alternative dependency file format
 - **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
 - **.deps.yaml** / **.deps.yml** - Hidden dependency configuration files
 
-All dependency files are parsed using the `ts-pkgx` library to ensure compatibility with the pkgx registry ecosystem while maintaining support for tools like Launchpad that reuse the same registry format.
+#### GitHub Actions
+- **.github/workflows/*.yml** - GitHub Actions workflow files
+- **.github/workflows/*.yaml** - Alternative YAML extension
+
+All dependency files are parsed using the `ts-pkgx` library to ensure compatibility with the pkgx registry ecosystem while maintaining support for tools like Launchpad that reuse the same registry format. GitHub Actions are detected by parsing `uses:` statements in workflow files and checking for updates via the GitHub releases API.
+
+### Pull Request Format
+
+Buddy generates comprehensive pull requests with **three separate dependency tables**:
+
+#### 1. npm Dependencies
+Full table with confidence badges, age, adoption metrics, and weekly download statistics:
+```
+| Package | Change | Age | Adoption | Passing | Confidence |
+|---------|--------|-----|----------|---------|------------|
+| lodash  | ^4.17.20 → ^4.17.21 | 📅 | 📈 | ✅ | 🔒 |
+```
+
+#### 2. Launchpad/pkgx Dependencies
+Simplified table focusing on package updates and file locations:
+```
+| Package | Change | File | Status |
+|---------|--------|------|--------|
+| bun.com | ^1.2.16 → ^1.2.19 | deps.yaml | ✅ Available |
+```
+
+#### 3. GitHub Actions
+Workflow automation updates with direct links to repositories:
+```
+| Action | Change | File | Status |
+|--------|--------|------|--------|
+| actions/checkout | v4 → v4.2.2 | ci.yml | ✅ Available |
+| oven-sh/setup-bun | v2 → v2.0.2 | release.yml | ✅ Available |
+```
+
+Each table is followed by detailed release notes, changelogs, and package statistics tailored to the dependency type.
 
 ## Update Strategies
 

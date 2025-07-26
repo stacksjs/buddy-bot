@@ -7,6 +7,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
+import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
 
 export class PackageScanner {
   constructor(
@@ -51,12 +52,21 @@ export class PackageScanner {
         }
       }
 
+      // Look for GitHub Actions workflows
+      const githubActionsFiles = await this.findGitHubActionsFiles()
+      for (const filePath of githubActionsFiles) {
+        const packageFile = await this.parseGitHubActionsFile(filePath)
+        if (packageFile) {
+          packageFiles.push(packageFile)
+        }
+      }
+
       const duration = Date.now() - startTime
       this.logger.success(`Found ${packageFiles.length} package files in ${duration}ms`)
 
       return packageFiles
     }
-    catch (error) {
+    catch (_error) {
       this.logger.error('Failed to scan project:', error)
       throw new BuddyError(`Failed to scan project: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -85,7 +95,7 @@ export class PackageScanner {
         dependencies,
       }
     }
-    catch (error) {
+    catch (_error) {
       this.logger.warn(`Failed to parse package.json file ${filePath}:`, error)
       return null
     }
@@ -128,7 +138,7 @@ export class PackageScanner {
         dependencies,
       }
     }
-    catch (error) {
+    catch (_error) {
       this.logger.warn(`Failed to parse lock file ${filePath}:`, error)
       return null
     }
@@ -142,7 +152,7 @@ export class PackageScanner {
       const content = await readFile(filePath, 'utf-8')
       return await parseDepFile(filePath, content)
     }
-    catch (error) {
+    catch (_error) {
       this.logger.warn(`Failed to parse dependency file ${filePath}:`, error)
       return null
     }
@@ -171,6 +181,50 @@ export class PackageScanner {
     }
 
     return dependencyFiles
+  }
+
+  /**
+   * Find all GitHub Actions workflow files in the project
+   */
+  private async findGitHubActionsFiles(): Promise<string[]> {
+    const workflowFiles: string[] = []
+
+    try {
+      // Look for .github/workflows directory
+      const githubDir = '.github'
+      const workflowsDir = join(githubDir, 'workflows')
+
+      const stats = await stat(workflowsDir).catch(() => null)
+      if (stats?.isDirectory()) {
+        const allYamlFiles = await this.findFilesByPatternInDir('*.yaml', workflowsDir)
+        const allYmlFiles = await this.findFilesByPatternInDir('*.yml', workflowsDir)
+
+        for (const file of [...allYamlFiles, ...allYmlFiles]) {
+          if (isGitHubActionsFile(file)) {
+            workflowFiles.push(file)
+          }
+        }
+      }
+    }
+    catch (_error) {
+      // Ignore if .github/workflows doesn't exist
+    }
+
+    return workflowFiles
+  }
+
+  /**
+   * Parse a GitHub Actions workflow file
+   */
+  async parseGitHubActionsFile(filePath: string): Promise<PackageFile | null> {
+    try {
+      const content = await readFile(filePath, 'utf-8')
+      return await parseGitHubActionsFile(filePath, content)
+    }
+    catch (_error) {
+      this.logger.warn(`Failed to parse GitHub Actions file ${filePath}:`, error)
+      return null
+    }
   }
 
   /**
@@ -230,7 +284,7 @@ export class PackageScanner {
           }
         }
       }
-      catch (error) {
+      catch (_error) {
         this.logger.warn(`Failed to parse package-lock.json:`, error)
       }
     }

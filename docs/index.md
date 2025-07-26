@@ -18,7 +18,7 @@ hero:
 features:
   - title: "🔍 Smart Scanning"
     icon: "🔍"
-    details: "Automatically discovers outdated packages across your project using Bun's lightning-fast package manager and ts-pkgx for dependency files."
+    details: "Automatically discovers outdated packages across your project using Bun's lightning-fast package manager, ts-pkgx for dependency files, and GitHub API for workflow actions."
   - title: "🤖 Automated PRs"
     icon: "🤖"
     details: "Creates professional pull requests with detailed release notes, impact analysis, and proper formatting."
@@ -36,7 +36,7 @@ features:
     details: "Interactive checkbox-based PR rebasing with conflict detection and resolution."
   - title: "📦 Multi-Format Support"
     icon: "📦"
-    details: "Group related packages for coordinated updates across package.json, pkgx, and Launchpad dependency files."
+    details: "Group related packages for coordinated updates across package.json, pkgx, Launchpad dependency files, and GitHub Actions workflows."
   - title: "🛡️ Security Focus"
     icon: "🛡️"
     details: "Prioritizes security updates with configurable strategies for different package types."

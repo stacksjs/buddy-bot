@@ -2,7 +2,7 @@
 
 There are multiple ways to use buddy-bot: _as a CLI tool, library, or GitHub Action._
 
-Buddy automatically detects and updates multiple dependency file formats including traditional `package.json` files and modern dependency files used by pkgx and Launchpad ecosystems.
+Buddy automatically detects and updates multiple dependency file formats including traditional `package.json` files, modern dependency files used by pkgx and Launchpad ecosystems, and GitHub Actions workflow dependencies.
 
 ## Quick Start
 
@@ -78,6 +78,36 @@ buddy-bot workflow security
 buddy-bot help
 buddy-bot --version
 ```
+
+## Supported File Types
+
+Buddy automatically detects and updates dependencies across three categories:
+
+### Package Dependencies
+- **package.json** - npm, Bun, yarn, pnpm dependencies
+- **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
+- **dependencies.yaml** / **dependencies.yml** - Alternative dependency format
+- **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
+- **.deps.yaml** / **.deps.yml** - Hidden dependency configuration
+
+### GitHub Actions
+- **.github/workflows/*.yml** - GitHub Actions workflow files
+- **.github/workflows/*.yaml** - Alternative YAML extension
+
+All `uses:` statements in workflow files are automatically detected and updated:
+
+```yaml
+# .github/workflows/ci.yml
+steps:
+  - uses: actions/checkout@v4 # ← Updated to v4.2.2
+  - uses: oven-sh/setup-bun@v2 # ← Updated to v2.0.2
+  - uses: actions/cache@v4.1.0 # ← Updated to v4.2.3
+```
+
+### Update Sources
+- **npm packages**: Uses `bun outdated` for accurate detection
+- **pkgx/Launchpad packages**: Uses `ts-pkgx` library integration
+- **GitHub Actions**: Fetches latest releases via GitHub API
 
 ## Library Usage
 
