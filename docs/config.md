@@ -2,6 +2,8 @@
 
 Buddy can be configured using a `buddy-bot.config.ts` _(or `buddy-bot.config.js`)_ file and it will be automatically loaded when running buddy commands.
 
+Buddy automatically detects and updates multiple dependency file formats including `package.json`, pkgx dependency files (`deps.yaml`, `pkgx.yaml`), and Launchpad dependency files that use the same registry format.
+
 ## Basic Configuration
 
 ```typescript
@@ -55,6 +57,27 @@ export default config
 ```
 
 ## Advanced Configuration
+
+### Dependency File Support
+
+Buddy automatically scans your project for various dependency file formats:
+
+```typescript
+// Buddy automatically detects these file types:
+const supportedFiles = [
+  'package.json', // npm/Bun dependencies
+  'deps.yaml', // pkgx/Launchpad dependencies
+  'deps.yml', // pkgx/Launchpad dependencies (alternative extension)
+  'dependencies.yaml', // Alternative dependency format
+  'dependencies.yml', // Alternative dependency format
+  'pkgx.yaml', // pkgx-specific dependencies
+  'pkgx.yml', // pkgx-specific dependencies
+  '.deps.yaml', // Hidden dependency configuration
+  '.deps.yml', // Hidden dependency configuration
+]
+```
+
+All dependency files are parsed using the `ts-pkgx` library and updates are applied while preserving formatting, comments, and version prefixes (`^`, `~`, `>=`, etc.).
 
 ### Package Groups
 

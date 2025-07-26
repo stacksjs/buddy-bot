@@ -2,6 +2,8 @@
 
 There are multiple ways to use buddy-bot: _as a CLI tool, library, or GitHub Action._
 
+Buddy automatically detects and updates multiple dependency file formats including traditional `package.json` files and modern dependency files used by pkgx and Launchpad ecosystems.
+
 ## Quick Start
 
 1. **Install buddy-bot** _(see [Installation](/install))_
@@ -388,9 +390,66 @@ buddy-bot update \
   --labels security,urgent
 ```
 
+## Dependency File Support
+
+Buddy automatically detects and updates various dependency file formats:
+
+### Supported File Types
+
+```yaml
+# deps.yaml - pkgx/Launchpad dependencies
+dependencies:
+  node: ^20.0.0
+  typescript: ^5.0.0
+
+devDependencies:
+  eslint: ^8.0.0
+
+# Also supports: deps.yml, dependencies.yaml, dependencies.yml,
+# pkgx.yaml, pkgx.yml, .deps.yaml, .deps.yml
+```
+
+### Mixed Project Support
+
+Projects can use multiple dependency file formats simultaneously:
+
+```bash
+my-project/
+├── package.json          # npm/Bun dependencies
+├── deps.yaml             # pkgx/Launchpad dependencies
+├── frontend/
+│   ├── package.json      # Frontend-specific deps
+│   └── deps.yml          # Additional tooling deps
+└── backend/
+    ├── package.json      # Backend dependencies
+    └── .deps.yaml        # Hidden config dependencies
+```
+
+Buddy will scan all files and create coordinated pull requests that update dependencies across all detected formats.
+
+### Version Prefix Preservation
+
+Buddy preserves your version constraints when updating:
+
+```yaml
+# Before update
+dependencies:
+  express: ^4.18.0 # Caret range
+  lodash: ~4.17.20 # Tilde range
+  react: '>=18.0.0' # Greater than or equal
+  vue: 3.0.0 # Exact version
+
+# After update (preserves prefixes)
+# dependencies:
+#   express: ^4.18.2    # Caret preserved
+#   lodash: ~4.17.21    # Tilde preserved
+#   react: >=18.2.0     # Range preserved
+#   vue: 3.0.5          # Exact preserved
+```
+
 ## Monorepo Support
 
-For monorepos with multiple `package.json` files:
+For monorepos with multiple `package.json` and dependency files:
 
 ```typescript
 // buddy-bot.config.ts

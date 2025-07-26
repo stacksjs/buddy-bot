@@ -8,14 +8,44 @@ Buddy automatically discovers packages across your project structure using Bun's
 
 ### Supported Package Managers
 
-Buddy works with multiple package managers:
+Buddy works with multiple package managers and dependency file formats:
 
 - **Bun** - Lightning-fast native support
 - **npm** - Full compatibility with npm ecosystem
 - **yarn** - Classic and Berry versions
 - **pnpm** - Efficient disk usage and fast installs
-- **Launchpad** - Similar to Homebrew, just faster
-- **pkgx** - Cross-platform package manager
+- **pkgx** - Cross-platform package manager with YAML dependency files
+- **Launchpad** - Fast package manager using pkgx registry format
+
+### Dependency File Formats
+
+Buddy automatically detects and updates various dependency file formats:
+
+```yaml
+# deps.yaml / deps.yml - pkgx and Launchpad
+dependencies:
+  node: ^20.0.0
+  typescript: ^5.0.0
+
+devDependencies:
+  eslint: ^8.0.0
+
+# dependencies.yaml / dependencies.yml - Alternative format
+# dependencies:
+#   react: ^18.0.0
+#   lodash: ^4.17.21
+
+# pkgx.yaml / pkgx.yml - pkgx-specific
+# dependencies:
+#   python: ~3.11.0
+#   poetry: ^1.6.0
+
+# .deps.yaml / .deps.yml - Hidden configuration
+# dependencies:
+#   bun: latest
+```
+
+All dependency files are parsed using the `ts-pkgx` library to ensure compatibility with the pkgx registry ecosystem.
 
 ### Project Structure Detection
 
@@ -23,7 +53,12 @@ Buddy works with multiple package managers:
 // Automatically detected files
 const packageStructure = {
   packageFiles: [
-    'package.json', // Root dependencies
+    'package.json', // Root npm/Bun dependencies
+    'deps.yaml', // pkgx/Launchpad dependencies
+    'deps.yml', // Alternative extension
+    'dependencies.yaml', // Alternative format
+    'pkgx.yaml', // pkgx-specific
+    '.deps.yaml', // Hidden config
     'apps/*/package.json', // Monorepo apps
     'packages/*/package.json', // Monorepo packages
     'tools/*/package.json' // Tool packages

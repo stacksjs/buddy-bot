@@ -39,16 +39,27 @@ export class Buddy {
       const packageFiles = await this.scanner.scanProject()
       const totalPackages = packageFiles.reduce((sum, file) => sum + file.dependencies.length, 0)
 
-      // Get outdated packages using bun outdated
-      let updates: PackageUpdate[] = []
+      // Get outdated packages from package.json using bun outdated
+      let packageJsonUpdates: PackageUpdate[] = []
 
       if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
         // Get all updates first, then filter
         const allUpdates = await this.registryClient.getOutdatedPackages()
-        updates = allUpdates.filter(update => !this.config.packages!.ignore!.includes(update.name))
+        packageJsonUpdates = allUpdates.filter(update => !this.config.packages!.ignore!.includes(update.name))
       }
       else {
-        updates = await this.registryClient.getOutdatedPackages()
+        packageJsonUpdates = await this.registryClient.getOutdatedPackages()
+      }
+
+      // Get outdated packages from dependency files using ts-pkgx
+      const dependencyFileUpdates = await this.checkDependencyFilesForUpdates(packageFiles)
+
+      // Merge all updates
+      let updates = [...packageJsonUpdates, ...dependencyFileUpdates]
+
+      // Apply ignore filter to dependency file updates
+      if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
+        updates = updates.filter(update => !this.config.packages!.ignore!.includes(update.name))
       }
 
       // Apply update strategy filtering
@@ -209,60 +220,148 @@ export class Buddy {
   }
 
   /**
-   * Generate package.json file changes for updates
+   * Check dependency files for updates using ts-pkgx
    */
-  async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
-    const packageJsonPath = 'package.json'
+  private async checkDependencyFilesForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
+    const { isDependencyFile } = await import('./utils/dependency-file-parser')
+    const { resolveDependencyFile } = await import('ts-pkgx')
 
-    // Read current package.json content as string to preserve formatting
-    let packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
+    const updates: PackageUpdate[] = []
 
-    // Parse to understand structure
-    const packageJson = JSON.parse(packageJsonContent)
+    // Filter to only dependency files (not package.json or lock files)
+    const dependencyFiles = packageFiles.filter(file => isDependencyFile(file.path))
 
-    // Apply updates using string replacement to preserve formatting
-    for (const update of updates) {
-      let packageFound = false
+    for (const file of dependencyFiles) {
+      try {
+        this.logger.info(`Checking dependency file: ${file.path}`)
 
-      // Clean package name (remove dependency type info like "(dev)")
-      const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+        // Use ts-pkgx to resolve latest versions
+        const resolved = await resolveDependencyFile(file.path)
 
-      // Try to find and update the package in each dependency section
-      const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
+        for (const dep of resolved.allDependencies || []) {
+          // Compare constraint version with resolved version
+          if (dep.constraint !== dep.version && dep.version) {
+            // Extract version prefix (^, ~, >=, etc.) from constraint
+            const prefixMatch = dep.constraint.match(/^(\D*)/)
+            const originalPrefix = prefixMatch ? prefixMatch[1] : ''
+            const constraintVersion = dep.constraint.replace(/^[\^~>=<]+/, '')
 
-      for (const section of dependencySections) {
-        if (packageJson[section] && packageJson[section][cleanPackageName]) {
-          const currentVersionInFile = packageJson[section][cleanPackageName]
+            // Determine update type
+            const updateType = this.getUpdateType(constraintVersion, dep.version)
 
-          // Extract the original version prefix (^, ~, >=, etc.) or lack thereof
-          const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
-          const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
+            // Preserve the original prefix when creating new version
+            const newVersion = `${originalPrefix}${dep.version}`
 
-          // Create regex to find the exact line with this package and version
-          // This handles various formatting styles like: "package": "version", "package":"version", etc.
-          const packageRegex = new RegExp(
-            `("${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
-            'g',
-          )
-
-          // Preserve the original prefix when updating to new version
-          const newVersion = `${originalPrefix}${update.newVersion}`
-          packageJsonContent = packageJsonContent.replace(packageRegex, `$1${newVersion}$3`)
-          packageFound = true
-          break
+            updates.push({
+              name: dep.name,
+              currentVersion: dep.constraint,
+              newVersion,
+              updateType,
+              dependencyType: 'dependencies',
+              file: file.path,
+              metadata: undefined, // Could enhance with package metadata later
+              releaseNotesUrl: undefined,
+              changelogUrl: undefined,
+              homepage: undefined,
+            })
+          }
         }
       }
-
-      if (!packageFound) {
-        console.warn(`Package ${cleanPackageName} not found in package.json`)
+      catch (error) {
+        this.logger.error(`Failed to check dependency file ${file.path}:`, error)
       }
     }
 
-    return [{
-      path: packageJsonPath,
-      content: packageJsonContent,
-      type: 'update' as const,
-    }]
+    return updates
+  }
+
+  /**
+   * Determine update type based on version comparison
+   */
+  private getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' {
+    try {
+      const currentParts = current.split('.').map(Number)
+      const latestParts = latest.split('.').map(Number)
+
+      if (latestParts[0] > currentParts[0])
+        return 'major'
+      if (latestParts[1] > currentParts[1])
+        return 'minor'
+      return 'patch'
+    }
+    catch {
+      return 'patch' // Default to patch if parsing fails
+    }
+  }
+
+  /**
+   * Generate file changes for updates (package.json, dependency files, etc.)
+   */
+  async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
+    const fileUpdates: Array<{ path: string, content: string, type: 'update' }> = []
+
+    // Handle package.json updates
+    const packageJsonUpdates = updates.filter(update => update.file === 'package.json' || (!update.file.includes('.yaml') && !update.file.includes('.yml')))
+    if (packageJsonUpdates.length > 0) {
+      const packageJsonPath = 'package.json'
+
+      // Read current package.json content as string to preserve formatting
+      let packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
+
+      // Parse to understand structure
+      const packageJson = JSON.parse(packageJsonContent)
+
+      // Apply updates using string replacement to preserve formatting
+      for (const update of packageJsonUpdates) {
+        let packageFound = false
+
+        // Clean package name (remove dependency type info like "(dev)")
+        const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+
+        // Try to find and update the package in each dependency section
+        const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
+
+        for (const section of dependencySections) {
+          if (packageJson[section] && packageJson[section][cleanPackageName]) {
+            const currentVersionInFile = packageJson[section][cleanPackageName]
+
+            // Extract the original version prefix (^, ~, >=, etc.) or lack thereof
+            const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
+            const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
+
+            // Create regex to find the exact line with this package and version
+            // This handles various formatting styles like: "package": "version", "package":"version", etc.
+            const packageRegex = new RegExp(
+              `("${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
+              'g',
+            )
+
+            // Preserve the original prefix when updating to new version
+            const newVersion = `${originalPrefix}${update.newVersion}`
+            packageJsonContent = packageJsonContent.replace(packageRegex, `$1${newVersion}$3`)
+            packageFound = true
+            break
+          }
+        }
+
+        if (!packageFound) {
+          console.warn(`Package ${cleanPackageName} not found in package.json`)
+        }
+      }
+
+      fileUpdates.push({
+        path: packageJsonPath,
+        content: packageJsonContent,
+        type: 'update' as const,
+      })
+    }
+
+    // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
+    const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
+    const dependencyFileUpdates = await generateDependencyFileUpdates(updates)
+    fileUpdates.push(...dependencyFileUpdates)
+
+    return fileUpdates
   }
 
   /**

@@ -1,6 +1,6 @@
 # Buddy Class API
 
-The `Buddy` class is the main entry point for programmatic dependency management. It provides methods for scanning dependencies, creating pull requests, and managing updates.
+The `Buddy` class is the main entry point for programmatic dependency management. It provides methods for scanning dependencies across multiple file formats (package.json, pkgx/Launchpad dependency files), creating pull requests, and managing updates.
 
 ## Constructor
 

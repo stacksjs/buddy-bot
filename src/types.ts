@@ -117,7 +117,7 @@ export interface PackageFile {
   /** File path relative to repository root */
   path: string
   /** Type of package file */
-  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml'
+  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml'
   /** Raw file content */
   content: string
   /** Parsed dependencies */

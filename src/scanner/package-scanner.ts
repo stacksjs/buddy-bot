@@ -6,6 +6,7 @@ import type {
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BuddyError } from '../types'
+import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 
 export class PackageScanner {
   constructor(
@@ -27,6 +28,15 @@ export class PackageScanner {
       const packageJsonFiles = await this.findFiles('package.json')
       for (const filePath of packageJsonFiles) {
         const packageFile = await this.parsePackageJsonFile(filePath)
+        if (packageFile) {
+          packageFiles.push(packageFile)
+        }
+      }
+
+      // Look for dependency files (deps.yaml, dependencies.yaml, etc.)
+      const dependencyFiles = await this.findDependencyFiles()
+      for (const filePath of dependencyFiles) {
+        const packageFile = await this.parseDependencyFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
         }
@@ -122,6 +132,45 @@ export class PackageScanner {
       this.logger.warn(`Failed to parse lock file ${filePath}:`, error)
       return null
     }
+  }
+
+  /**
+   * Parse a dependency file (deps.yaml, dependencies.yaml, etc.)
+   */
+  async parseDependencyFile(filePath: string): Promise<PackageFile | null> {
+    try {
+      const content = await readFile(filePath, 'utf-8')
+      return await parseDepFile(filePath, content)
+    }
+    catch (error) {
+      this.logger.warn(`Failed to parse dependency file ${filePath}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Find all dependency files in the project
+   */
+  private async findDependencyFiles(): Promise<string[]> {
+    const dependencyFiles: string[] = []
+    const dependencyFileNames = ['deps.yaml', 'deps.yml', 'dependencies.yaml', 'dependencies.yml', 'pkgx.yaml', 'pkgx.yml', '.deps.yaml', '.deps.yml']
+
+    for (const fileName of dependencyFileNames) {
+      const files = await this.findFiles(fileName)
+      dependencyFiles.push(...files)
+    }
+
+    // Also check for files that might match our pattern but with different names
+    const allYamlFiles = await this.findFilesByPattern('*.yaml')
+    const allYmlFiles = await this.findFilesByPattern('*.yml')
+
+    for (const file of [...allYamlFiles, ...allYmlFiles]) {
+      if (isDependencyFile(file) && !dependencyFiles.includes(file)) {
+        dependencyFiles.push(file)
+      }
+    }
+
+    return dependencyFiles
   }
 
   /**
@@ -233,6 +282,67 @@ export class PackageScanner {
     for (const fileName of lockFileNames) {
       const found = await this.findFiles(fileName)
       files.push(...found)
+    }
+
+    return files
+  }
+
+  /**
+   * Find files matching a pattern (simplified implementation)
+   */
+  private async findFilesByPattern(pattern: string): Promise<string[]> {
+    const files: string[] = []
+    const extension = pattern.replace('*.', '')
+
+    try {
+      const entries = await readdir(this.projectPath)
+
+      for (const entry of entries) {
+        const fullPath = join(this.projectPath, entry)
+        const stats = await stat(fullPath)
+
+        if (stats.isFile() && entry.endsWith(`.${extension}`)) {
+          files.push(fullPath)
+        }
+        else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
+          // Recursively search subdirectories
+          const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)
+          files.push(...subFiles)
+        }
+      }
+    }
+    catch {
+      // Ignore permission errors and continue
+    }
+
+    return files
+  }
+
+  /**
+   * Find files matching a pattern in a specific directory
+   */
+  private async findFilesByPatternInDir(pattern: string, dir: string): Promise<string[]> {
+    const files: string[] = []
+    const extension = pattern.replace('*.', '')
+
+    try {
+      const entries = await readdir(dir)
+
+      for (const entry of entries) {
+        const fullPath = join(dir, entry)
+        const stats = await stat(fullPath)
+
+        if (stats.isFile() && entry.endsWith(`.${extension}`)) {
+          files.push(fullPath)
+        }
+        else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
+          const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)
+          files.push(...subFiles)
+        }
+      }
+    }
+    catch {
+      // Ignore permission errors and continue
     }
 
     return files

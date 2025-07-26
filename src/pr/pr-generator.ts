@@ -69,75 +69,121 @@ export class PullRequestGenerator {
   async generateBody(group: UpdateGroup): Promise<string> {
     let body = `This PR contains the following updates:\n\n`
 
-    // Enhanced updates table with confidence badges
-    body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
-    body += `|---|---|---|---|---|---|\n`
+    // Separate package.json updates from dependency file updates
+    const packageJsonUpdates = group.updates.filter(update =>
+      update.file === 'package.json' || (!update.file.includes('.yaml') && !update.file.includes('.yml')),
+    )
+    const dependencyFileUpdates = group.updates.filter(update =>
+      update.file.includes('.yaml') || update.file.includes('.yml'),
+    )
 
-    // Fetch package information for each update
-    const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
+    // Package.json updates table (with full badges)
+    if (packageJsonUpdates.length > 0) {
+      body += `### npm/Bun Dependencies\n\n`
+      body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
+      body += `|---|---|---|---|---|---|\n`
 
-    for (const update of group.updates) {
-      try {
-        // Clean package name (remove dependency type info) before fetching
+      // Fetch package information for package.json updates only
+      const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
+
+      for (const update of packageJsonUpdates) {
+        try {
+          // Clean package name (remove dependency type info) before fetching
+          const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+
+          const result = await this.releaseNotesFetcher.fetchPackageInfo(
+            cleanPackageName,
+            update.currentVersion,
+            update.newVersion,
+          )
+          packageInfos.set(update.name, result)
+        }
+        catch (error) {
+          console.warn(`Failed to fetch info for ${update.name}:`, error)
+        }
+      }
+
+      for (const update of packageJsonUpdates) {
+        const packageInfo = packageInfos.get(update.name)
+        const info = packageInfo?.packageInfo || { name: update.name }
+
+        // Clean package name (remove dependency type info)
         const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
 
-        const result = await this.releaseNotesFetcher.fetchPackageInfo(
-          cleanPackageName,
+        // Generate package URL with source link (Renovate style)
+        let packageCell: string
+        if (info.repository?.url) {
+          const repoUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName)
+          const sourceUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName, 'HEAD')
+          packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
+        }
+        else if (cleanPackageName.startsWith('@types/')) {
+          // Special handling for @types/* packages even without repository metadata
+          const typeName = cleanPackageName.replace('@types/', '')
+          const repoUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${typeName}`
+          const sourceUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/${typeName}`
+          packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
+        }
+        else {
+          // Fallback to npm page if no repository
+          packageCell = `[${cleanPackageName}](https://www.npmjs.com/package/${encodeURIComponent(cleanPackageName)})`
+        }
+
+        // Generate version change with diff link (Renovate style)
+        const diffUrl = `https://renovatebot.com/diffs/npm/${encodeURIComponent(cleanPackageName)}/${update.currentVersion}/${update.newVersion}`
+        const change = `[\`${update.currentVersion}\` -> \`${update.newVersion}\`](${diffUrl})`
+
+        // Generate confidence badges with clean package name
+        const badges = this.releaseNotesFetcher.generatePackageBadges(
+          { ...info, name: cleanPackageName },
           update.currentVersion,
           update.newVersion,
         )
-        packageInfos.set(update.name, result)
+
+        body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
       }
-      catch (error) {
-        console.warn(`Failed to fetch info for ${update.name}:`, error)
-      }
+
+      body += `\n`
     }
 
-    for (const update of group.updates) {
-      const packageInfo = packageInfos.get(update.name)
-      const info = packageInfo?.packageInfo || { name: update.name }
+    // Dependency files table (simplified, without badges)
+    if (dependencyFileUpdates.length > 0) {
+      body += `### pkgx/Launchpad Dependencies\n\n`
+      body += `| Package | Change | File | Status |\n`
+      body += `|---|---|---|---|\n`
 
-      // Clean package name (remove dependency type info)
-      const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+      for (const update of dependencyFileUpdates) {
+        // Handle special case: bun.sh -> bun.com
+        const displayName = update.name === 'bun.sh' ? 'bun.com' : update.name
 
-      // Generate package URL with source link (Renovate style)
-      let packageCell: string
-      if (info.repository?.url) {
-        const repoUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName)
-        const sourceUrl = this.getRepositorySourceUrl(info.repository.url, cleanPackageName, 'HEAD')
-        packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
+        // Generate package link
+        const packageUrl = update.name === 'bun.sh'
+          ? 'https://bun.sh'
+          : `https://pkgx.com/pkg/${encodeURIComponent(update.name)}`
+        const packageCell = `[${displayName}](${packageUrl})`
+
+        // Simple version change display
+        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+
+        // File reference
+        const fileName = update.file.split('/').pop() || update.file
+
+        // Status (simple)
+        const status = '✅ Available'
+
+        body += `| ${packageCell} | ${change} | ${fileName} | ${status} |\n`
       }
-      else if (cleanPackageName.startsWith('@types/')) {
-        // Special handling for @types/* packages even without repository metadata
-        const typeName = cleanPackageName.replace('@types/', '')
-        const repoUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${typeName}`
-        const sourceUrl = `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/${typeName}`
-        packageCell = `[${cleanPackageName}](${repoUrl}) ([source](${sourceUrl}))`
-      }
-      else {
-        // Fallback to npm page if no repository
-        packageCell = `[${cleanPackageName}](https://www.npmjs.com/package/${encodeURIComponent(cleanPackageName)})`
-      }
 
-      // Generate version change with diff link (Renovate style)
-      const diffUrl = `https://renovatebot.com/diffs/npm/${encodeURIComponent(cleanPackageName)}/${update.currentVersion}/${update.newVersion}`
-      const change = `[\`^${update.currentVersion}\` -> \`^${update.newVersion}\`](${diffUrl})`
-
-      // Generate confidence badges with clean package name
-      const badges = this.releaseNotesFetcher.generatePackageBadges(
-        { ...info, name: cleanPackageName },
-        update.currentVersion,
-        update.newVersion,
-      )
-
-      body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
+      body += `\n`
     }
 
     body += `\n---\n\n`
 
     // Enhanced release notes section
     body += `### Release Notes\n\n`
-    for (const update of group.updates) {
+
+    // Process package.json updates with full release notes
+    for (const update of packageJsonUpdates) {
       const packageInfo = packageInfos.get(update.name)
       const info = packageInfo?.packageInfo || { name: update.name }
       const releaseNotes = packageInfo?.releaseNotes || []
@@ -205,18 +251,51 @@ export class PullRequestGenerator {
       body += `</details>\n\n`
     }
 
+    // Process dependency file updates with simple release notes
+    for (const update of dependencyFileUpdates) {
+      // Handle special case: bun.sh -> bun.com
+      const displayName = update.name === 'bun.sh' ? 'bun.com' : update.name
+
+      body += `<details>\n`
+      body += `<summary>${displayName}</summary>\n\n`
+      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+
+      if (update.name === 'bun.sh') {
+        body += `Visit [bun.sh](https://bun.sh) for more information about Bun releases.\n\n`
+      }
+      else {
+        body += `Visit [pkgx.com](https://pkgx.com/pkg/${encodeURIComponent(update.name)}) for more information.\n\n`
+      }
+
+      body += `</details>\n\n`
+    }
+
     body += `---\n\n`
 
     // Package statistics section
-    if (packageInfos.size > 0) {
+    if (packageInfos.size > 0 || dependencyFileUpdates.length > 0) {
       body += `### 📊 Package Statistics\n\n`
-      for (const update of group.updates) {
+
+      // Stats for package.json updates
+      for (const update of packageJsonUpdates) {
         const packageInfo = packageInfos.get(update.name)
         const info = packageInfo?.packageInfo
         if (info?.weeklyDownloads) {
           body += `- **${update.name}**: ${info.weeklyDownloads.toLocaleString()} weekly downloads\n`
         }
       }
+
+      // Stats for dependency file updates (simplified)
+      for (const update of dependencyFileUpdates) {
+        const displayName = update.name === 'bun.sh' ? 'bun.com' : update.name
+        if (update.name === 'bun.sh') {
+          body += `- **${displayName}**: Popular JavaScript runtime and package manager\n`
+        }
+        else {
+          body += `- **${displayName}**: Available via pkgx package manager\n`
+        }
+      }
+
       body += `\n---\n\n`
     }
 

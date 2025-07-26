@@ -49,6 +49,10 @@ brew install buddy-bot # coming soon
 pkgx buddy-bot # coming soon
 ```
 
+::: tip Dependency File Support
+Buddy-bot automatically detects and updates pkgx dependency files (`deps.yaml`, `pkgx.yaml`) and Launchpad dependency files that use the same registry format. No additional configuration required!
+:::
+
 :::
 
 ## Prerequisites

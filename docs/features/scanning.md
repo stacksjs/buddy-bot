@@ -1,15 +1,43 @@
 # Dependency Scanning
 
-Buddy's dependency scanning engine is built on top of Bun's native dependency management tools and provides intelligent, fast, and accurate dependency analysis.
+Buddy's dependency scanning engine is built on top of Bun's native dependency management tools and provides intelligent, fast, and accurate dependency analysis across multiple dependency file formats.
 
 ## How It Works
 
-Buddy uses Bun's `outdated` command as its core scanning engine, which provides:
+Buddy uses multiple scanning approaches depending on the file type:
 
-- **Native Performance**: Direct integration with Bun's C++ engine
+### Package.json Scanning
+- **Native Performance**: Direct integration with Bun's C++ engine using `bun outdated`
 - **Accurate Detection**: Uses lockfile analysis for precise version matching
 - **Multi-Registry Support**: npm, JSR, and other registries
 - **Package Manager Agnostic**: Works with npm, yarn, pnpm, and Bun
+
+### Dependency File Scanning
+- **pkgx Integration**: Uses `ts-pkgx` library for parsing dependency files
+- **Registry Compatibility**: Full compatibility with pkgx registry ecosystem
+- **Format Support**: Handles multiple YAML formats (`.yaml`, `.yml`)
+- **Launchpad Support**: Compatible with Launchpad dependency files
+
+## Supported File Types
+
+Buddy automatically detects and scans these dependency file formats:
+
+```bash
+# Traditional package files
+package.json                 # npm/Bun dependencies
+
+# pkgx/Launchpad dependency files
+deps.yaml                    # Main dependency format
+deps.yml                     # Alternative extension
+dependencies.yaml            # Alternative naming
+dependencies.yml             # Alternative naming + extension
+pkgx.yaml                    # pkgx-specific format
+pkgx.yml                     # pkgx-specific + alternative extension
+.deps.yaml                   # Hidden configuration files
+.deps.yml                    # Hidden + alternative extension
+```
+
+All dependency files are scanned using the same intelligent update strategies and can be configured independently.
 
 ## Scanning Strategies
 

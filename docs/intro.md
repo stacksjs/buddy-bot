@@ -8,8 +8,9 @@ Buddy-bot is a modern dependency management tool that automatically scans your p
 
 ## Key Features
 
-- **🔍 Smart Scanning** - Lightning-fast dependency detection using Bun
+- **🔍 Smart Scanning** - Lightning-fast dependency detection using Bun and ts-pkgx
 - **🤖 Automated PRs** - Professional pull requests with release notes and impact analysis
+- **📁 Multi-Format Support** - Handles package.json, pkgx, and Launchpad dependency files
 - **🏷️ Dynamic Labeling** - Contextual labels based on update type and package ecosystem
 - **👥 Team Integration** - Automatic reviewers, assignees, and team notifications
 - **📅 Flexible Scheduling** - Cron-based automation with GitHub Actions integration
@@ -157,7 +158,7 @@ Buddy-bot is built with modern tools and best practices:
 | Feature | Buddy | Dependabot | Renovate |
 |---------|-------|------------|----------|
 | **Speed** | ⚡ Bun-native | 🐌 Slower | 🐌 Slower |
-| **Package Managers** | Bun, npm, yarn, pnpm, Launchpad, pkgx | Limited | Limited |
+| **Package Managers** | Bun, npm, yarn, pnpm, pkgx, Launchpad | Limited | Limited |
 | **Configuration** | TypeScript, YAML, JSON/JS, package.json | YAML | JSON/JS |
 | **Grouping** | ✅ Flexible | ✅ Basic | ✅ Advanced |
 | **Zero Config** | ✅ Yes | ✅ Yes | ❌ Complex |

@@ -1,9 +1,10 @@
 import type { Dependency, PackageFile, PackageUpdate, UpdateGroup } from '../types'
+import { isDependencyFile, parseDependencyFile } from './dependency-file-parser'
 
 /**
  * Parse package file content based on file type
  */
-export function parsePackageFile(content: string, filePath: string): PackageFile | null {
+export async function parsePackageFile(content: string, filePath: string): Promise<PackageFile | null> {
   try {
     const fileName = filePath.split('/').pop() || ''
 
@@ -23,6 +24,11 @@ export function parsePackageFile(content: string, filePath: string): PackageFile
         content,
         dependencies,
       }
+    }
+
+    // Handle dependency files (deps.yaml, dependencies.yaml, etc.)
+    if (isDependencyFile(filePath)) {
+      return await parseDependencyFile(filePath, content)
     }
 
     // Add other file type parsers as needed
