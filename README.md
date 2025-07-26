@@ -20,6 +20,7 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 - 🎯 **Smart Updates**: Configurable update strategies _(major, minor, patch, all)_
 - 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, pkgx, and Launchpad dependency files
 - ⚡ **GitHub Actions**: Automatically updates workflow dependencies (`actions/checkout@v4`, etc.)
+- 📊 **Dependency Dashboard**: Single GitHub issue with overview of all dependencies and open PRs
 - 🔍 **Intelligent Scanning**: Uses `bun outdated` and GitHub releases for accurate dependency detection
 - 📋 **Flexible Grouping**: Group related packages for cleaner PRs
 - 🎨 **Rich PR Format**: Three separate tables (npm, Launchpad/pkgx, GitHub Actions) with detailed metadata
@@ -68,6 +69,9 @@ buddy scan
 
 # Scan with verbose output
 buddy scan --verbose
+
+# Create or update dependency dashboard
+buddy dashboard --pin
 
 # Check specific packages
 buddy scan --packages "react,typescript,@types/node"
@@ -138,6 +142,17 @@ const config: BuddyBotConfig = {
       strategy: 'squash', // 'merge', 'squash', or 'rebase'
       conditions: ['patch-only'] // Only auto-merge patch updates
     }
+  },
+
+  // Dependency dashboard settings
+  dashboard: {
+    enabled: true,
+    title: 'Dependency Dashboard',
+    pin: true,
+    labels: ['dependencies', 'dashboard'],
+    assignees: ['maintainer1'],
+    showOpenPRs: true,
+    showDetectedDependencies: true
   }
 }
 
@@ -167,6 +182,81 @@ const updates = await buddy.checkPackages(['react', 'typescript'])
 if (scanResult.updates.length > 0) {
   await buddy.createPullRequests(scanResult)
 }
+
+// Create or update dependency dashboard
+const dashboardIssue = await buddy.createOrUpdateDashboard()
+console.log(`Dashboard updated: ${dashboardIssue.url}`)
+```
+
+## Dependency Dashboard
+
+The dependency dashboard provides a centralized view of all your repository's dependencies and open pull requests in a single GitHub issue. Similar to Renovate's dependency dashboard, it gives you complete visibility into your dependency management.
+
+### Key Features
+
+- **📊 Single Overview**: All dependencies and PRs in one place
+- **🔄 Interactive Controls**: Force retry/rebase PRs by checking boxes
+- **📌 Pinnable Issue**: Keep dashboard at the top of your issues
+- **🏷️ Smart Categorization**: Organized by npm, GitHub Actions, and dependency files
+- **⚡ Auto-Updates**: Refreshes when dependencies change
+
+### Quick Start
+
+```bash
+# Create basic dashboard
+buddy-bot dashboard
+
+# Create pinned dashboard with custom title
+buddy-bot dashboard --pin --title "My Dependencies"
+```
+
+### Automated Dashboard Updates
+
+Buddy Bot includes a pre-built GitHub workflow (`.github/workflows/buddy-bot-dashboard.yml`) that automatically updates your dependency dashboard:
+
+- **📅 Scheduled**: Runs Monday, Wednesday, Friday at 9 AM UTC
+- **🖱️ Manual**: Trigger from Actions tab with custom options
+- **📌 Auto-Pin**: Keeps dashboard pinned by default
+- **🔍 Dry-Run**: Preview mode available
+
+### Example Dashboard Output
+
+The dashboard automatically organizes your dependencies and shows:
+
+```markdown
+## Open
+
+The following updates have all been created. To force a retry/rebase of any, click on a checkbox below.
+
+ - [ ] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update react to v18](../pull/123) (`react`)
+ - [ ] <!-- rebase-branch=buddy-bot/update-types -->[chore(deps): update @types/node](../pull/124) (`@types/node`)
+
+## Detected dependencies
+
+<details><summary>npm</summary>
+<blockquote>
+
+<details><summary>package.json</summary>
+
+ - `react ^17.0.0`
+ - `typescript ^4.9.0`
+ - `@types/node ^18.0.0`
+
+</details>
+</blockquote>
+</details>
+
+<details><summary>github-actions</summary>
+<blockquote>
+
+<details><summary>.github/workflows/ci.yml</summary>
+
+ - `actions/checkout v3`
+ - `oven-sh/setup-bun v1`
+
+</details>
+</blockquote>
+</details>
 ```
 
 ## How It Works

@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
+import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullRequestOptions } from '../types'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
@@ -450,5 +450,145 @@ export class GitHubProvider implements GitProvider {
     }
 
     return response.text()
+  }
+
+  async createIssue(options: IssueOptions): Promise<Issue> {
+    try {
+      const response = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues`, {
+        title: options.title,
+        body: options.body,
+        assignees: options.assignees || [],
+        labels: options.labels || [],
+        milestone: options.milestone,
+      })
+
+      console.log(`✅ Created issue #${response.number}: ${options.title}`)
+
+      return {
+        number: response.number,
+        title: response.title,
+        body: response.body,
+        state: response.state,
+        url: response.html_url,
+        createdAt: new Date(response.created_at),
+        updatedAt: new Date(response.updated_at),
+        closedAt: response.closed_at ? new Date(response.closed_at) : undefined,
+        author: response.user.login,
+        assignees: response.assignees?.map((a: any) => a.login) || [],
+        labels: response.labels?.map((l: any) => typeof l === 'string' ? l : l.name) || [],
+        pinned: false, // GitHub API doesn't return pinned status directly
+      }
+    }
+    catch (error) {
+      console.error(`❌ Failed to create issue: ${options.title}`, error)
+      throw error
+    }
+  }
+
+  async getIssues(state: 'open' | 'closed' | 'all' = 'open'): Promise<Issue[]> {
+    try {
+      const response = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/issues?state=${state}&sort=updated&direction=desc`)
+
+      return response
+        .filter((issue: any) => !issue.pull_request) // Filter out PRs (they're returned as issues by GitHub API)
+        .map((issue: any) => ({
+          number: issue.number,
+          title: issue.title,
+          body: issue.body || '',
+          state: issue.state,
+          url: issue.html_url,
+          createdAt: new Date(issue.created_at),
+          updatedAt: new Date(issue.updated_at),
+          closedAt: issue.closed_at ? new Date(issue.closed_at) : undefined,
+          author: issue.user.login,
+          assignees: issue.assignees?.map((a: any) => a.login) || [],
+          labels: issue.labels?.map((l: any) => typeof l === 'string' ? l : l.name) || [],
+          pinned: false, // GitHub API doesn't return pinned status directly
+        }))
+    }
+    catch (error) {
+      console.error('❌ Failed to get issues:', error)
+      throw error
+    }
+  }
+
+  async updateIssue(issueNumber: number, options: Partial<IssueOptions>): Promise<Issue> {
+    try {
+      const updateData: any = {}
+
+      if (options.title !== undefined)
+        updateData.title = options.title
+      if (options.body !== undefined)
+        updateData.body = options.body
+      if (options.assignees !== undefined)
+        updateData.assignees = options.assignees
+      if (options.labels !== undefined)
+        updateData.labels = options.labels
+      if (options.milestone !== undefined)
+        updateData.milestone = options.milestone
+
+      const response = await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, updateData)
+
+      console.log(`✅ Updated issue #${issueNumber}: ${response.title}`)
+
+      return {
+        number: response.number,
+        title: response.title,
+        body: response.body,
+        state: response.state,
+        url: response.html_url,
+        createdAt: new Date(response.created_at),
+        updatedAt: new Date(response.updated_at),
+        closedAt: response.closed_at ? new Date(response.closed_at) : undefined,
+        author: response.user.login,
+        assignees: response.assignees?.map((a: any) => a.login) || [],
+        labels: response.labels?.map((l: any) => typeof l === 'string' ? l : l.name) || [],
+        pinned: false, // GitHub API doesn't return pinned status directly
+      }
+    }
+    catch (error) {
+      console.error(`❌ Failed to update issue #${issueNumber}:`, error)
+      throw error
+    }
+  }
+
+  async closeIssue(issueNumber: number): Promise<void> {
+    try {
+      await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, {
+        state: 'closed',
+      })
+
+      console.log(`✅ Closed issue #${issueNumber}`)
+    }
+    catch (error) {
+      console.error(`❌ Failed to close issue #${issueNumber}:`, error)
+      throw error
+    }
+  }
+
+  async pinIssue(issueNumber: number): Promise<void> {
+    try {
+      // GitHub's pin/unpin issue API requires special headers and is relatively new
+      await this.apiRequest(`PUT /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
+
+      console.log(`✅ Pinned issue #${issueNumber}`)
+    }
+    catch (error) {
+      console.warn(`⚠️ Failed to pin issue #${issueNumber}:`, error)
+      // Don't throw error for pinning failures as it's not critical
+    }
+  }
+
+  async unpinIssue(issueNumber: number): Promise<void> {
+    try {
+      // GitHub's pin/unpin issue API requires special headers and is relatively new
+      await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
+
+      console.log(`✅ Unpinned issue #${issueNumber}`)
+    }
+    catch (error) {
+      console.warn(`⚠️ Failed to unpin issue #${issueNumber}:`, error)
+      // Don't throw error for unpinning failures as it's not critical
+    }
   }
 }

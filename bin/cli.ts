@@ -18,6 +18,7 @@ cli.usage(`[command] [options]
 DEPENDENCY MANAGEMENT:
   setup         🚀 Interactive setup for automated updates (recommended)
   scan          🔍 Scan for dependency updates
+  dashboard     📊 Create or update dependency dashboard issue
   update        ⬆️  Update dependencies and create PRs
   rebase        🔄 Rebase/retry a pull request with latest updates
   check-rebase  🔍 Auto-detect and rebase PRs with checked rebase box
@@ -39,6 +40,7 @@ CONFIGURATION & SETUP:
 Examples:
   buddy-bot setup                      # Interactive setup
   buddy-bot scan --verbose             # Scan for updates
+  buddy-bot dashboard --pin            # Create pinned dashboard
   buddy-bot rebase 17                  # Rebase PR #17
   buddy-bot check-rebase               # Auto-rebase checked PRs
   buddy-bot info react                 # Get package info
@@ -293,6 +295,54 @@ cli
     }
     catch (error) {
       logger.error('Scan failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('dashboard', 'Create or update dependency dashboard issue')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--pin', 'Pin the dashboard issue')
+  .option('--title <title>', 'Custom dashboard title')
+  .option('--issue-number <number>', 'Update specific issue number')
+  .example('buddy-bot dashboard')
+  .example('buddy-bot dashboard --pin')
+  .example('buddy-bot dashboard --title "My Dependencies"')
+  .example('buddy-bot dashboard --issue-number 42')
+  .action(async (options: CLIOptions & { pin?: boolean, title?: string, issueNumber?: string }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      logger.info('Creating or updating dependency dashboard...')
+
+      // Check if repository is configured
+      if (!config.repository) {
+        logger.error('❌ Repository configuration required for dashboard')
+        logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        process.exit(1)
+      }
+
+      // Override config with CLI options
+      const finalConfig: BuddyBotConfig = {
+        ...config,
+        verbose: options.verbose ?? config.verbose,
+        dashboard: {
+          ...config.dashboard,
+          enabled: true,
+          pin: options.pin ?? config.dashboard?.pin,
+          title: options.title ?? config.dashboard?.title,
+          issueNumber: options.issueNumber ? Number.parseInt(options.issueNumber) : config.dashboard?.issueNumber,
+        },
+      }
+
+      const buddy = new Buddy(finalConfig)
+      const issue = await buddy.createOrUpdateDashboard()
+
+      logger.success(`✅ Dashboard updated: ${issue.url}`)
+      logger.info(`📊 Issue #${issue.number}: ${issue.title}`)
+    }
+    catch (error) {
+      logger.error('Dashboard creation failed:', error)
       process.exit(1)
     }
   })

@@ -1,5 +1,7 @@
 import type {
   BuddyBotConfig,
+  DashboardData,
+  Issue,
   PackageFile,
   PackageUpdate,
   UpdateGroup,
@@ -7,6 +9,7 @@ import type {
 } from './types'
 import fs from 'node:fs'
 import process from 'node:process'
+import { DashboardGenerator } from './dashboard/dashboard-generator'
 import { GitHubProvider } from './git/github-provider'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { RegistryClient } from './registry/registry-client'
@@ -18,6 +21,7 @@ export class Buddy {
   private readonly logger: Logger
   private readonly scanner: PackageScanner
   private readonly registryClient: RegistryClient
+  private readonly dashboardGenerator: DashboardGenerator
 
   constructor(
     private readonly config: BuddyBotConfig,
@@ -26,6 +30,7 @@ export class Buddy {
     this.logger = new Logger(false) // Will be configurable
     this.scanner = new PackageScanner(this.projectPath, this.logger)
     this.registryClient = new RegistryClient(this.projectPath, this.logger)
+    this.dashboardGenerator = new DashboardGenerator()
   }
 
   /**
@@ -682,5 +687,166 @@ export class Buddy {
    */
   getProjectPath(): string {
     return this.projectPath
+  }
+
+  /**
+   * Create or update dependency dashboard
+   */
+  async createOrUpdateDashboard(): Promise<Issue> {
+    try {
+      this.logger.info('Creating or updating dependency dashboard...')
+
+      // Validate configuration
+      if (!this.config.repository) {
+        throw new Error('Repository configuration is required for dashboard')
+      }
+
+      if (this.config.repository.provider !== 'github') {
+        throw new Error('Dashboard is currently only supported for GitHub repositories')
+      }
+
+      // Initialize git provider
+      const gitProvider = new GitHubProvider(
+        this.config.repository.token || process.env.GITHUB_TOKEN || '',
+        this.config.repository.owner,
+        this.config.repository.name,
+      )
+
+      // Collect dashboard data
+      const dashboardData = await this.collectDashboardData(gitProvider)
+
+      // Generate dashboard content
+      const dashboardConfig = this.config.dashboard || {}
+      const { title, body } = this.dashboardGenerator.generateDashboard(dashboardData, {
+        showOpenPRs: dashboardConfig.showOpenPRs ?? true,
+        showDetectedDependencies: dashboardConfig.showDetectedDependencies ?? true,
+        bodyTemplate: dashboardConfig.bodyTemplate,
+      })
+
+      // Check if dashboard issue already exists
+      const existingIssue = await this.findExistingDashboard(gitProvider, dashboardConfig.issueNumber)
+
+      let issue: Issue
+
+      if (existingIssue) {
+        this.logger.info(`Updating existing dashboard issue #${existingIssue.number}`)
+
+        // Update existing dashboard
+        issue = await gitProvider.updateIssue(existingIssue.number, {
+          title: dashboardConfig.title || title,
+          body,
+          labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
+          assignees: dashboardConfig.assignees,
+        })
+
+        // Pin the issue if configured (even if it's an existing issue)
+        if (dashboardConfig.pin) {
+          try {
+            await gitProvider.pinIssue(issue.number)
+            this.logger.info(`📌 Pinned existing dashboard issue #${issue.number}`)
+          }
+          catch (error) {
+            this.logger.warn(`Failed to pin dashboard issue: ${error}`)
+          }
+        }
+      }
+      else {
+        this.logger.info('Creating new dashboard issue')
+
+        // Create new dashboard
+        issue = await gitProvider.createIssue({
+          title: dashboardConfig.title || title,
+          body,
+          labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
+          assignees: dashboardConfig.assignees,
+        })
+
+        // Pin the issue if configured
+        if (dashboardConfig.pin) {
+          try {
+            await gitProvider.pinIssue(issue.number)
+            this.logger.info(`📌 Pinned new dashboard issue #${issue.number}`)
+          }
+          catch (error) {
+            this.logger.warn(`Failed to pin dashboard issue: ${error}`)
+          }
+        }
+      }
+
+      this.logger.success(`✅ Dashboard updated: ${issue.url}`)
+      return issue
+    }
+    catch (error) {
+      this.logger.error('Failed to create or update dashboard:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Collect all data needed for the dashboard
+   */
+  private async collectDashboardData(gitProvider: GitHubProvider): Promise<DashboardData> {
+    const [packageFiles, openPRs] = await Promise.all([
+      this.scanner.scanProject(),
+      gitProvider.getPullRequests('open'),
+    ])
+
+    // Filter PRs to only include dependency updates (likely created by buddy-bot)
+    const dependencyPRs = openPRs.filter(pr =>
+      pr.labels.includes('dependencies')
+      || pr.title.toLowerCase().includes('update')
+      || pr.title.toLowerCase().includes('chore(deps)'),
+    )
+
+    // Categorize package files
+    const packageJson = packageFiles.filter(file => file.type === 'package.json')
+    const githubActions = packageFiles.filter(file =>
+      file.path.includes('.github/workflows/')
+      && (file.path.endsWith('.yml') || file.path.endsWith('.yaml')),
+    )
+    const dependencyFiles = packageFiles.filter(file =>
+      !file.path.includes('.github/workflows/')
+      && file.type !== 'package.json',
+    )
+
+    return {
+      openPRs: dependencyPRs,
+      detectedDependencies: {
+        packageJson,
+        dependencyFiles,
+        githubActions,
+      },
+      repository: {
+        owner: this.config.repository!.owner,
+        name: this.config.repository!.name,
+        provider: this.config.repository!.provider,
+      },
+      lastUpdated: new Date(),
+    }
+  }
+
+  /**
+   * Find existing dashboard issue
+   */
+  private async findExistingDashboard(gitProvider: GitHubProvider, issueNumber?: number): Promise<Issue | null> {
+    try {
+      // If issue number is provided, try to get that specific issue
+      if (issueNumber) {
+        const issues = await gitProvider.getIssues('open')
+        return issues.find(issue => issue.number === issueNumber) || null
+      }
+
+      // Otherwise, search for existing dashboard by title and labels
+      const issues = await gitProvider.getIssues('open')
+      return issues.find(issue =>
+        (issue.title.toLowerCase().includes('dependency dashboard')
+          || issue.labels.includes('dashboard'))
+        && issue.labels.includes('dependencies'),
+      ) || null
+    }
+    catch (error) {
+      this.logger.warn(`Failed to search for existing dashboard: ${error}`)
+      return null
+    }
   }
 }

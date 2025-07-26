@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import type { FileChange, GitProvider, PullRequest, PullRequestOptions } from '../types'
+import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullRequestOptions } from '../types'
 
 export class GitLabProvider implements GitProvider {
   constructor(
@@ -59,5 +59,51 @@ export class GitLabProvider implements GitProvider {
   async mergePullRequest(prNumber: number, strategy: 'merge' | 'squash' | 'rebase' = 'merge'): Promise<void> {
     // TODO: Implement GitLab API call to merge MR
     console.log(`Would merge MR #${prNumber} using ${strategy}`)
+  }
+
+  async createIssue(options: IssueOptions): Promise<Issue> {
+    // TODO: Implement GitLab API call to create issue
+    console.log(`Would create issue: ${options.title}`)
+
+    return {
+      number: 1,
+      title: options.title,
+      body: options.body,
+      state: 'open',
+      url: `https://gitlab.com/project/${this.projectId}/-/issues/1`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      author: 'buddy',
+      assignees: options.assignees || [],
+      labels: options.labels || [],
+      pinned: false,
+    }
+  }
+
+  async getIssues(state: 'open' | 'closed' | 'all' = 'open'): Promise<Issue[]> {
+    // TODO: Implement GitLab API call to get issues
+    console.log(`Would get ${state} issues`)
+    return []
+  }
+
+  async updateIssue(issueNumber: number, _options: Partial<IssueOptions>): Promise<Issue> {
+    // TODO: Implement GitLab API call to update issue
+    console.log(`Would update issue #${issueNumber}`)
+    throw new Error('Not implemented')
+  }
+
+  async closeIssue(issueNumber: number): Promise<void> {
+    // TODO: Implement GitLab API call to close issue
+    console.log(`Would close issue #${issueNumber}`)
+  }
+
+  async pinIssue(issueNumber: number): Promise<void> {
+    // TODO: Implement GitLab API call to pin issue
+    console.log(`Would pin issue #${issueNumber}`)
+  }
+
+  async unpinIssue(issueNumber: number): Promise<void> {
+    // TODO: Implement GitLab API call to unpin issue
+    console.log(`Would unpin issue #${issueNumber}`)
   }
 }

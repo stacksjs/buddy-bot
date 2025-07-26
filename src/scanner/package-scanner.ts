@@ -67,8 +67,8 @@ export class PackageScanner {
       return packageFiles
     }
     catch (_error) {
-      this.logger.error('Failed to scan project:', error)
-      throw new BuddyError(`Failed to scan project: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      this.logger.error('Failed to scan project:', _error)
+      throw new BuddyError(`Failed to scan project: ${_error instanceof Error ? _error.message : 'Unknown error'}`)
     }
   }
 
@@ -96,7 +96,7 @@ export class PackageScanner {
       }
     }
     catch (_error) {
-      this.logger.warn(`Failed to parse package.json file ${filePath}:`, error)
+      this.logger.warn(`Failed to parse package.json file ${filePath}:`, _error)
       return null
     }
   }
@@ -139,7 +139,7 @@ export class PackageScanner {
       }
     }
     catch (_error) {
-      this.logger.warn(`Failed to parse lock file ${filePath}:`, error)
+      this.logger.warn(`Failed to parse lock file ${filePath}:`, _error)
       return null
     }
   }
@@ -153,7 +153,7 @@ export class PackageScanner {
       return await parseDepFile(filePath, content)
     }
     catch (_error) {
-      this.logger.warn(`Failed to parse dependency file ${filePath}:`, error)
+      this.logger.warn(`Failed to parse dependency file ${filePath}:`, _error)
       return null
     }
   }
@@ -206,7 +206,7 @@ export class PackageScanner {
         }
       }
     }
-    catch (_error) {
+    catch {
       // Ignore if .github/workflows doesn't exist
     }
 
@@ -222,7 +222,7 @@ export class PackageScanner {
       return await parseGitHubActionsFile(filePath, content)
     }
     catch (_error) {
-      this.logger.warn(`Failed to parse GitHub Actions file ${filePath}:`, error)
+      this.logger.warn(`Failed to parse GitHub Actions file ${filePath}:`, _error)
       return null
     }
   }
@@ -285,7 +285,7 @@ export class PackageScanner {
         }
       }
       catch (_error) {
-        this.logger.warn(`Failed to parse package-lock.json:`, error)
+        this.logger.warn(`Failed to parse package-lock.json:`, _error)
       }
     }
 

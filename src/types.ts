@@ -99,6 +99,34 @@ export interface BuddyBotConfig {
     }[]
   }
 
+  /** Dependency Dashboard settings */
+  dashboard?: {
+    /** Enable dependency dashboard */
+    enabled?: boolean
+    /** Dashboard title */
+    title?: string
+    /** Dashboard body template */
+    bodyTemplate?: string
+    /** Pin the dashboard issue */
+    pin?: boolean
+    /** Labels to add to dashboard issue */
+    labels?: string[]
+    /** Assignees to assign to dashboard issue */
+    assignees?: string[]
+    /** Include package.json dependencies */
+    includePackageJson?: boolean
+    /** Include dependency files (deps.yaml, etc.) */
+    includeDependencyFiles?: boolean
+    /** Include GitHub Actions */
+    includeGitHubActions?: boolean
+    /** Show open PRs section */
+    showOpenPRs?: boolean
+    /** Show detected dependencies section */
+    showDetectedDependencies?: boolean
+    /** Issue number to update (if it exists) */
+    issueNumber?: number
+  }
+
 }
 
 export type BuddyBotOptions = Partial<BuddyBotConfig>
@@ -211,6 +239,24 @@ export interface GitProvider {
 
   /** Merge pull request */
   mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
+
+  /** Create GitHub issue */
+  createIssue: (options: IssueOptions) => Promise<Issue>
+
+  /** Get existing issues */
+  getIssues: (state?: 'open' | 'closed' | 'all') => Promise<Issue[]>
+
+  /** Update issue */
+  updateIssue: (issueNumber: number, options: Partial<IssueOptions>) => Promise<Issue>
+
+  /** Close issue */
+  closeIssue: (issueNumber: number) => Promise<void>
+
+  /** Pin issue */
+  pinIssue: (issueNumber: number) => Promise<void>
+
+  /** Unpin issue */
+  unpinIssue: (issueNumber: number) => Promise<void>
 }
 
 export interface FileChange {
@@ -278,6 +324,46 @@ export interface PullRequest {
   draft: boolean
 }
 
+export interface IssueOptions {
+  /** Issue title */
+  title: string
+  /** Issue body/description */
+  body: string
+  /** Assignees to assign */
+  assignees?: string[]
+  /** Labels to add */
+  labels?: string[]
+  /** Milestone to assign */
+  milestone?: number
+}
+
+export interface Issue {
+  /** Issue number */
+  number: number
+  /** Issue title */
+  title: string
+  /** Issue body/description */
+  body: string
+  /** Issue state */
+  state: 'open' | 'closed'
+  /** Issue URL */
+  url: string
+  /** Creation date */
+  createdAt: Date
+  /** Last update date */
+  updatedAt: Date
+  /** Close date (if closed) */
+  closedAt?: Date
+  /** Author */
+  author: string
+  /** Assignees */
+  assignees: string[]
+  /** Labels */
+  labels: string[]
+  /** Is pinned */
+  pinned?: boolean
+}
+
 // Update scanning and processing types
 export interface UpdateScanResult {
   /** Total packages scanned */
@@ -303,6 +389,28 @@ export interface UpdateGroup {
   title: string
   /** PR body for this group */
   body: string
+}
+
+export interface DashboardData {
+  /** Open pull requests */
+  openPRs: PullRequest[]
+  /** Detected package files and their dependencies */
+  detectedDependencies: {
+    /** Package.json files */
+    packageJson: PackageFile[]
+    /** Dependency files (deps.yaml, etc.) */
+    dependencyFiles: PackageFile[]
+    /** GitHub Actions files */
+    githubActions: PackageFile[]
+  }
+  /** Repository information */
+  repository: {
+    owner: string
+    name: string
+    provider: string
+  }
+  /** Last update timestamp */
+  lastUpdated: Date
 }
 
 // CLI and command types
