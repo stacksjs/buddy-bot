@@ -198,14 +198,14 @@ PRs include this checkbox for manual rebase triggers:
 
 ```markdown
 ---
- - [ ] <!-- rebase-check -->If you want to rebase/retry this PR, check this box
+ - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
 ---
 ```
 
 When checked (marked with `x`):
 
 ```markdown
- - [x] <!-- rebase-check -->If you want to rebase/retry this PR, check this box
+ - [x] <!-- rebase-check -->If you want to update/retry this PR, check this box
 ```
 
 ### Process

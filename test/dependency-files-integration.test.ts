@@ -196,7 +196,7 @@ devDependencies:
     it('should initialize Buddy with dependency file support', () => {
       const buddy = new Buddy(testConfig)
       expect(buddy).toBeDefined()
-      expect(typeof buddy.generatePackageJsonUpdates).toBe('function')
+      expect(typeof buddy.generateAllFileUpdates).toBe('function')
     })
 
     it('should have access to dependency file utilities', () => {

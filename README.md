@@ -21,6 +21,7 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 - 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, pkgx, and Launchpad dependency files
 - ⚡ **GitHub Actions**: Automatically updates workflow dependencies (`actions/checkout@v4`, etc.)
 - 📊 **Dependency Dashboard**: Single GitHub issue with overview of all dependencies and open PRs
+- 🔄 **Rebase Functionality**: Interactive checkbox to update PRs with latest dependency versions
 - 🔍 **Intelligent Scanning**: Uses `bun outdated` and GitHub releases for accurate dependency detection
 - 📋 **Flexible Grouping**: Group related packages for cleaner PRs
 - 🎨 **Rich PR Format**: Three separate tables (npm, Launchpad/pkgx, GitHub Actions) with detailed metadata
@@ -86,6 +87,11 @@ buddy scan --strategy patch
 # Update dependencies and create PRs
 buddy update --dry-run
 buddy update
+
+# Check for rebase requests and update PRs
+buddy check-rebase
+buddy check-rebase --dry-run
+buddy check-rebase --verbose
 
 # Get help
 buddy help
@@ -199,6 +205,74 @@ The dependency dashboard provides a centralized view of all your repository's de
 - **📌 Pinnable Issue**: Keep dashboard at the top of your issues
 - **🏷️ Smart Categorization**: Organized by npm, GitHub Actions, and dependency files
 - **⚡ Auto-Updates**: Refreshes when dependencies change
+
+## Rebase Functionality
+
+Buddy Bot includes powerful rebase functionality that allows you to update existing pull requests with the latest dependency versions, similar to Renovate's rebase feature.
+
+### How It Works
+
+All Buddy Bot pull requests include a rebase checkbox at the bottom:
+
+```markdown
+---
+ - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
+---
+```
+
+### Using the Rebase Feature
+
+1. **Check the box**: In any Buddy Bot PR, check the rebase checkbox
+2. **Automatic detection**: The rebase workflow runs every minute to detect checked boxes
+3. **Updates applied**: The PR is automatically updated with the latest dependency versions
+4. **Checkbox unchecked**: After successful rebase, the checkbox is automatically unchecked
+
+### Rebase Command
+
+You can also trigger rebase manually using the CLI:
+
+```bash
+# Check for PRs with rebase checkbox enabled and update them
+buddy-bot check-rebase
+
+# Dry run to see what would be rebased
+buddy-bot check-rebase --dry-run
+
+# With verbose output
+buddy-bot check-rebase --verbose
+```
+
+### Automated Rebase Workflow
+
+Buddy Bot includes a pre-built GitHub Actions workflow (`.github/workflows/buddy-bot-rebase.yml`) that:
+
+- **🕐 Runs every minute**: Automatically checks for rebase requests
+- **🔍 Scans all PRs**: Finds Buddy Bot PRs with checked rebase boxes
+- **📦 Updates dependencies**: Re-scans for latest versions and updates files
+- **📝 Updates PR content**: Refreshes PR title, body, and file changes
+- **✅ Maintains workflow files**: Updates GitHub Actions workflows (requires proper permissions)
+
+### Workflow File Permissions
+
+For the rebase functionality to update GitHub Actions workflow files, you need proper permissions:
+
+#### Option 1: Personal Access Token (Recommended)
+1. Create a [Personal Access Token](https://github.com/settings/tokens) with `repo` and `workflow` scopes
+2. Add it as a repository secret named `BUDDY_BOT_TOKEN`
+3. The workflow automatically uses it when available
+
+#### Option 2: Default GitHub Token (Limited)
+- Uses `GITHUB_TOKEN` with limited permissions
+- Cannot update workflow files (`.github/workflows/*.yml`)
+- Still updates package.json, lock files, and dependency files
+
+### What Gets Updated During Rebase
+
+- ✅ **package.json** - npm/yarn/pnpm dependencies
+- ✅ **Lock files** - package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb
+- ✅ **Dependency files** - deps.yaml, dependencies.yaml, pkgx.yaml
+- ✅ **GitHub Actions** - workflow files (with proper permissions)
+- ✅ **PR content** - Updated title, body, and metadata
 
 ### Quick Start
 
@@ -452,7 +526,7 @@ This PR contains the following updates:
 
 ---
 
- - [ ] <!-- rebase-check -->If you want to rebase/retry this PR, check this box
+ - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
 
 ---
 

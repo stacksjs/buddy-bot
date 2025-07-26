@@ -65,7 +65,12 @@ The following updates have all been created. To force a retry/rebase of any, cli
       const packageInfo = this.extractPackageInfo(pr)
       const rebaseBranch = pr.head
 
-      section += ` - [ ] <!-- rebase-branch=${rebaseBranch} -->[${pr.title}](${pr.url})`
+      // Convert full GitHub URL to relative format
+      const relativeUrl = pr.url.includes('/pull/') && pr.url.includes('github.com')
+        ? `../pull/${pr.number}`
+        : pr.url
+
+      section += ` - [ ] <!-- rebase-branch=${rebaseBranch} -->[${pr.title}](${relativeUrl})`
 
       if (packageInfo.length > 0) {
         section += ` (\`${packageInfo.join('`, `')}\`)`
@@ -167,7 +172,21 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
 `
 
+      // Deduplicate actions within this file
+      const uniqueActions = new Map<string, { name: string, currentVersion: string }>()
+
       for (const action of file.dependencies) {
+        const key = `${action.name}@${action.currentVersion}`
+        if (!uniqueActions.has(key)) {
+          uniqueActions.set(key, {
+            name: action.name,
+            currentVersion: action.currentVersion,
+          })
+        }
+      }
+
+      // Output unique actions
+      for (const action of uniqueActions.values()) {
         section += ` - \`${action.name} ${action.currentVersion}\`\n`
       }
 
@@ -239,13 +258,42 @@ The following updates have all been created. To force a retry/rebase of any, cli
       packages.push(titleMatch[1])
     }
 
-    // Try to extract from body if it contains package lists
-    const bodyMatches = pr.body.match(/`([^`]+)`/g)
-    if (bodyMatches) {
-      for (const match of bodyMatches) {
-        const packageName = match.replace(/`/g, '').split(' ')[0]
-        if (packageName && !packages.includes(packageName)) {
-          packages.push(packageName)
+    // Extract from the enhanced PR body format
+    // Look for table entries like: | [package-name](url) | version change | badges |
+    const tableMatches = pr.body.match(/\|\s*\[([^\]]+)\]/g)
+    if (tableMatches) {
+      for (const match of tableMatches) {
+        const packageMatch = match.match(/\|\s*\[([^\]]+)\]/)
+        if (packageMatch) {
+          const packageName = packageMatch[1]
+          // Skip if it's a URL, badge, or contains special characters that indicate it's not a package name
+          if (!packageName.includes('://')
+            && !packageName.includes('Compare Source')
+            && !packageName.includes('badge')
+            && !packageName.includes('!')
+            && !packageName.startsWith('[![')
+            && !packages.includes(packageName)) {
+            packages.push(packageName)
+          }
+        }
+      }
+    }
+
+    // Fallback: try to extract from simple backtick patterns
+    if (packages.length === 0) {
+      const bodyMatches = pr.body.match(/`([^`]+)`/g)
+      if (bodyMatches) {
+        for (const match of bodyMatches) {
+          const content = match.replace(/`/g, '')
+          // Only extract if it looks like a package name (no version arrows, URLs, or special chars)
+          if (!content.includes('->')
+            && !content.includes('://')
+            && !content.includes(' ')
+            && !content.includes('Compare Source')
+            && content.length > 0
+            && !packages.includes(content)) {
+            packages.push(content)
+          }
         }
       }
     }

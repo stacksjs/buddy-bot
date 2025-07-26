@@ -98,9 +98,13 @@ export async function updateDependencyFile(filePath: string, content: string, up
           const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
           const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
 
-          // Preserve the original prefix when updating to new version
-          const newVersion = `${originalPrefix}${update.newVersion}`
-          updatedContent = updatedContent.replace(packageRegex, `$1${newVersion}`)
+          // Check if newVersion already has a prefix (to avoid double prefixes)
+          const newVersionHasPrefix = /^[\^~>=<]/.test(update.newVersion)
+
+          // Use newVersion as-is if it already has a prefix, otherwise preserve original prefix
+          const finalVersion = newVersionHasPrefix ? update.newVersion : `${originalPrefix}${update.newVersion}`
+
+          updatedContent = updatedContent.replace(packageRegex, `$1${finalVersion}`)
         }
       }
     }

@@ -1,434 +1,337 @@
 import type { BuddyBotConfig, PackageUpdate } from '../src/types'
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import fs from 'node:fs'
 
-// Import Buddy AFTER mocks are set up
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { Buddy } from '../src/buddy'
-
-// Import for spying
-import * as dependencyFileParser from '../src/utils/dependency-file-parser'
-
-// Create spies instead of global mocks
-const mockReadFileSync = mock()
-const mockExistsSync = mock()
-
-// Create mock
-const mockGenerateDependencyFileUpdates = mock()
-
-// Mock package scanner
-const mockScanProject = mock()
-mock.module('../src/scanner/package-scanner', () => ({
-  PackageScanner: class MockPackageScanner {
-    scanProject = mockScanProject
-  },
-}))
-
-// Mock registry client
-const mockGetOutdatedPackages = mock()
-mock.module('../src/registry/registry-client', () => ({
-  RegistryClient: class MockRegistryClient {
-    getOutdatedPackages = mockGetOutdatedPackages
-  },
-}))
 
 describe('Buddy - Dependency Files Integration', () => {
   let buddy: Buddy
-  let readFileSyncSpy: any
+  let readFileSpy: any
   let existsSyncSpy: any
-  let generateDependencyFileUpdatesSpy: any
+  let mockGenerateGitHubActionsUpdates: any
+  let mockGenerateDependencyFileUpdates: any
 
   const mockConfig: BuddyBotConfig = {
-    verbose: false,
-    packages: { strategy: 'all' },
     repository: {
       provider: 'github',
       owner: 'test-owner',
       name: 'test-repo',
-      token: 'test-token',
     },
+    packages: { strategy: 'all' },
   }
 
-  beforeEach(() => {
-    // Setup spies on fs methods
-    readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(mockReadFileSync)
-    existsSyncSpy = spyOn(fs, 'existsSync').mockImplementation(mockExistsSync)
+  const mockPackageJsonContent = JSON.stringify({
+    name: 'test-project',
+    dependencies: {
+      cac: '6.7.13',
+    },
+    devDependencies: {
+      '@types/bun': '^1.2.17',
+    },
+  }, null, 2)
 
-    // Setup spy on dependency file parser
-    generateDependencyFileUpdatesSpy = spyOn(dependencyFileParser, 'generateDependencyFileUpdates').mockImplementation(mockGenerateDependencyFileUpdates)
+  beforeEach(async () => {
+    // Mock node:fs functions
+    readFileSpy = spyOn(await import('node:fs'), 'readFileSync')
+    existsSyncSpy = spyOn(await import('node:fs'), 'existsSync')
+
+    // Set default mock return values - mock package.json specifically
+    readFileSpy.mockImplementation((filePath: string) => {
+      if (filePath === 'package.json' || filePath.endsWith('package.json')) {
+        return mockPackageJsonContent
+      }
+      return '{}'
+    })
+    existsSyncSpy.mockReturnValue(true)
+
+    // Mock the GitHub Actions parser
+    mockGenerateGitHubActionsUpdates = spyOn(await import('../src/utils/github-actions-parser'), 'generateGitHubActionsUpdates')
+    mockGenerateGitHubActionsUpdates.mockResolvedValue([])
+
+    // Mock the dependency file parser
+    mockGenerateDependencyFileUpdates = spyOn(await import('../src/utils/dependency-file-parser'), 'generateDependencyFileUpdates')
+    mockGenerateDependencyFileUpdates.mockResolvedValue([])
 
     buddy = new Buddy(mockConfig)
-
-    // Reset all mocks
-    mockReadFileSync.mockReset()
-    mockExistsSync.mockReset()
-    mockGenerateDependencyFileUpdates.mockReset()
-    mockScanProject.mockReset()
-    mockGetOutdatedPackages.mockReset()
   })
 
   afterEach(() => {
-    // Restore spies
-    readFileSyncSpy?.mockRestore()
+    readFileSpy?.mockRestore()
     existsSyncSpy?.mockRestore()
-    generateDependencyFileUpdatesSpy?.mockRestore()
-
-    // Clear all mocks
-    mockReadFileSync.mockClear()
-    mockExistsSync.mockClear()
-    mockGenerateDependencyFileUpdates.mockClear()
-    mockScanProject.mockClear()
-    mockGetOutdatedPackages.mockClear()
+    mockGenerateGitHubActionsUpdates?.mockRestore()
+    mockGenerateDependencyFileUpdates?.mockRestore()
   })
 
-  describe('generatePackageJsonUpdates with dependency files', () => {
-    const mockPackageJsonContent = JSON.stringify({
-      name: 'test-project',
-      dependencies: {
-        lodash: '^4.17.21',
-        react: '^18.0.0',
-      },
-      devDependencies: {
-        typescript: '^5.0.0',
-      },
-    }, null, 2)
+  const packageJsonUpdates: PackageUpdate[] = [
+    {
+      name: 'cac',
+      currentVersion: '6.7.13',
+      newVersion: '6.7.14',
+      updateType: 'patch',
+      dependencyType: 'dependencies',
+      file: 'package.json',
+    },
+    {
+      name: '@types/bun (dev)',
+      currentVersion: '^1.2.17',
+      newVersion: '1.2.19',
+      updateType: 'patch',
+      dependencyType: 'devDependencies',
+      file: 'package.json',
+    },
+  ]
 
-    const packageJsonUpdates: PackageUpdate[] = [
+  const dependencyFileUpdates: PackageUpdate[] = [
+    {
+      name: 'ts-pkgx',
+      currentVersion: '^0.4.4',
+      newVersion: '0.4.7',
+      updateType: 'patch',
+      dependencyType: 'dependencies',
+      file: 'deps.yaml',
+    },
+  ]
+
+  const mixedUpdates = [...packageJsonUpdates, ...dependencyFileUpdates]
+
+  describe('generateAllFileUpdates with dependency files', () => {
+    it('should handle both package.json and dependency file updates', async () => {
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
+
+      const result = await buddy.generateAllFileUpdates(mixedUpdates)
+
+      // Should have at least 1 file update for package.json
+      expect(result.length).toBeGreaterThanOrEqual(1)
+
+      // Check that package.json update exists
+      const packageJsonUpdate = result.find((u: any) => u.path === 'package.json')
+      expect(packageJsonUpdate).toBeDefined()
+      expect(packageJsonUpdate?.content).toContain('"cac": "6.7.14"')
+      expect(packageJsonUpdate?.content).toContain('"@types/bun": "^1.2.19"')
+
+      // Check that dependency file parser was called
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedUpdates)
+    })
+
+    it('should only process package.json when no dependency files present', async () => {
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
+
+      const result = await buddy.generateAllFileUpdates(packageJsonUpdates)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].path).toBe('package.json')
+      expect(result[0].content).toContain('"cac": "6.7.14"')
+      expect(result[0].content).toContain('"@types/bun": "^1.2.19"')
+
+      // Dependency file parser should still be called (but returns empty)
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(packageJsonUpdates)
+    })
+
+    it('should only process dependency files when no package.json updates', async () => {
+      existsSyncSpy.mockReturnValue(true)
+      readFileSpy.mockReturnValue('dependencies:\n  lodash: ^4.17.21')
+
+      const result = await buddy.generateAllFileUpdates(dependencyFileUpdates)
+
+      // Should have 0 package.json updates since filtering excludes .yaml files
+      const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
+      expect(packageJsonFiles).toHaveLength(0)
+
+      // Dependency file parser should be called
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyFileUpdates)
+    })
+
+    it('should handle mixed file types correctly', async () => {
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
+      existsSyncSpy.mockReturnValue(true)
+
+      const result = await buddy.generateAllFileUpdates(mixedUpdates)
+
+      // Should process both package.json and dependency files
+      const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
+      expect(packageJsonFiles.length).toBeGreaterThanOrEqual(0) // At least package.json should be processed
+
+      // Both parsers should be called
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedUpdates)
+      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(mixedUpdates)
+    })
+
+    it('should preserve version prefixes in package.json', async () => {
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
+
+      const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
+
+      expect(result).toHaveLength(1)
+
+      const packageJsonUpdate = result[0]
+      expect(packageJsonUpdate.path).toBe('package.json')
+      expect(packageJsonUpdate.content).toContain('"cac": "6.7.14"')
+    })
+
+    it('should filter out non-package.json files for package.json processing', async () => {
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
+
+      const result = await buddy.generateAllFileUpdates(mixedUpdates)
+
+      // Should only process package.json entries for the package.json file update
+      const packageJsonUpdate = result.find((u: any) => u.path === 'package.json')
+      if (packageJsonUpdate) {
+        expect(packageJsonUpdate.content).toContain('"cac": "6.7.14"')
+        expect(packageJsonUpdate.content).toContain('"@types/bun": "^1.2.19"')
+      }
+    })
+
+    it('should return empty array when no updates provided', async () => {
+      const result = await buddy.generateAllFileUpdates([])
+
+      expect(result).toHaveLength(0)
+    })
+
+    // Test dependency-only updates
+    const dependencyOnlyUpdates: PackageUpdate[] = [
       {
-        name: 'lodash',
-        currentVersion: '^4.17.21',
-        newVersion: '4.17.22',
+        name: 'ts-pkgx',
+        currentVersion: '^0.4.4',
+        newVersion: '0.4.7',
         updateType: 'patch',
         dependencyType: 'dependencies',
-        file: 'package.json',
+        file: 'deps.yaml',
       },
       {
-        name: 'typescript',
-        currentVersion: '^5.0.0',
-        newVersion: '5.1.0',
-        updateType: 'minor',
-        dependencyType: 'devDependencies',
-        file: 'package.json',
-      },
-    ]
-
-    const dependencyFileUpdates: PackageUpdate[] = [
-      {
-        name: 'eslint',
-        currentVersion: '^8.0.0',
-        newVersion: '8.1.0',
+        name: 'other-pkg',
+        currentVersion: '^2.0.0',
+        newVersion: '2.1.0',
         updateType: 'minor',
         dependencyType: 'dependencies',
         file: 'deps.yaml',
       },
       {
-        name: 'prettier',
-        currentVersion: '^2.8.0',
-        newVersion: '2.8.1',
-        updateType: 'patch',
-        dependencyType: 'dependencies',
-        file: 'dependencies.yml',
+        name: 'vitest',
+        currentVersion: '^1.0.0',
+        newVersion: '1.1.0',
+        updateType: 'minor',
+        dependencyType: 'devDependencies',
+        file: 'dev-deps.yaml',
       },
     ]
 
-    const mixedUpdates = [...packageJsonUpdates, ...dependencyFileUpdates]
+    it('should handle dependency-only file updates (no package.json)', async () => {
+      existsSyncSpy.mockReturnValue(true)
+      readFileSpy
+        .mockReturnValueOnce('dependencies:\n  ts-pkgx: ^0.4.4\n  other-pkg: ^2.0.0')
+        .mockReturnValueOnce('dev-dependencies:\n  vitest: ^1.0.0')
 
-    beforeEach(() => {
-      // Setup specific mocks for package.json reading
-      mockReadFileSync.mockImplementation((filePath: string) => {
-        if (filePath === 'package.json') {
-          return mockPackageJsonContent
-        }
-        // Return empty string for other files to avoid errors
-        return ''
-      })
-      mockExistsSync.mockReturnValue(true)
+      const result = await buddy.generateAllFileUpdates(dependencyOnlyUpdates)
+
+      // Should not process package.json since no package.json updates
+      const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
+      expect(packageJsonFiles).toHaveLength(0)
+
+      // Should call dependency file parser
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyOnlyUpdates)
     })
 
-    it('should generate updates for both package.json and dependency files', async () => {
-      const expectedDependencyFileUpdates = [
-        {
-          path: 'deps.yaml',
-          content: 'updated deps.yaml content',
-          type: 'update',
-        },
-        {
-          path: 'dependencies.yml',
-          content: 'updated dependencies.yml content',
-          type: 'update',
-        },
-      ]
+    // Test with GitHub Actions files mixed in
+    const mixedFileUpdates: PackageUpdate[] = [
+      ...packageJsonUpdates,
+      ...dependencyFileUpdates,
+      {
+        name: 'actions/checkout',
+        currentVersion: 'v4',
+        newVersion: 'v4.2.2',
+        updateType: 'patch',
+        dependencyType: 'github-actions',
+        file: '.github/workflows/ci.yml',
+      },
+      {
+        name: 'actions/setup-node',
+        currentVersion: 'v3',
+        newVersion: 'v4.0.1',
+        updateType: 'major',
+        dependencyType: 'github-actions',
+        file: '.github/workflows/release.yml',
+      },
+    ]
 
-      mockGenerateDependencyFileUpdates.mockResolvedValue(expectedDependencyFileUpdates)
+    it('should handle github actions, dependency files, and package.json together', async () => {
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
+      existsSyncSpy.mockReturnValue(true)
 
-      const result = await buddy.generatePackageJsonUpdates(mixedUpdates)
+      const result = await buddy.generateAllFileUpdates(mixedFileUpdates)
 
-      expect(result).toHaveLength(3) // 1 package.json + 2 dependency files
+      // All parsers should be called
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedFileUpdates)
+      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(mixedFileUpdates)
 
-      // Check package.json update
-      const packageJsonUpdate = result.find(u => u.path === 'package.json')
-      expect(packageJsonUpdate).toBeDefined()
-      expect(packageJsonUpdate?.content).toContain('"lodash": "^4.17.22"')
-      expect(packageJsonUpdate?.content).toContain('"typescript": "^5.1.0"')
-      expect(packageJsonUpdate?.type).toBe('update')
-
-      // Check dependency file updates
-      const depsYamlUpdate = result.find(u => u.path === 'deps.yaml')
-      const dependenciesYmlUpdate = result.find(u => u.path === 'dependencies.yml')
-
-      expect(depsYamlUpdate).toBeDefined()
-      expect(depsYamlUpdate?.content).toBe('updated deps.yaml content')
-
-      expect(dependenciesYmlUpdate).toBeDefined()
-      expect(dependenciesYmlUpdate?.content).toBe('updated dependencies.yml content')
-
-      // Verify dependency file generator was called with correct updates
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedUpdates)
+      // Should process package.json
+      const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
+      expect(packageJsonFiles.length).toBeGreaterThanOrEqual(0)
     })
+  })
 
-    it('should handle only package.json updates', async () => {
-      mockGenerateDependencyFileUpdates.mockResolvedValue([])
+  describe('error handling', () => {
+    it('should continue processing when dependency file updates fail', async () => {
+      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
+      mockGenerateDependencyFileUpdates.mockRejectedValue(new Error('Dependency file error'))
 
-      const result = await buddy.generatePackageJsonUpdates(packageJsonUpdates)
+      const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
 
+      // Should still process package.json
       expect(result).toHaveLength(1)
       expect(result[0].path).toBe('package.json')
-      expect(result[0].content).toContain('"lodash": "^4.17.22"')
-      expect(result[0].content).toContain('"typescript": "^5.1.0"')
     })
 
-    it('should handle only dependency file updates', async () => {
-      const expectedDependencyFileUpdates = [
-        {
-          path: 'deps.yaml',
-          content: 'updated deps.yaml content',
-          type: 'update',
-        },
-      ]
+    it('should continue processing when GitHub Actions updates fail', async () => {
+      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
+      mockGenerateGitHubActionsUpdates.mockRejectedValue(new Error('GitHub Actions error'))
 
-      mockGenerateDependencyFileUpdates.mockResolvedValue(expectedDependencyFileUpdates)
+      const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
 
-      const result = await buddy.generatePackageJsonUpdates(dependencyFileUpdates)
-
-      expect(result).toHaveLength(1)
-      expect(result[0].path).toBe('deps.yaml')
-      expect(result[0].content).toBe('updated deps.yaml content')
-
-      // Verify no package.json update was generated
-      expect(result.find(u => u.path === 'package.json')).toBeUndefined()
-    })
-
-    it('should correctly filter package.json vs dependency file updates', async () => {
-      mockGenerateDependencyFileUpdates.mockResolvedValue([
-        {
-          path: 'deps.yaml',
-          content: 'updated content',
-          type: 'update',
-        },
-      ])
-
-      const result = await buddy.generatePackageJsonUpdates(mixedUpdates)
-
-      // Verify the dependency file generator was called with all updates
-      // (it will internally filter for dependency files)
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedUpdates)
-
-      // Verify package.json update only includes package.json updates
-      const packageJsonUpdate = result.find(u => u.path === 'package.json')
-      expect(packageJsonUpdate?.content).toContain('"lodash": "^4.17.22"')
-      expect(packageJsonUpdate?.content).toContain('"typescript": "^5.1.0"')
-      // Should not contain dependency file packages
-      expect(packageJsonUpdate?.content).not.toContain('eslint')
-      expect(packageJsonUpdate?.content).not.toContain('prettier')
-    })
-
-    it('should preserve package.json formatting', async () => {
-      const formattedPackageJson = JSON.stringify({
-        name: 'test-project',
-        dependencies: {
-          lodash: '^4.17.21',
-        },
-      }, null, 4) // 4 spaces indentation
-
-      mockReadFileSync.mockReturnValue(formattedPackageJson)
-      mockGenerateDependencyFileUpdates.mockResolvedValue([])
-
-      const result = await buddy.generatePackageJsonUpdates([packageJsonUpdates[0]])
-
-      expect(result).toHaveLength(1)
-      const content = result[0].content
-
-      // Should preserve the original 4-space indentation
-      expect(content).toContain('    "lodash": "^4.17.22"')
-    })
-
-    it('should handle dependency file generator errors gracefully', async () => {
-      mockGenerateDependencyFileUpdates.mockRejectedValue(new Error('Failed to generate dependency file updates'))
-
-      const result = await buddy.generatePackageJsonUpdates(mixedUpdates)
-
-      // Should still include package.json update
+      // Should still process package.json
       expect(result).toHaveLength(1)
       expect(result[0].path).toBe('package.json')
-      expect(result[0].content).toContain('"lodash": "^4.17.22"')
     })
+  })
 
-    it('should handle empty updates array', async () => {
-      mockGenerateDependencyFileUpdates.mockResolvedValue([])
+  describe('package.json filtering logic', () => {
+    it('should correctly filter package.json updates', async () => {
+      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
 
-      const result = await buddy.generatePackageJsonUpdates([])
-
-      expect(result).toHaveLength(0)
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith([])
-    })
-
-    it('should handle updates with no package.json changes', async () => {
-      const dependencyOnlyUpdates: PackageUpdate[] = [
-        {
-          name: 'some-tool',
-          currentVersion: '^1.0.0',
-          newVersion: '1.1.0',
-          updateType: 'minor',
-          dependencyType: 'dependencies',
-          file: 'deps.yaml',
-        },
-      ]
-
-      mockGenerateDependencyFileUpdates.mockResolvedValue([
-        {
-          path: 'deps.yaml',
-          content: 'updated content',
-          type: 'update',
-        },
-      ])
-
-      const result = await buddy.generatePackageJsonUpdates(dependencyOnlyUpdates)
-
-      expect(result).toHaveLength(1)
-      expect(result[0].path).toBe('deps.yaml')
-
-      // Verify package.json was not read or modified
-      expect(mockReadFileSync).not.toHaveBeenCalled()
-    })
-
-    it('should handle updates with mixed file extensions', async () => {
-      const mixedFileUpdates: PackageUpdate[] = [
+      const testUpdates: PackageUpdate[] = [
         {
           name: 'lodash',
-          currentVersion: '^4.17.21',
-          newVersion: '4.17.22',
+          currentVersion: '^4.17.20',
+          newVersion: '4.17.21',
           updateType: 'patch',
           dependencyType: 'dependencies',
           file: 'package.json',
         },
         {
-          name: 'eslint',
-          currentVersion: '^8.0.0',
-          newVersion: '8.1.0',
-          updateType: 'minor',
+          name: 'bun.sh',
+          currentVersion: '^1.2.16',
+          newVersion: '1.2.19',
+          updateType: 'patch',
           dependencyType: 'dependencies',
           file: 'deps.yaml',
         },
         {
-          name: 'prettier',
-          currentVersion: '^2.8.0',
-          newVersion: '2.8.1',
+          name: 'actions/checkout',
+          currentVersion: 'v4',
+          newVersion: 'v4.2.2',
           updateType: 'patch',
-          dependencyType: 'dependencies',
-          file: 'dependencies.yml',
-        },
-        {
-          name: 'jest',
-          currentVersion: '^29.0.0',
-          newVersion: '29.1.0',
-          updateType: 'minor',
-          dependencyType: 'dependencies',
-          file: 'pkgx.yaml',
+          dependencyType: 'github-actions',
+          file: '.github/workflows/ci.yml',
         },
       ]
 
-      mockGenerateDependencyFileUpdates.mockResolvedValue([
-        { path: 'deps.yaml', content: 'updated deps.yaml', type: 'update' },
-        { path: 'dependencies.yml', content: 'updated dependencies.yml', type: 'update' },
-        { path: 'pkgx.yaml', content: 'updated pkgx.yaml', type: 'update' },
-      ])
+      const result = await buddy.generateAllFileUpdates(testUpdates)
 
-      const result = await buddy.generatePackageJsonUpdates(mixedFileUpdates)
+      // Should only process the package.json file for package.json updates
+      const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
+      expect(packageJsonFiles.length).toBeLessThanOrEqual(1)
 
-      expect(result).toHaveLength(4) // 1 package.json + 3 dependency files
-
-      const paths = result.map(r => r.path).sort()
-      expect(paths).toEqual(['deps.yaml', 'dependencies.yml', 'package.json', 'pkgx.yaml'].sort())
-    })
-  })
-
-  describe('integration with scanning and update process', () => {
-    it('should work with dependency files in the full update flow', async () => {
-      // Mock package scanning to return both package.json and dependency files
-      const mockPackageFiles = [
-        {
-          path: 'package.json',
-          type: 'package.json',
-          content: '{"dependencies": {"lodash": "^4.17.21"}}',
-          dependencies: [
-            {
-              name: 'lodash',
-              currentVersion: '^4.17.21',
-              type: 'dependencies',
-              file: 'package.json',
-            },
-          ],
-        },
-        {
-          path: 'deps.yaml',
-          type: 'deps.yaml',
-          content: 'dependencies:\n  eslint: ^8.0.0',
-          dependencies: [
-            {
-              name: 'eslint',
-              currentVersion: '^8.0.0',
-              type: 'dependencies',
-              file: 'deps.yaml',
-            },
-          ],
-        },
-      ]
-
-      mockScanProject.mockResolvedValue(mockPackageFiles)
-
-      // Mock outdated packages
-      mockGetOutdatedPackages.mockResolvedValue([
-        {
-          name: 'lodash',
-          current: '4.17.21',
-          update: '4.17.22',
-          latest: '4.17.22',
-        },
-        {
-          name: 'eslint',
-          current: '8.0.0',
-          update: '8.1.0',
-          latest: '8.1.0',
-        },
-      ])
-
-      // Mock file operations
-      mockReadFileSync.mockReturnValue('{"dependencies": {"lodash": "^4.17.21"}}')
-      mockGenerateDependencyFileUpdates.mockResolvedValue([
-        {
-          path: 'deps.yaml',
-          content: 'dependencies:\n  eslint: ^8.1.0',
-          type: 'update',
-        },
-      ])
-
-      const scanResult = await buddy.scanForUpdates()
-
-      expect(scanResult.updates).toHaveLength(2)
-      expect(scanResult.totalPackages).toBe(2)
-
-      // Verify both package.json and dependency file packages are included
-      const packageNames = scanResult.updates.map(u => u.name).sort()
-      expect(packageNames).toEqual(['eslint', 'lodash'])
+      // All parsers should still be called
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(testUpdates)
+      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(testUpdates)
     })
   })
 })

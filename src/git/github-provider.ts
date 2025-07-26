@@ -34,6 +34,76 @@ export class GitHubProvider implements GitProvider {
   }
 
   async commitChanges(branchName: string, message: string, files: FileChange[]): Promise<void> {
+    // Try Git CLI first for better compatibility with GitHub Actions permissions
+    try {
+      await this.commitChangesWithGit(branchName, message, files)
+    }
+    catch (gitError) {
+      console.warn(`⚠️ Git CLI commit failed, falling back to GitHub API: ${gitError}`)
+      await this.commitChangesWithAPI(branchName, message, files)
+    }
+  }
+
+  private async commitChangesWithGit(branchName: string, message: string, files: FileChange[]): Promise<void> {
+    try {
+      // Configure Git identity if not already set
+      // try {
+      //   await this.runCommand('git', ['config', 'user.name', 'buddy-bot[bot]'])
+      //   await this.runCommand('git', ['config', 'user.email', 'buddy-bot[bot]@users.noreply.github.com'])
+      // }
+      // catch {
+      //   // Ignore config errors if already set
+      // }
+
+      // Checkout the branch
+      await this.runCommand('git', ['fetch', 'origin', branchName])
+      await this.runCommand('git', ['checkout', branchName])
+
+      // Apply file changes
+      for (const file of files) {
+        const cleanPath = file.path.replace(/^\.\//, '').replace(/^\/+/, '')
+
+        if (file.type === 'delete') {
+          await this.runCommand('git', ['rm', cleanPath])
+        }
+        else {
+          // Write file content
+          const fs = await import('node:fs')
+          const path = await import('node:path')
+
+          // Ensure directory exists
+          const dir = path.dirname(cleanPath)
+          if (dir !== '.') {
+            fs.mkdirSync(dir, { recursive: true })
+          }
+
+          fs.writeFileSync(cleanPath, file.content, 'utf8')
+          await this.runCommand('git', ['add', cleanPath])
+        }
+      }
+
+      // Check if there are changes to commit
+      const status = await this.runCommand('git', ['status', '--porcelain'])
+      if (status.trim()) {
+        // Commit changes
+        await this.runCommand('git', ['commit', '-m', message])
+
+        // Push changes
+        await this.runCommand('git', ['push', 'origin', branchName])
+
+        console.log(`✅ Committed changes to ${branchName}: ${message}`)
+      }
+      else {
+        console.log(`ℹ️ No changes to commit for ${branchName}`)
+      }
+    }
+    catch (error) {
+      console.error(`❌ Failed to commit changes to ${branchName} with Git CLI:`, error)
+      throw error
+    }
+  }
+
+  private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
       // Get current branch SHA
       const branchRef = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${branchName}`)

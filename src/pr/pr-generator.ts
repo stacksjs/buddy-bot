@@ -80,6 +80,22 @@ export class PullRequestGenerator {
       update.file.includes('.github/workflows/'),
     )
 
+    // Deduplicate GitHub Actions updates by name (multiple files may reference same action)
+    const uniqueGithubActionsUpdates = githubActionsUpdates.reduce((acc, update) => {
+      const existing = acc.find(u => u.name === update.name && u.currentVersion === update.currentVersion && u.newVersion === update.newVersion)
+      if (!existing) {
+        // Create consolidated update with unique files only
+        const allFilesForAction = [...new Set(githubActionsUpdates
+          .filter(u => u.name === update.name && u.currentVersion === update.currentVersion && u.newVersion === update.newVersion)
+          .map(u => u.file))]
+        acc.push({
+          ...update,
+          file: allFilesForAction.join(', '), // Combine all unique affected files
+        })
+      }
+      return acc
+    }, [] as typeof githubActionsUpdates)
+
     // Fetch package information for package.json updates only
     const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
 
@@ -180,13 +196,13 @@ export class PullRequestGenerator {
       body += `\n`
     }
 
-    // GitHub Actions table (simplified, without badges)
-    if (githubActionsUpdates.length > 0) {
+    // GitHub Actions table (simplified, without badges, deduplicated)
+    if (uniqueGithubActionsUpdates.length > 0) {
       body += `### GitHub Actions\n\n`
       body += `| Action | Change | File | Status |\n`
       body += `|---|---|---|---|\n`
 
-      for (const update of githubActionsUpdates) {
+      for (const update of uniqueGithubActionsUpdates) {
         // Generate action link
         const actionUrl = `https://github.com/${update.name}`
         const actionCell = `[${update.name}](${actionUrl})`
@@ -194,13 +210,21 @@ export class PullRequestGenerator {
         // Simple version change display
         const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
 
-        // File reference
-        const fileName = update.file.split('/').pop() || update.file
+        // File reference with GitHub links (may be multiple files now)
+        const fileLinks = update.file.includes(', ')
+          ? update.file.split(', ').map((f) => {
+              const fileName = f.split('/').pop() || f
+              return `[${fileName}](../${f})`
+            }).join(', ')
+          : (() => {
+              const fileName = update.file.split('/').pop() || update.file
+              return `[${fileName}](../${update.file})`
+            })()
 
         // Status (simple)
         const status = '✅ Available'
 
-        body += `| ${actionCell} | ${change} | ${fileName} | ${status} |\n`
+        body += `| ${actionCell} | ${change} | ${fileLinks} | ${status} |\n`
       }
 
       body += `\n`
@@ -280,8 +304,14 @@ export class PullRequestGenerator {
       body += `</details>\n\n`
     }
 
-    // Process dependency file updates with simple release notes
-    for (const update of dependencyFileUpdates) {
+    // Process dependency file updates with simple release notes (no duplicates with package.json)
+    const dependencyOnlyUpdates = dependencyFileUpdates.filter(depUpdate =>
+      !packageJsonUpdates.some(pkgUpdate =>
+        pkgUpdate.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '') === depUpdate.name,
+      ),
+    )
+
+    for (const update of dependencyOnlyUpdates) {
       // Handle special case: bun.sh -> bun.com
       const displayName = update.name === 'bun.sh' ? 'bun.com' : update.name
 
@@ -299,8 +329,8 @@ export class PullRequestGenerator {
       body += `</details>\n\n`
     }
 
-    // Process GitHub Actions updates with simple release notes
-    for (const update of githubActionsUpdates) {
+    // Process GitHub Actions updates with simple release notes (no duplicates)
+    for (const update of uniqueGithubActionsUpdates) {
       body += `<details>\n`
       body += `<summary>${update.name}</summary>\n\n`
       body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
@@ -310,8 +340,8 @@ export class PullRequestGenerator {
 
     body += `---\n\n`
 
-    // Package statistics section
-    if (packageInfos.size > 0 || dependencyFileUpdates.length > 0 || githubActionsUpdates.length > 0) {
+    // Package statistics section (deduplicated)
+    if (packageInfos.size > 0 || dependencyOnlyUpdates.length > 0 || uniqueGithubActionsUpdates.length > 0) {
       body += `### 📊 Package Statistics\n\n`
 
       // Stats for package.json updates
@@ -323,8 +353,8 @@ export class PullRequestGenerator {
         }
       }
 
-      // Stats for dependency file updates (simplified)
-      for (const update of dependencyFileUpdates) {
+      // Stats for dependency file updates (simplified, only for those not in package.json)
+      for (const update of dependencyOnlyUpdates) {
         const displayName = update.name === 'bun.sh' ? 'bun.com' : update.name
         if (update.name === 'bun.sh') {
           body += `- **${displayName}**: Popular JavaScript runtime and package manager\n`
@@ -334,8 +364,8 @@ export class PullRequestGenerator {
         }
       }
 
-      // Stats for GitHub Actions updates (simplified)
-      for (const update of githubActionsUpdates) {
+      // Stats for GitHub Actions updates (simplified, deduplicated)
+      for (const update of uniqueGithubActionsUpdates) {
         body += `- **${update.name}**: GitHub Action for workflow automation\n`
       }
 
@@ -349,7 +379,7 @@ export class PullRequestGenerator {
     body += `♻ **Rebasing**: Whenever PR is behind base branch, or you tick the rebase/retry checkbox.\n\n`
     body += `🔕 **Ignore**: Close this PR and you won't be reminded about these updates again.\n\n`
     body += `---\n\n`
-    body += ` - [ ] <!-- rebase-check -->If you want to rebase/retry this PR, check this box\n\n`
+    body += ` - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box\n\n`
     body += `---\n\n`
     body += `This PR was generated by [Buddy](https://github.com/stacksjs/buddy-bot) 🤖`
 

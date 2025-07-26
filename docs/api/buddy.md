@@ -157,9 +157,9 @@ updates.forEach((update) => {
 
 ## Utility Methods
 
-### generatePackageJsonUpdates()
+### generateAllFileUpdates()
 
-Generates package.json file changes for updates.
+Generates file changes for all update types (package.json, dependency files, GitHub Actions).
 
 ```typescript
 interface FileChange {
@@ -169,7 +169,7 @@ interface FileChange {
 }
 
 interface BuddyUtilityMethods {
-  generatePackageJsonUpdates: (updates: PackageUpdate[]) => Promise<FileChange[]>
+  generateAllFileUpdates: (updates: PackageUpdate[]) => Promise<FileChange[]>
 }
 ```
 
@@ -185,7 +185,7 @@ Array of file change objects
 
 ```typescript
 const updates = await buddy.scanForUpdates()
-const fileChanges = await buddy.generatePackageJsonUpdates(updates.updates)
+const fileChanges = await buddy.generateAllFileUpdates(updates.updates)
 
 fileChanges.forEach((change) => {
   console.log(`Updated ${change.path}`)

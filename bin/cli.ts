@@ -524,8 +524,8 @@ cli
         return
       }
 
-      // Generate new package.json changes
-      const packageJsonUpdates = await buddy.generatePackageJsonUpdates(group.updates)
+      // Generate new file changes (package.json, dependency files, GitHub Actions)
+      const packageJsonUpdates = await buddy.generateAllFileUpdates(group.updates)
 
       // Update the branch with new commits
       await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates)
@@ -673,8 +673,8 @@ cli
                 continue
               }
 
-              // Generate new package.json changes
-              const packageJsonUpdates = await buddy.generatePackageJsonUpdates(group.updates)
+              // Generate new file changes (package.json, dependency files, GitHub Actions)
+              const packageJsonUpdates = await buddy.generateAllFileUpdates(group.updates)
 
               // Update the branch with new commits
               await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates)

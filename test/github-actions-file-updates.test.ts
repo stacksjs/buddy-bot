@@ -116,7 +116,7 @@ describe('GitHub Actions File Updates', () => {
 
       // Should update all occurrences of actions/checkout@v4
       expect(result).toContain('uses: actions/checkout@v4.2.2')
-      expect(result).not.toContain('uses: actions/checkout@v4')
+      expect(result).not.toMatch(/uses:\s+actions\/checkout@v4(?!\.)/)
 
       // Should not affect other actions
       expect(result).toContain('uses: oven-sh/setup-bun@v2')
@@ -167,8 +167,8 @@ describe('GitHub Actions File Updates', () => {
       expect(result).toContain('uses: actions/cache@v4.2.3')
 
       // Should not contain old versions
-      expect(result).not.toContain('uses: actions/checkout@v4')
-      expect(result).not.toContain('uses: oven-sh/setup-bun@v2')
+      expect(result).not.toMatch(/uses:\s+actions\/checkout@v4(?!\.)/)
+      expect(result).not.toMatch(/uses:\s+oven-sh\/setup-bun@v2(?!\.)/)
       expect(result).not.toContain('uses: actions/cache@v4.1.0')
     })
 

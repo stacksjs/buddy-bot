@@ -192,7 +192,7 @@ export class Buddy {
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
 
           // Update package.json with new versions
-          const packageJsonUpdates = await this.generatePackageJsonUpdates(group.updates)
+          const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
 
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
@@ -251,15 +251,16 @@ export class Buddy {
           // Compare constraint version with resolved version
           if (dep.constraint !== dep.version && dep.version) {
             // Extract version prefix (^, ~, >=, etc.) from constraint
-            const prefixMatch = dep.constraint.match(/^(\D*)/)
-            const originalPrefix = prefixMatch ? prefixMatch[1] : ''
+            // const prefixMatch = dep.constraint.match(/^(\D*)/)
+            // const originalPrefix = prefixMatch ? prefixMatch[1] : ''
             const constraintVersion = dep.constraint.replace(/^[\^~>=<]+/, '')
 
             // Determine update type
             const updateType = this.getUpdateType(constraintVersion, dep.version)
 
-            // Preserve the original prefix when creating new version
-            const newVersion = `${originalPrefix}${dep.version}`
+            // Don't add prefix here - let the file updater handle prefix preservation
+            // This prevents double prefixes when the constraint already has one
+            const newVersion = dep.version
 
             updates.push({
               name: dep.name,
@@ -336,7 +337,22 @@ export class Buddy {
       }
     }
 
-    return updates
+    // Additional safety: deduplicate updates by name, version, and file
+    // This ensures no duplicate PackageUpdate objects make it to PR generation
+    const deduplicatedUpdates = updates.reduce((acc, update) => {
+      const existing = acc.find(u =>
+        u.name === update.name
+        && u.currentVersion === update.currentVersion
+        && u.newVersion === update.newVersion
+        && u.file === update.file,
+      )
+      if (!existing) {
+        acc.push(update)
+      }
+      return acc
+    }, [] as PackageUpdate[])
+
+    return deduplicatedUpdates
   }
 
   /**
@@ -359,13 +375,18 @@ export class Buddy {
   }
 
   /**
-   * Generate file changes for updates (package.json, dependency files, etc.)
+   * Generate file changes for updates (package.json, dependency files, GitHub Actions, etc.)
    */
-  async generatePackageJsonUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
+  async generateAllFileUpdates(updates: PackageUpdate[]): Promise<Array<{ path: string, content: string, type: 'update' }>> {
     const fileUpdates: Array<{ path: string, content: string, type: 'update' }> = []
 
-    // Handle package.json updates
-    const packageJsonUpdates = updates.filter(update => update.file === 'package.json' || (!update.file.includes('.yaml') && !update.file.includes('.yml')))
+    // Handle package.json updates - only for actual package.json files, not dependency or GitHub Actions files
+    const packageJsonUpdates = updates.filter(update =>
+      update.file === 'package.json'
+      && !update.file.includes('.yaml')
+      && !update.file.includes('.yml')
+      && !update.file.includes('.github/workflows/'),
+    )
     if (packageJsonUpdates.length > 0) {
       const packageJsonPath = 'package.json'
 

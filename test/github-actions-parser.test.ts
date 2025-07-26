@@ -284,6 +284,8 @@ jobs:
     it('should filter to only GitHub Actions files', async () => {
       const { generateGitHubActionsUpdates } = await import('../src/utils/github-actions-parser')
 
+      existsSyncSpy.mockReturnValue(false)
+
       const updates = [
         {
           name: 'actions/checkout',
@@ -326,7 +328,12 @@ jobs:
       const result = await fetchLatestActionVersion('actions/checkout')
 
       expect(result).toBe('v4.2.2')
-      expect(globalThis.fetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/checkout/releases/latest')
+      expect(globalThis.fetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/checkout/releases/latest', {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'buddy-bot',
+        },
+      })
     })
 
     it('should return null for invalid action names', async () => {

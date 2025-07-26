@@ -1,4 +1,4 @@
-name: Buddy Rebase Check
+name: Buddy Update Check
 
 on:
   schedule:
@@ -12,12 +12,17 @@ on:
         type: boolean
 
 env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # For workflow file updates, you need a Personal Access Token with 'repo' and 'workflow' scopes
+  # Create a PAT at: https://github.com/settings/tokens
+  # Add it as a repository secret named 'BUDDY_BOT_TOKEN'
+  # If BUDDY_BOT_TOKEN is not available, falls back to GITHUB_TOKEN (limited permissions)
+  GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: write
 
 jobs:
   check-rebase:
@@ -27,7 +32,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 # Fetch full history for rebasing
+          persist-credentials: true
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -39,6 +46,23 @@ jobs:
 
       - name: Build buddy-bot
         run: bun run build
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "buddy-bot[bot]"
+          git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
+
+      - name: Check token permissions
+        run: |
+          if [ -z "${{ secrets.BUDDY_BOT_TOKEN }}" ]; then
+            echo "⚠️ Using GITHUB_TOKEN (limited permissions)"
+            echo "💡 For full workflow file update support:"
+            echo "   1. Create a Personal Access Token with 'repo' and 'workflow' scopes"
+            echo "   2. Add it as repository secret 'BUDDY_BOT_TOKEN'"
+            echo "   3. Re-run this workflow"
+          else
+            echo "✅ Using BUDDY_BOT_TOKEN (full permissions)"
+          fi
 
       - name: Check for rebase requests
         run: |
@@ -62,7 +86,7 @@ jobs:
           fi
 
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create summary
         if: always()

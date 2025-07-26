@@ -1,4 +1,5 @@
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
+import process from 'node:process'
 
 /**
  * Check if a file path is a GitHub Actions workflow file
@@ -26,37 +27,52 @@ export async function parseGitHubActionsFile(filePath: string, content: string):
       const line = lines[i]
       const trimmed = line.trim()
 
-      // Look for "uses:" declarations
-      if (trimmed.startsWith('uses:')) {
-        const usesMatch = trimmed.match(/uses:\s*(.+)/)
-        if (usesMatch) {
-          const actionRef = usesMatch[1].trim().replace(/['"`]/g, '') // Remove quotes
+      // Look for "uses:" declarations (both direct and in array items)
+      // Matches: "uses:" or "- uses:"
+      const usesMatch = trimmed.match(/^-?\s*uses:\s*(.+)/)
+      if (usesMatch) {
+        const actionRef = usesMatch[1].trim().replace(/['"`]/g, '') // Remove quotes
 
-          // Skip local actions (starting with ./) and docker actions
-          if (actionRef.startsWith('./') || actionRef.startsWith('docker://')) {
+        // Skip local actions (starting with ./) and docker actions
+        if (actionRef.startsWith('./') || actionRef.startsWith('docker://')) {
+          continue
+        }
+
+        // Parse action@version format
+        const actionParts = actionRef.split('@')
+        if (actionParts.length === 2) {
+          const [actionName, version] = actionParts
+
+          // Skip if action name is empty or just whitespace
+          if (!actionName || !actionName.trim()) {
             continue
           }
 
-          // Parse action@version format
-          const actionParts = actionRef.split('@')
-          if (actionParts.length === 2) {
-            const [actionName, version] = actionParts
+          const actionDep = {
+            name: actionName.trim(),
+            currentVersion: version.trim(),
+            type: 'github-actions' as const,
+            file: filePath,
+          }
 
-            dependencies.push({
-              name: actionName,
-              currentVersion: version,
-              type: 'github-actions',
-              file: filePath,
-            })
+          // Only add if we don't already have this action@version combination for this file
+          const existing = dependencies.find(dep =>
+            dep.name === actionDep.name
+            && dep.currentVersion === actionDep.currentVersion,
+          )
+
+          if (!existing) {
+            dependencies.push(actionDep)
           }
         }
       }
     }
 
-    const fileName = filePath.split('/').pop() || ''
+    // const fileName = filePath.split('/').pop() || ''
+
     return {
       path: filePath,
-      type: fileName as PackageFile['type'],
+      type: 'github-actions',
       content,
       dependencies,
     }
@@ -87,15 +103,16 @@ export async function updateGitHubActionsFile(
       const cleanActionName = update.name.replace(/\s*\(.*\)$/, '')
 
       // Create regex to match the action usage
-      // Matches: uses: action-name@old-version
+      // Matches: uses: action-name@old-version (with optional quotes and dash)
+      // This handles: "uses: action@version", "- uses: action@version", etc.
       const actionPattern = new RegExp(
-        `(uses:\\s*)(${cleanActionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})@(${update.currentVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
-        'g',
+        `((?:^\\s*-\\s*)?uses:\\s*["\']?)(${cleanActionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})@(${update.currentVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(["\']?)`,
+        'gm',
       )
 
       updatedContent = updatedContent.replace(
         actionPattern,
-        `$1$2@${update.newVersion}`,
+        `$1$2@${update.newVersion}$4`,
       )
     }
 
@@ -161,10 +178,28 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
 
     const [owner, repo] = actionName.split('/')
 
+    // Prepare headers with authentication if available
+    const headers: Record<string, string> = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'buddy-bot',
+    }
+
+    // Add authentication if GitHub token is available
+    const token = process.env.GITHUB_TOKEN
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
     // Call GitHub API to get latest release
-    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
+      headers,
+    })
 
     if (!response.ok) {
+      // Only log if verbose mode or if it's not a rate limit error
+      if (response.status !== 403) {
+        console.warn(`GitHub API error for ${actionName}: ${response.status} ${response.statusText}`)
+      }
       return null
     }
 

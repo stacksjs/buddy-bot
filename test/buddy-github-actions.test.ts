@@ -15,7 +15,7 @@ const mockConfig: BuddyBotConfig = {
 
 const mockGitHubActionsFile: PackageFile = {
   path: '.github/workflows/ci.yml',
-  type: 'ci.yml' as any,
+  type: 'github-actions',
   content: `
 jobs:
   test:
@@ -62,6 +62,15 @@ describe('Buddy - GitHub Actions Integration', () => {
     // Mock ts-pkgx to prevent real dependency file parsing
     resolveDependencyFileSpy = spyOn(await import('ts-pkgx'), 'resolveDependencyFile')
     resolveDependencyFileSpy.mockResolvedValue({ allDependencies: [] })
+
+    // Ensure we have fresh mocks for each test even if modules are globally mocked
+    // This prevents interference from other test files
+    const { PackageScanner } = await import('../src/scanner/package-scanner')
+    const { RegistryClient } = await import('../src/registry/registry-client')
+
+    // Re-establish spies on the classes to ensure they work regardless of global mocks
+    packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
+    registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
   })
 
   afterEach(() => {
@@ -90,14 +99,10 @@ describe('Buddy - GitHub Actions Integration', () => {
           json: async () => ({ tag_name: 'v4.1.0' }),
         } as Response) // actions/cache (no update)
 
-      // Mock PackageScanner class
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
+      // Mock PackageScanner to return GitHub Actions file
       packageScannerSpy.mockResolvedValue([mockGitHubActionsFile])
 
       // Mock registry client for empty package.json updates
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([])
 
       const result = await buddy.scanForUpdates()
@@ -140,12 +145,7 @@ describe('Buddy - GitHub Actions Integration', () => {
           json: async () => ({ tag_name: 'v4.2.0' }),
         } as Response) // actions/cache (success)
 
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
       packageScannerSpy.mockResolvedValue([mockGitHubActionsFile])
-
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([])
 
       const result = await buddy.scanForUpdates()
@@ -183,12 +183,8 @@ describe('Buddy - GitHub Actions Integration', () => {
           json: async () => ({ tag_name: 'v4.2.2' }),
         } as Response)
 
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
       packageScannerSpy.mockResolvedValue(mixedFiles)
 
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([])
 
       const result = await buddy.scanForUpdates()
@@ -239,12 +235,8 @@ describe('Buddy - GitHub Actions Integration', () => {
           json: async () => ({ tag_name: '4.0.1' }), // patch update
         } as Response)
 
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
       packageScannerSpy.mockResolvedValue([actionsFileWithVersions])
 
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([])
 
       const result = await buddy.scanForUpdates()
@@ -271,12 +263,8 @@ describe('Buddy - GitHub Actions Integration', () => {
           json: async () => ({ tag_name: 'v4.2.2' }),
         } as Response)
 
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
       packageScannerSpy.mockResolvedValue([mockGitHubActionsFile])
 
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([])
 
       const result = await buddy.scanForUpdates()
@@ -327,14 +315,18 @@ describe('Buddy - GitHub Actions Integration', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ tag_name: 'v4.2.2' }),
-        } as Response)
+        } as Response) // actions/checkout (has update)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ tag_name: 'v2' }),
+        } as Response) // oven-sh/setup-bun (no update)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ tag_name: 'v4.1.0' }),
+        } as Response) // actions/cache (no update)
 
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
       packageScannerSpy.mockResolvedValue(allFiles)
 
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([npmUpdate])
 
       const result = await buddy.scanForUpdates()
@@ -363,12 +355,8 @@ describe('Buddy - GitHub Actions Integration', () => {
         dependencies: [], // No uses: statements
       }
 
-      const { PackageScanner } = await import('../src/scanner/package-scanner')
-      packageScannerSpy = spyOn(PackageScanner.prototype, 'scanProject')
       packageScannerSpy.mockResolvedValue([emptyActionsFile])
 
-      const { RegistryClient } = await import('../src/registry/registry-client')
-      registryClientSpy = spyOn(RegistryClient.prototype, 'getOutdatedPackages')
       registryClientSpy.mockResolvedValue([])
 
       const result = await buddy.scanForUpdates()

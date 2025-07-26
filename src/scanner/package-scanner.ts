@@ -77,7 +77,8 @@ export class PackageScanner {
    */
   async parsePackageJsonFile(filePath: string): Promise<PackageFile | null> {
     try {
-      const content = await readFile(filePath, 'utf-8')
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
       const packageData = JSON.parse(content)
 
       const dependencies: Dependency[] = []
@@ -89,7 +90,7 @@ export class PackageScanner {
       this.extractDependencies(packageData.optionalDependencies, 'optionalDependencies', filePath, dependencies)
 
       return {
-        path: this.getRelativePath(filePath),
+        path: filePath,
         type: 'package.json',
         content,
         dependencies,
@@ -106,7 +107,8 @@ export class PackageScanner {
    */
   async parseLockFile(filePath: string): Promise<PackageFile | null> {
     try {
-      const content = await readFile(filePath, 'utf-8')
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
       const fileName = filePath.split('/').pop() || ''
 
       let type: PackageFile['type']
@@ -132,7 +134,7 @@ export class PackageScanner {
       const dependencies = await this.extractLockFileDependencies(content, type, filePath)
 
       return {
-        path: this.getRelativePath(filePath),
+        path: filePath,
         type,
         content,
         dependencies,
@@ -149,7 +151,8 @@ export class PackageScanner {
    */
   async parseDependencyFile(filePath: string): Promise<PackageFile | null> {
     try {
-      const content = await readFile(filePath, 'utf-8')
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
       return await parseDepFile(filePath, content)
     }
     catch (_error) {
@@ -184,7 +187,7 @@ export class PackageScanner {
   }
 
   /**
-   * Find all GitHub Actions workflow files in the project
+   * Find GitHub Actions workflow files
    */
   private async findGitHubActionsFiles(): Promise<string[]> {
     const workflowFiles: string[] = []
@@ -192,7 +195,7 @@ export class PackageScanner {
     try {
       // Look for .github/workflows directory
       const githubDir = '.github'
-      const workflowsDir = join(githubDir, 'workflows')
+      const workflowsDir = join(this.projectPath, githubDir, 'workflows')
 
       const stats = await stat(workflowsDir).catch(() => null)
       if (stats?.isDirectory()) {
@@ -218,8 +221,10 @@ export class PackageScanner {
    */
   async parseGitHubActionsFile(filePath: string): Promise<PackageFile | null> {
     try {
-      const content = await readFile(filePath, 'utf-8')
-      return await parseGitHubActionsFile(filePath, content)
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
+      const result = await parseGitHubActionsFile(filePath, content)
+      return result
     }
     catch (_error) {
       this.logger.warn(`Failed to parse GitHub Actions file ${filePath}:`, _error)
@@ -316,7 +321,8 @@ export class PackageScanner {
         }
         else if (stats.isFile() && entry === fileName) {
           // Convert absolute path to relative path from project root
-          const path = await import('node:path')
+          // eslint-disable-next-line ts/no-require-imports
+          const path = require('node:path')
           const relativePath = path.relative(this.projectPath, fullPath)
           files.push(relativePath)
         }
@@ -360,7 +366,8 @@ export class PackageScanner {
 
         if (stats.isFile() && entry.endsWith(`.${extension}`)) {
           // Convert absolute path to relative path from project root
-          const path = await import('node:path')
+          // eslint-disable-next-line ts/no-require-imports
+          const path = require('node:path')
           const relativePath = path.relative(this.projectPath, fullPath)
           files.push(relativePath)
         }
@@ -394,7 +401,8 @@ export class PackageScanner {
 
         if (stats.isFile() && entry.endsWith(`.${extension}`)) {
           // Convert absolute path to relative path from project root
-          const path = await import('node:path')
+          // eslint-disable-next-line ts/no-require-imports
+          const path = require('node:path')
           const relativePath = path.relative(this.projectPath, fullPath)
           files.push(relativePath)
         }
@@ -438,7 +446,9 @@ export class PackageScanner {
    * Get relative path from project root
    */
   private getRelativePath(absolutePath: string): string {
-    return absolutePath.replace(`${this.projectPath}/`, '')
+    // eslint-disable-next-line ts/no-require-imports
+    const path = require('node:path')
+    return path.relative(this.projectPath, absolutePath)
   }
 
   /**
