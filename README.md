@@ -89,9 +89,9 @@ buddy update --dry-run
 buddy update
 
 # Check for rebase requests and update PRs
-buddy check-rebase
-buddy check-rebase --dry-run
-buddy check-rebase --verbose
+buddy update-check
+buddy update-check --dry-run
+buddy update-check --verbose
 
 # Get help
 buddy help
@@ -233,18 +233,18 @@ You can also trigger rebase manually using the CLI:
 
 ```bash
 # Check for PRs with rebase checkbox enabled and update them
-buddy-bot check-rebase
+buddy-bot update-check
 
 # Dry run to see what would be rebased
-buddy-bot check-rebase --dry-run
+buddy-bot update-check --dry-run
 
 # With verbose output
-buddy-bot check-rebase --verbose
+buddy-bot update-check --verbose
 ```
 
 ### Automated Rebase Workflow
 
-Buddy Bot includes a pre-built GitHub Actions workflow (`.github/workflows/buddy-bot-rebase.yml`) that:
+Buddy Bot includes a pre-built GitHub Actions workflow (`.github/workflows/buddy-update-check.yml`) that:
 
 - **🕐 Runs every minute**: Automatically checks for rebase requests
 - **🔍 Scans all PRs**: Finds Buddy Bot PRs with checked rebase boxes
@@ -286,7 +286,7 @@ buddy-bot dashboard --pin --title "My Dependencies"
 
 ### Automated Dashboard Updates
 
-Buddy Bot includes a pre-built GitHub workflow (`.github/workflows/buddy-bot-dashboard.yml`) that automatically updates your dependency dashboard:
+Buddy Bot includes a pre-built GitHub workflow (`.github/workflows/buddy-dashboard.yml`) that automatically updates your dependency dashboard:
 
 - **📅 Scheduled**: Runs Monday, Wednesday, Friday at 9 AM UTC
 - **🖱️ Manual**: Trigger from Actions tab with custom options

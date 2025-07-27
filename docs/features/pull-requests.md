@@ -198,7 +198,7 @@ PRs include a rebase checkbox for manual triggers:
 buddy-bot rebase 17
 
 # Auto-detect and rebase checked PRs
-buddy-bot check-rebase
+buddy-bot update-check
 
 # Force rebase even if up-to-date
 buddy-bot rebase 17 --force

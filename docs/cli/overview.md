@@ -40,7 +40,7 @@ buddy-bot <command> [options] [arguments]
 |---------|-------------|
 | [`update`](/cli/update#update) | Update dependencies and create PRs |
 | [`rebase`](/cli/update#rebase) | Rebase/retry a pull request |
-| [`check-rebase`](/cli/update#check-rebase) | Auto-detect and rebase PRs with checked boxes |
+| [`update-check`](/cli/update#update-check) | Auto-detect and rebase PRs with checked boxes |
 
 ### 📦 Package Information
 
@@ -105,7 +105,7 @@ buddy-bot search "test framework"
 buddy-bot rebase 17
 
 # Check all PRs for rebase requests
-buddy-bot check-rebase
+buddy-bot update-check
 
 # Force rebase even if up to date
 buddy-bot rebase 17 --force

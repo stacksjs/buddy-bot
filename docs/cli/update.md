@@ -164,14 +164,14 @@ buddy-bot rebase 17 --force
 🔗 https://github.com/your-org/your-repo/pull/17
 ```
 
-## check-rebase
+## update-check
 
 Auto-detect and rebase PRs with checked rebase boxes.
 
 ### Usage
 
 ```bash
-buddy-bot check-rebase [options]
+buddy-bot update-check [options]
 ```
 
 ### Options
@@ -183,13 +183,13 @@ buddy-bot check-rebase [options]
 
 ```bash
 # Check and rebase marked PRs
-buddy-bot check-rebase
+buddy-bot update-check
 
 # Preview what would be rebased
-buddy-bot check-rebase --dry-run
+buddy-bot update-check --dry-run
 
 # Verbose output
-buddy-bot check-rebase --verbose
+buddy-bot update-check --verbose
 ```
 
 ### Rebase Checkbox Format
@@ -325,7 +325,7 @@ Configure repository.provider, repository.owner, repository.name in buddy-bot.co
 
 ### PR Management
 
-1. **Regular Rebasing**: Use `check-rebase` in automation
+1. **Regular Rebasing**: Use `update-check` in automation
 2. **Batch Reviews**: Review multiple patch updates together
 3. **Label Organization**: Use labels for workflow automation
 4. **Merge Hygiene**: Use squash merging for clean history
@@ -357,7 +357,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auto-rebase existing PRs
-        run: bunx buddy-bot check-rebase --verbose
+        run: bunx buddy-bot update-check --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

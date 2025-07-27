@@ -21,7 +21,7 @@ DEPENDENCY MANAGEMENT:
   dashboard     📊 Create or update dependency dashboard issue
   update        ⬆️  Update dependencies and create PRs
   rebase        🔄 Rebase/retry a pull request with latest updates
-  check-rebase  🔍 Auto-detect and rebase PRs with checked rebase box
+  update-check  🔍 Auto-detect and rebase PRs with checked rebase box
   check         📋 Check specific packages for updates
   schedule      ⏰ Run automated updates on schedule
 
@@ -42,7 +42,7 @@ Examples:
   buddy-bot scan --verbose             # Scan for updates
   buddy-bot dashboard --pin            # Create pinned dashboard
   buddy-bot rebase 17                  # Rebase PR #17
-  buddy-bot check-rebase               # Auto-rebase checked PRs
+  buddy-bot update-check               # Auto-rebase checked PRs
   buddy-bot info react                 # Get package info
   buddy-bot versions react --latest 5  # Show recent versions
   buddy-bot search "test framework"    # Search packages
@@ -577,12 +577,12 @@ async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ na
 }
 
 cli
-  .command('check-rebase', 'Check all open buddy-bot PRs for rebase checkbox and auto-rebase if checked')
+  .command('update-check', 'Check all open buddy-bot PRs for rebase checkbox and auto-rebase if checked')
   .option('--verbose, -v', 'Enable verbose logging')
   .option('--dry-run', 'Check but don\'t actually rebase')
-  .example('buddy-bot check-rebase')
-  .example('buddy-bot check-rebase --verbose')
-  .example('buddy-bot check-rebase --dry-run')
+  .example('buddy-bot update-check')
+  .example('buddy-bot update-check --verbose')
+  .example('buddy-bot update-check --dry-run')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
@@ -717,7 +717,7 @@ cli
       }
     }
     catch (error) {
-      logger.error('Check-rebase failed:', error)
+      logger.error('update-check failed:', error)
       process.exit(1)
     }
   })
@@ -1794,7 +1794,7 @@ async function generateWorkflowsFromPreset(preset: WorkflowPreset, logger: any):
       // Use specialized testing workflow for testing preset
       if (customWorkflow.name === 'testing-updates') {
         workflow = GitHubActionsTemplate.generateTestingWorkflow(workflowConfig)
-        fs.writeFileSync(path.join(outputDir, 'buddy-bot-testing.yml'), workflow)
+        fs.writeFileSync(path.join(outputDir, 'buddy-update.yml'), workflow)
         logger.info('Generated testing workflow with 5-minute schedule and manual triggers')
       }
       else {

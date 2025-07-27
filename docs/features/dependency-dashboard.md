@@ -163,7 +163,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-**💡 Ready-to-use workflow**: Buddy Bot includes a pre-built dashboard workflow at `.github/workflows/buddy-bot-dashboard.yml` that you can use directly. It includes manual triggering, dry-run mode, and customizable options.
+**💡 Ready-to-use workflow**: Buddy Bot includes a pre-built dashboard workflow at `.github/workflows/buddy-dashboard.yml` that you can use directly. It includes manual triggering, dry-run mode, and customizable options.
 
 ### Auto-Update
 

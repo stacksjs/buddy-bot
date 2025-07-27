@@ -42,7 +42,7 @@ buddy-bot rebase 123
 buddy-bot rebase 123 --force
 
 # Check if PR has rebase checkbox
-buddy-bot check-rebase 123
+buddy-bot update-check 123
 ```
 
 ### Package Analysis

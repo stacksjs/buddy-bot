@@ -13,7 +13,7 @@ Similar to Renovate's rebase functionality, Buddy Bot monitors pull requests for
 
 ## How It Works
 
-### 1. Rebase Checkbox
+### 1. Update / Rebase Checkbox
 
 Every Buddy Bot pull request includes an interactive checkbox:
 
@@ -25,7 +25,7 @@ Every Buddy Bot pull request includes an interactive checkbox:
 
 ### 2. Automatic Detection
 
-A GitHub Actions workflow (`.github/workflows/buddy-bot-rebase.yml`) runs every minute and:
+A GitHub Actions workflow (`.github/workflows/buddy-update-check.yml`) runs every minute and:
 
 1. Scans all open pull requests
 2. Identifies Buddy Bot PRs with checked rebase boxes
@@ -57,16 +57,16 @@ During rebase, Buddy Bot:
 
 ```bash
 # Check for PRs with rebase checkbox enabled
-buddy-bot check-rebase
+buddy-bot update-check
 
 # Preview what would be rebased (dry run)
-buddy-bot check-rebase --dry-run
+buddy-bot update-check --dry-run
 
 # Run with detailed logging
-buddy-bot check-rebase --verbose
+buddy-bot update-check --verbose
 
 # Combine options
-buddy-bot check-rebase --dry-run --verbose
+buddy-bot update-check --dry-run --verbose
 ```
 
 ### Manual Trigger via GitHub Actions
