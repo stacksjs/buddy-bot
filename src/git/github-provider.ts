@@ -55,16 +55,38 @@ export class GitHubProvider implements GitProvider {
       //   // Ignore config errors if already set
       // }
 
-      // Checkout the branch
-      await this.runCommand('git', ['fetch', 'origin', branchName])
-      await this.runCommand('git', ['checkout', branchName])
+      // Fetch latest changes
+      await this.runCommand('git', ['fetch', 'origin'])
+
+      // For rebase operations, reset the branch to main and apply changes fresh
+      // This prevents merge conflicts by starting with a clean slate
+      console.log(`🔄 Resetting ${branchName} to main for clean rebase...`)
+
+      // Checkout main first
+      await this.runCommand('git', ['checkout', 'main'])
+
+      // Reset the branch to main (delete and recreate)
+      try {
+        await this.runCommand('git', ['branch', '-D', branchName])
+      }
+      catch {
+        // Branch might not exist locally, that's ok
+      }
+
+      // Create fresh branch from main
+      await this.runCommand('git', ['checkout', '-b', branchName])
 
       // Apply file changes
       for (const file of files) {
         const cleanPath = file.path.replace(/^\.\//, '').replace(/^\/+/, '')
 
         if (file.type === 'delete') {
-          await this.runCommand('git', ['rm', cleanPath])
+          try {
+            await this.runCommand('git', ['rm', cleanPath])
+          }
+          catch {
+            // File might not exist, that's ok for delete operations
+          }
         }
         else {
           // Write file content
@@ -88,10 +110,10 @@ export class GitHubProvider implements GitProvider {
         // Commit changes
         await this.runCommand('git', ['commit', '-m', message])
 
-        // Push changes
-        await this.runCommand('git', ['push', 'origin', branchName])
+        // Force push changes to overwrite the existing branch
+        await this.runCommand('git', ['push', 'origin', branchName, '--force'])
 
-        console.log(`✅ Committed changes to ${branchName}: ${message}`)
+        console.log(`✅ Successfully rebased ${branchName} with fresh changes: ${message}`)
       }
       else {
         console.log(`ℹ️ No changes to commit for ${branchName}`)

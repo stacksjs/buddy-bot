@@ -4,7 +4,9 @@ const config: BuddyBotConfig = {
   verbose: true,
   packages: {
     strategy: 'all',
-    ignore: [],
+    ignore: ['typescript', 'bun-plugin-dtsx'],
+    includePrerelease: false, // Don't include alpha, beta, rc versions by default
+    excludeMajor: false, // Allow major updates (controlled by ignore list)
   },
 
   // Repository settings for PR creation

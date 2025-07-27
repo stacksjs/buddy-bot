@@ -1,4 +1,4 @@
-import type { PackageMetadata, PackageUpdate } from '../types'
+import type { BuddyBotConfig, PackageMetadata, PackageUpdate } from '../types'
 import type { Logger } from '../utils/logger'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -17,6 +17,7 @@ export class RegistryClient {
   constructor(
     private readonly projectPath: string,
     private readonly logger: Logger,
+    private readonly config: BuddyBotConfig | undefined = undefined,
   ) {}
 
   /**
@@ -146,6 +147,13 @@ export class RegistryClient {
    */
   async getLatestVersion(packageName: string): Promise<string | null> {
     try {
+      // First try to get all available versions from npm registry
+      const npmLatest = await this.getLatestVersionFromNpm(packageName)
+      if (npmLatest) {
+        return npmLatest
+      }
+
+      // Fallback to bun info
       const result = await this.runCommand('bun', ['info', packageName, '--json'])
       const data = JSON.parse(result)
       return data.version?.trim() || null
@@ -153,6 +161,64 @@ export class RegistryClient {
     catch {
       return null
     }
+  }
+
+  /**
+   * Get latest version from npm registry (respecting prerelease settings)
+   */
+  private async getLatestVersionFromNpm(packageName: string): Promise<string | null> {
+    try {
+      const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`)
+      if (!response.ok) {
+        return null
+      }
+
+      const data = await response.json() as any
+      const versions = Object.keys(data.versions || {})
+
+      if (versions.length === 0) {
+        return null
+      }
+
+      // Filter versions based on prerelease setting
+      const includePrerelease = this.config?.packages?.includePrerelease ?? false
+      let filteredVersions = versions
+
+      if (!includePrerelease) {
+        // Filter out prerelease versions (alpha, beta, rc, dev, etc.)
+        filteredVersions = versions.filter((version) => {
+          return !this.isPrerelease(version)
+        })
+      }
+
+      if (filteredVersions.length === 0) {
+        return null
+      }
+
+      // Sort versions using semver and get the latest
+      const sortedVersions = filteredVersions.sort((a, b) => {
+        try {
+          return Bun.semver.order(b, a) // Reverse order for descending
+        }
+        catch {
+          return 0
+        }
+      })
+
+      return sortedVersions[0] || null
+    }
+    catch (error) {
+      this.logger.warn(`Failed to get npm version for ${packageName}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Check if a version is a prerelease (contains alpha, beta, rc, dev, etc.)
+   */
+  private isPrerelease(version: string): boolean {
+    const prereleasePattern = /-(?:alpha|beta|rc|dev|canary|next|experimental|snapshot|nightly)/i
+    return prereleasePattern.test(version)
   }
 
   /**
@@ -267,6 +333,12 @@ export class RegistryClient {
         if (!packageJsonVersion)
           continue
 
+        // Skip ignored packages
+        const ignoredPackages = this.config?.packages?.ignore || []
+        if (ignoredPackages.includes(packageName)) {
+          continue
+        }
+
         // Get the actual version from package.json (strip caret, tilde, etc.)
         const cleanVersion = this.cleanVersionRange(packageJsonVersion)
 
@@ -277,6 +349,14 @@ export class RegistryClient {
 
         // Check if package.json version is older than latest using Bun's semver
         if (Bun.semver.order(cleanVersion, latestVersion) < 0) {
+          // Check if this is a major update and if major updates are excluded
+          const updateType = getUpdateType(cleanVersion, latestVersion)
+          const excludeMajor = this.config?.packages?.excludeMajor ?? false
+
+          if (excludeMajor && updateType === 'major') {
+            continue
+          }
+
           results.push({
             name: packageName,
             current: cleanVersion,

@@ -282,3 +282,46 @@ export function satisfiesRange(version: string, range: string): boolean {
 
   return cleanVersion === cleanRange
 }
+
+/**
+ * Check for PRs that have the rebase checkbox checked
+ */
+export async function checkForRebaseRequests(token: string, owner: string, repo: string): Promise<Array<{ number: number, branchName: string }>> {
+  if (!token) {
+    throw new Error('GitHub token is required')
+  }
+
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=open`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'buddy-bot',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+    }
+
+    const prs = await response.json() as any[]
+
+    // Filter PRs that have the rebase checkbox checked
+    const prsNeedingRebase = prs.filter((pr: any) => {
+      if (!pr.body)
+        return false
+
+      // Use the same pattern as the CLI for consistency
+      const checkedPattern = /- \[x\] <!-- rebase-check -->.*(?:want to (?:rebase|update)\/retry this PR|If you want to (?:rebase|update)\/retry)/i
+      return checkedPattern.test(pr.body)
+    })
+
+    return prsNeedingRebase.map((pr: any) => ({
+      number: pr.number,
+      branchName: pr.head.ref,
+    }))
+  }
+  catch (error) {
+    throw new Error(`Failed to check for rebase requests: ${error}`)
+  }
+}

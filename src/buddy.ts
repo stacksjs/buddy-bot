@@ -29,7 +29,7 @@ export class Buddy {
   ) {
     this.logger = new Logger(false) // Will be configurable
     this.scanner = new PackageScanner(this.projectPath, this.logger)
-    this.registryClient = new RegistryClient(this.projectPath, this.logger)
+    this.registryClient = new RegistryClient(this.projectPath, this.logger, this.config)
     this.dashboardGenerator = new DashboardGenerator()
   }
 

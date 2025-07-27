@@ -35,6 +35,10 @@ export interface BuddyBotConfig {
     pin?: Record<string, string>
     /** Group related packages together */
     groups?: PackageGroup[]
+    /** Include prerelease versions (alpha, beta, rc, etc.) */
+    includePrerelease?: boolean
+    /** Exclude major version updates (even if strategy allows them) */
+    excludeMajor?: boolean
   }
 
   /** PR generation settings */

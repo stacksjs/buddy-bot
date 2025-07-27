@@ -41,16 +41,19 @@ export async function parseGitHubActionsFile(filePath: string, content: string):
         // Parse action@version format
         const actionParts = actionRef.split('@')
         if (actionParts.length === 2) {
-          const [actionName, version] = actionParts
+          const [actionName, versionRaw] = actionParts
 
           // Skip if action name is empty or just whitespace
           if (!actionName || !actionName.trim()) {
             continue
           }
 
+          // Clean version by removing comments and extra whitespace
+          const version = versionRaw.split('#')[0].trim()
+
           const actionDep = {
             name: actionName.trim(),
-            currentVersion: version.trim(),
+            currentVersion: version,
             type: 'github-actions' as const,
             file: filePath,
           }

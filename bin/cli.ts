@@ -724,8 +724,8 @@ cli
 
 // Helper function to check if rebase checkbox is checked
 function checkRebaseCheckbox(body: string): boolean {
-  // Look for the checked rebase checkbox pattern
-  const checkedPattern = /- \[x\] <!-- rebase-check -->If you want to rebase\/retry this PR, check this box/i
+  // Look for the checked rebase checkbox pattern - handle both "rebase/retry" and "update/retry"
+  const checkedPattern = /- \[x\] <!-- rebase-check -->If you want to (?:rebase|update)\/retry this PR, check this box/i
   return checkedPattern.test(body)
 }
 
@@ -987,7 +987,7 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
-      const registryClient = new RegistryClient(process.cwd(), logger)
+      const registryClient = new RegistryClient(process.cwd(), logger, undefined)
 
       if (options.json) {
         // Output raw JSON from bun info
@@ -1069,7 +1069,7 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
-      const registryClient = new RegistryClient(process.cwd(), logger)
+      const registryClient = new RegistryClient(process.cwd(), logger, undefined)
       const metadata = await registryClient.getPackageMetadata(packageName)
 
       if (!metadata) {
@@ -1114,7 +1114,7 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
-      const registryClient = new RegistryClient(process.cwd(), logger)
+      const registryClient = new RegistryClient(process.cwd(), logger, undefined)
       const exists = await registryClient.packageExists(packageName)
 
       if (exists) {
@@ -1142,7 +1142,7 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
-      const registryClient = new RegistryClient(process.cwd(), logger)
+      const registryClient = new RegistryClient(process.cwd(), logger, undefined)
       const latestVersion = await registryClient.getLatestVersion(packageName)
 
       if (latestVersion) {
@@ -1173,7 +1173,7 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
-      const registryClient = new RegistryClient(process.cwd(), logger)
+      const registryClient = new RegistryClient(process.cwd(), logger, undefined)
       const metadata = await registryClient.getPackageMetadata(packageName)
 
       if (!metadata) {
@@ -1251,7 +1251,7 @@ cli
 
       // Get package metadata to validate versions exist
       const { RegistryClient } = await import('../src/registry/registry-client')
-      const registryClient = new RegistryClient(process.cwd(), logger)
+      const registryClient = new RegistryClient(process.cwd(), logger, undefined)
       const metadata = await registryClient.getPackageMetadata(packageName)
 
       if (!metadata) {
@@ -1328,7 +1328,7 @@ cli
           console.log('📡 Using npm registry API search...')
           try {
             const { RegistryClient } = await import('../src/registry/registry-client')
-            const registryClient = new RegistryClient(process.cwd(), logger)
+            const registryClient = new RegistryClient(process.cwd(), logger, undefined)
             const results = await registryClient.searchPackages(query, limit)
 
             if (results.length === 0) {
