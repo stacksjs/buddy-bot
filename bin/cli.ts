@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import type { BuddyBotConfig } from '../src/types'
+import fs from 'node:fs'
 import process from 'node:process'
 import { CAC } from 'cac'
 import prompts from 'prompts'
@@ -8,15 +9,25 @@ import { version } from '../package.json'
 import { Buddy } from '../src/buddy'
 import { config } from '../src/config'
 import {
+  analyzeProject,
+  ConfigurationMigrator,
   confirmTokenSetup,
+  createProgressTracker,
   detectRepository,
+  displayProgress,
+  displayValidationResults,
   generateConfigFile,
   generateCoreWorkflows,
   getWorkflowPreset,
   guideRepositorySettings,
   guideTokenCreation,
+  PluginManager,
+  runPreflightChecks,
   setupCustomWorkflow,
   showFinalInstructions,
+  updateProgress,
+  validateRepositoryAccess,
+  validateWorkflowGeneration,
 } from '../src/setup'
 import { Logger } from '../src/utils/logger'
 
@@ -82,8 +93,120 @@ cli
       console.log('🤖 Welcome to Buddy Bot Setup!')
       console.log('Let\'s configure automated dependency updates for your project.\n')
 
+      // Initialize progress tracking
+      const progress = createProgressTracker(10) // Updated total steps including new features
+      displayProgress(progress)
+
+      // Configuration Migration Detection
+      updateProgress(progress, 'Detecting existing configurations')
+      displayProgress(progress)
+
+      const migrator = new ConfigurationMigrator()
+      const existingTools = await migrator.detectExistingTools()
+      const migrationResults: any[] = []
+
+      if (existingTools.length > 0) {
+        console.log(`\n🔍 Configuration Migration Detection:`)
+        console.log(`Found ${existingTools.length} existing dependency management tool(s):`)
+        existingTools.forEach(tool => console.log(`   • ${tool.name} (${tool.configFile})`))
+
+        const migrateResponse = await prompts({
+          type: 'confirm',
+          name: 'migrate',
+          message: 'Would you like to migrate existing configurations to Buddy Bot?',
+          initial: true,
+        })
+
+        if (migrateResponse.migrate) {
+          console.log('\n📋 Migrating configurations...')
+          for (const tool of existingTools) {
+            try {
+              let result
+              if (tool.name === 'renovate') {
+                result = await migrator.migrateFromRenovate(tool.configFile)
+              }
+              else if (tool.name === 'dependabot') {
+                result = await migrator.migrateFromDependabot(tool.configFile)
+              }
+              else {
+                continue
+              }
+              migrationResults.push(result)
+              console.log(`✅ Migrated ${tool.name} configuration`)
+            }
+            catch (error) {
+              console.log(`⚠️  Failed to migrate ${tool.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+            }
+          }
+
+          if (migrationResults.length > 0) {
+            const report = await migrator.generateMigrationReport(migrationResults)
+            console.log(`\n${report}`)
+          }
+        }
+      }
+
+      // Plugin Discovery
+      updateProgress(progress, 'Discovering integrations', true)
+      displayProgress(progress)
+
+      const pluginManager = new PluginManager()
+      const availablePlugins = await pluginManager.discoverPlugins()
+
+      if (availablePlugins.length > 0) {
+        console.log(`\n🔌 Integration Discovery:`)
+        console.log(`Found ${availablePlugins.length} available integration(s):`)
+        availablePlugins.forEach(plugin => console.log(`   • ${plugin.name} v${plugin.version}`))
+
+        const pluginResponse = await prompts({
+          type: 'confirm',
+          name: 'enablePlugins',
+          message: 'Would you like to enable these integrations?',
+          initial: true,
+        })
+
+        if (pluginResponse.enablePlugins) {
+          for (const plugin of availablePlugins) {
+            await pluginManager.loadPlugin(plugin)
+          }
+        }
+      }
+
+      // Pre-flight checks
+      updateProgress(progress, 'Running pre-flight checks', true)
+      displayProgress(progress)
+
+      const preflightResults = await runPreflightChecks()
+      displayValidationResults(preflightResults, '🔍 Pre-flight Validation')
+
+      if (!preflightResults.success) {
+        console.log('\n❌ Pre-flight checks failed. Please fix the errors above and try again.')
+        process.exit(1)
+      }
+
+      // Project analysis
+      updateProgress(progress, 'Analyzing project', true)
+      displayProgress(progress)
+
+      const projectAnalysis = await analyzeProject()
+      console.log(`\n🔍 Project Analysis:`)
+      console.log(`📦 Project Type: ${projectAnalysis.type}`)
+      console.log(`⚙️  Package Manager: ${projectAnalysis.packageManager}`)
+      console.log(`🔒 Lock File: ${projectAnalysis.hasLockFile ? 'Found' : 'Not found'}`)
+      console.log(`📄 Dependency Files: ${projectAnalysis.hasDependencyFiles ? 'Found' : 'None'}`)
+      console.log(`🔄 GitHub Actions: ${projectAnalysis.hasGitHubActions ? 'Found' : 'None'}`)
+      console.log(`💡 Recommended Preset: ${projectAnalysis.recommendedPreset}`)
+
+      if (projectAnalysis.recommendations.length > 0) {
+        console.log('\n📋 Recommendations:')
+        projectAnalysis.recommendations.forEach((rec: string) => console.log(`   • ${rec}`))
+      }
+
       // Step 1: Repository Detection
-      console.log('📍 Step 1: Repository Detection')
+      updateProgress(progress, 'Repository Detection', true)
+      displayProgress(progress)
+
+      console.log('\n📍 Repository Detection')
       const repoInfo = await detectRepository()
       if (!repoInfo) {
         console.log('❌ Could not detect repository. Please ensure you\'re in a Git repository.')
@@ -91,10 +214,19 @@ cli
       }
 
       console.log(`✅ Detected repository: ${repoInfo.owner}/${repoInfo.name}`)
-      console.log(`🔗 GitHub URL: https://github.com/${repoInfo.owner}/${repoInfo.name}\n`)
+      console.log(`🔗 GitHub URL: https://github.com/${repoInfo.owner}/${repoInfo.name}`)
+
+      // Validate repository access
+      const repoValidation = await validateRepositoryAccess(repoInfo)
+      if (repoValidation.warnings.length > 0 || repoValidation.suggestions.length > 0) {
+        displayValidationResults(repoValidation, '🔍 Repository Validation')
+      }
 
       // Step 2: Token Setup Guide
-      console.log('🔑 Step 2: GitHub Token Setup')
+      updateProgress(progress, 'GitHub Token Setup', true)
+      displayProgress(progress)
+
+      console.log('\n🔑 GitHub Token Setup')
       console.log('For full functionality, Buddy Bot needs a Personal Access Token (PAT).')
       console.log('This enables workflow file updates and advanced GitHub Actions features.\n')
 
@@ -139,11 +271,17 @@ cli
       }
 
       // Step 3: Repository Settings
-      console.log('\n🔧 Step 3: Repository Settings')
+      updateProgress(progress, 'Repository Settings', true)
+      displayProgress(progress)
+
+      console.log('\n🔧 Repository Settings')
       await guideRepositorySettings(repoInfo)
 
       // Step 4: Workflow Configuration
-      console.log('\n⚙️  Step 4: Workflow Configuration')
+      updateProgress(progress, 'Workflow Configuration', true)
+      displayProgress(progress)
+
+      console.log('\n⚙️  Workflow Configuration')
       const workflowResponse = await prompts([
         {
           type: 'select',
@@ -190,11 +328,17 @@ cli
       }
 
       // Step 5: Generate Configuration File
-      console.log('\n📝 Step 5: Configuration File')
+      updateProgress(progress, 'Configuration File', true)
+      displayProgress(progress)
+
+      console.log('\n📝 Configuration File')
       await generateConfigFile(repoInfo, hasCustomToken)
 
       // Step 6: Generate Workflows
-      console.log('\n🔄 Step 6: Workflow Generation')
+      updateProgress(progress, 'Workflow Generation', true)
+      displayProgress(progress)
+
+      console.log('\n🔄 Workflow Generation')
       const preset = getWorkflowPreset(workflowResponse.useCase)
 
       if (workflowResponse.useCase === 'custom') {
@@ -208,9 +352,68 @@ cli
       // Generate the core workflows based on the provided templates
       await generateCoreWorkflows(preset, repoInfo, hasCustomToken, logger)
 
-      // Step 7: Final Setup Instructions
+      // Step 7: Workflow Validation
+      updateProgress(progress, 'Workflow Validation', true)
+      displayProgress(progress)
+
+      console.log('\n🔍 Validating Generated Workflows')
+
+      // Validate each generated workflow
+      const workflowFiles = [
+        { name: 'buddy-dashboard.yml', content: '' },
+        { name: 'buddy-update-check.yml', content: '' },
+        { name: 'buddy-update.yml', content: '' },
+      ]
+
+      let validationPassed = true
+      for (const workflowFile of workflowFiles) {
+        try {
+          const workflowPath = `.github/workflows/${workflowFile.name}`
+          if (fs.existsSync(workflowPath)) {
+            const content = fs.readFileSync(workflowPath, 'utf8')
+            const validation = await validateWorkflowGeneration(content)
+
+            if (!validation.success) {
+              console.log(`❌ ${workflowFile.name} validation failed`)
+              displayValidationResults(validation, `${workflowFile.name} Issues`)
+              validationPassed = false
+            }
+            else {
+              console.log(`✅ ${workflowFile.name} validated successfully`)
+            }
+          }
+        }
+        catch {
+          console.log(`⚠️  Could not validate ${workflowFile.name}`)
+        }
+      }
+
+      if (!validationPassed) {
+        console.log('\n⚠️  Some workflows have validation issues. Please review the warnings above.')
+      }
+
+      // Step 8: Final Setup Instructions & Plugin Execution
+      updateProgress(progress, 'Setup Complete', true)
+      displayProgress(progress)
+
       console.log('\n🎉 Setup Complete!')
       await showFinalInstructions(repoInfo, hasCustomToken)
+
+      // Execute plugin hooks for setup completion
+      if (availablePlugins.length > 0) {
+        console.log('\n🔌 Executing integration hooks...')
+        const setupContext = {
+          step: 'setup_complete',
+          progress,
+          config: migrationResults.length > 0 ? migrationResults[0].migratedSettings : {},
+          repository: repoInfo,
+          analysis: projectAnalysis,
+          plugins: availablePlugins,
+        }
+
+        pluginManager.setContext(setupContext)
+        await pluginManager.executePluginHooks({ event: 'setup_complete' })
+      }
     }
     catch (error) {
       logger.error('Setup failed:', error)

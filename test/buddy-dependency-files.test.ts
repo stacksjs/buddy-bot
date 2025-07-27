@@ -1,6 +1,7 @@
 import type { BuddyBotConfig, PackageUpdate } from '../src/types'
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import fs from 'node:fs'
 import { Buddy } from '../src/buddy'
 
 describe('Buddy - Dependency Files Integration', () => {
@@ -30,11 +31,11 @@ describe('Buddy - Dependency Files Integration', () => {
   }, null, 2)
 
   beforeEach(async () => {
-    // Mock node:fs functions
-    readFileSpy = spyOn(await import('node:fs'), 'readFileSync')
-    existsSyncSpy = spyOn(await import('node:fs'), 'existsSync')
+    // Mock fs operations
+    readFileSpy = spyOn(fs, 'readFileSync')
+    existsSyncSpy = spyOn(fs, 'existsSync')
 
-    // Set default mock return values - mock package.json specifically
+    // Set default mock return values
     readFileSpy.mockImplementation((filePath: string) => {
       if (filePath === 'package.json' || filePath.endsWith('package.json')) {
         return mockPackageJsonContent
@@ -55,10 +56,11 @@ describe('Buddy - Dependency Files Integration', () => {
   })
 
   afterEach(() => {
-    readFileSpy?.mockRestore()
-    existsSyncSpy?.mockRestore()
-    mockGenerateGitHubActionsUpdates?.mockRestore()
-    mockGenerateDependencyFileUpdates?.mockRestore()
+    // Clean up mocks
+    readFileSpy?.mockRestore?.()
+    existsSyncSpy?.mockRestore?.()
+    mockGenerateGitHubActionsUpdates?.mockRestore?.()
+    mockGenerateDependencyFileUpdates?.mockRestore?.()
   })
 
   const packageJsonUpdates: PackageUpdate[] = [
@@ -273,6 +275,7 @@ describe('Buddy - Dependency Files Integration', () => {
       readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
       mockGenerateDependencyFileUpdates.mockRejectedValue(new Error('Dependency file error'))
 
+      // The function should handle the error gracefully and continue processing
       const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
 
       // Should still process package.json
@@ -284,6 +287,7 @@ describe('Buddy - Dependency Files Integration', () => {
       readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
       mockGenerateGitHubActionsUpdates.mockRejectedValue(new Error('GitHub Actions error'))
 
+      // The function should handle the error gracefully and continue processing
       const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
 
       // Should still process package.json

@@ -10,6 +10,10 @@ describe('CLI Setup - Extended Tests', () => {
         name: 'Standard Project',
         description: 'test',
         templates: { daily: true },
+        schedules: { dashboard: '0 9 * * 1,3,5', updates: '0 9 * * 1,3,5' },
+        strategy: 'all',
+        autoMerge: false,
+        custom: [],
       }
       const standardWorkflow = generateUpdateWorkflow(standardPreset, false)
       expect(standardWorkflow).toContain('name: Standard Dependency Updates')
@@ -22,6 +26,10 @@ describe('CLI Setup - Extended Tests', () => {
         name: 'High Frequency Updates',
         description: 'test',
         templates: { comprehensive: true },
+        schedules: { dashboard: '0 9 * * *', updates: '0 */6 * * *' },
+        strategy: 'all',
+        autoMerge: true,
+        custom: [],
       }
       const highFreqWorkflow = generateUpdateWorkflow(highFreqPreset, true)
       expect(highFreqWorkflow).toContain('name: High Frequency Updates')
@@ -33,6 +41,10 @@ describe('CLI Setup - Extended Tests', () => {
         name: 'Security Focused',
         description: 'test',
         templates: { comprehensive: true },
+        schedules: { dashboard: '0 9 * * *', updates: '0 */4 * * *' },
+        strategy: 'all',
+        autoMerge: true,
+        custom: [],
       }
       const securityWorkflow = generateUpdateWorkflow(securityPreset, true)
       expect(securityWorkflow).toContain('name: Security-Focused Updates')
@@ -43,6 +55,10 @@ describe('CLI Setup - Extended Tests', () => {
         name: 'Development/Testing',
         description: 'test',
         templates: { weekly: true },
+        schedules: { dashboard: 'manual', updates: '*/15 * * * *' },
+        strategy: 'patch',
+        autoMerge: false,
+        custom: [],
       }
       const testingWorkflow = generateUpdateWorkflow(testingPreset, false)
       expect(testingWorkflow).toContain('name: Testing Updates')
@@ -55,6 +71,10 @@ describe('CLI Setup - Extended Tests', () => {
         name: 'Standard Project',
         description: 'test',
         templates: { daily: true },
+        schedules: { dashboard: '0 9 * * 1,3,5', updates: '0 9 * * 1,3,5' },
+        strategy: 'all',
+        autoMerge: false,
+        custom: [],
       }
       const workflow = generateUpdateWorkflow(preset, true)
 

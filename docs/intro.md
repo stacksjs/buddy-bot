@@ -17,6 +17,10 @@ Buddy-bot is a modern dependency management tool that automatically scans your p
 - **🔄 Interactive Rebasing** - Checkbox-based PR rebasing with conflict detection
 - **📦 Package Grouping** - Coordinate related package updates for better change management
 - **🛡️ Security Priority** - Prioritizes security updates with configurable strategies
+- **🛠️ Simple Setup Experience** - Renovate-like interactive setup with validation and smart recommendations
+- **🔍 Pre-flight Validation** - Environment checks, conflict detection, and prerequisite validation
+- **📊 Smart Project Analysis** - Automatic project type detection with intelligent recommendations
+- **📈 Progress Tracking** - Visual setup progress with step-by-step guidance and recovery capabilities
 
 ## 🚀 Quick Start
 
@@ -85,13 +89,16 @@ Generates three core GitHub Actions workflows:
 
 ### What You Get
 
-After setup completes, you'll have:
-- ✅ **Complete automation** - Three production-ready workflows
+After the enhanced setup completes, you'll have:
+- ✅ **Complete automation** - Three production-ready workflows with validation
 - ✅ **Professional dashboard** - Single issue tracking all dependencies
-- ✅ **Interactive rebasing** - Checkbox-based PR updates
-- ✅ **Smart scheduling** - Optimized update frequency
-- ✅ **Security focus** - Prioritized security updates
-- ✅ **Team integration** - Proper permissions and settings
+- ✅ **Interactive rebasing** - Checkbox-based PR updates with conflict resolution
+- ✅ **Smart scheduling** - Optimized update frequency based on project analysis
+- ✅ **Security focus** - Prioritized security updates with best practices validation
+- ✅ **Team integration** - Proper permissions and settings with health checks
+- ✅ **Validated configuration** - Pre-tested setup with comprehensive error checking
+- ✅ **Project-optimized settings** - Configuration tailored to your specific project type
+- ✅ **Recovery capabilities** - Robust error handling and setup resumption support
 
 ## 📖 Example Pull Request
 
