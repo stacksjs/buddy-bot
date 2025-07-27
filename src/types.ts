@@ -256,10 +256,7 @@ export interface GitProvider {
   /** Close issue */
   closeIssue: (issueNumber: number) => Promise<void>
 
-  /** Pin issue */
-  pinIssue: (issueNumber: number) => Promise<void>
-
-  /** Unpin issue */
+  /** Unpin issue - Note: GitHub REST API does not support pinning issues programmatically */
   unpinIssue: (issueNumber: number) => Promise<void>
 }
 

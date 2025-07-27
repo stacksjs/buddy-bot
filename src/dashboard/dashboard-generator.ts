@@ -42,10 +42,10 @@ export class DashboardGenerator {
   /**
    * Generate the default header section
    */
-  private generateDefaultHeader(data: DashboardData): string {
-    const portalUrl = `https://developer.mend.io/github/${data.repository.owner}/${data.repository.name}`
+  private generateDefaultHeader(_data: DashboardData): string {
+    // const portalUrl = `https://developer.mend.io/github/${data.repository.owner}/${data.repository.name}`
 
-    return `This issue lists Buddy Bot updates and detected dependencies. Read the [Dependency Dashboard](https://buddy-bot.sh/features/dependency-dashboard) docs to learn more.<br/>[View this repository on the Mend.io Web Portal](${portalUrl}).
+    return `This issue lists Buddy Bot updates and detected dependencies. Read the [Dependency Dashboard](https://buddy-bot.sh/features/dependency-dashboard) docs to learn more.
 
 `
   }
@@ -72,6 +72,7 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
       section += ` - [ ] <!-- rebase-branch=${rebaseBranch} -->[${pr.title}](${relativeUrl})`
 
+      // Show clean package names like Renovate does (without version info)
       if (packageInfo.length > 0) {
         section += ` (\`${packageInfo.join('`, `')}\`)`
       }
@@ -247,58 +248,150 @@ The following updates have all been created. To force a retry/rebase of any, cli
   }
 
   /**
-   * Extract package names from PR title or body
+   * Extract package names from PR title or body (like Renovate does)
    */
   private extractPackageInfo(pr: PullRequest): string[] {
     const packages: string[] = []
 
-    // Try to extract from title patterns like "update dependency react to v18"
-    const titleMatch = pr.title.match(/update.*?dependency\s+(\w+)/i)
-    if (titleMatch) {
-      packages.push(titleMatch[1])
+    // Pattern 1: Extract from common dependency update titles
+    // Examples: "chore(deps): update dependency react to v18"
+    //           "chore(deps): update all non-major dependencies"
+    //           "update @types/node to v20"
+    const titlePatterns = [
+      /update.*?dependency\s+(\S+)/i,
+      /update\s+(\S+)\s+to\s+v?\d+/i,
+      /bump\s+(\S+)\s+from/i,
+    ]
+
+    for (const pattern of titlePatterns) {
+      const match = pr.title.match(pattern)
+      if (match && match[1] && !packages.includes(match[1])) {
+        packages.push(match[1])
+      }
     }
 
-    // Extract from the enhanced PR body format
-    // Look for table entries like: | [package-name](url) | version change | badges |
-    const tableMatches = pr.body.match(/\|\s*\[([^\]]+)\]/g)
-    if (tableMatches) {
-      for (const match of tableMatches) {
-        const packageMatch = match.match(/\|\s*\[([^\]]+)\]/)
-        if (packageMatch) {
-          const packageName = packageMatch[1]
-          // Skip if it's a URL, badge, or contains special characters that indicate it's not a package name
-          if (!packageName.includes('://')
-            && !packageName.includes('Compare Source')
-            && !packageName.includes('badge')
-            && !packageName.includes('!')
-            && !packageName.startsWith('[![')
-            && !packages.includes(packageName)) {
+    // Pattern 2: Extract from table format in PR body - handle all table sections
+    // Look for different table types: npm Dependencies, Launchpad/pkgx Dependencies, GitHub Actions
+
+    // Split the body into sections and process each table
+    const tableSections = [
+      // npm Dependencies table
+      { name: 'npm', pattern: /### npm Dependencies[\s\S]*?(?=###|\n\n---|z)/i },
+      // Launchpad/pkgx Dependencies table
+      { name: 'pkgx', pattern: /### Launchpad\/pkgx Dependencies[\s\S]*?(?=###|\n\n---|z)/i },
+      // GitHub Actions table
+      { name: 'actions', pattern: /### GitHub Actions[\s\S]*?(?=###|\n\n---|z)/i },
+    ]
+
+    for (const section of tableSections) {
+      const sectionMatch = pr.body.match(section.pattern)
+      if (sectionMatch) {
+        const sectionContent = sectionMatch[0]
+
+        // Extract package names from this section's table
+        const tableRowMatches = sectionContent.match(/\|\s*\[([^\]]+)\]\([^)]+\)\s*\|/g)
+        if (tableRowMatches) {
+          for (const match of tableRowMatches) {
+            const packageMatch = match.match(/\|\s*\[([^\]]+)\]/)
+            if (packageMatch && packageMatch[1]) {
+              const packageName = packageMatch[1].trim()
+
+              // Check if this looks like a version string - if so, try to extract package name from URL
+              if (packageName.includes('`') && packageName.includes('->')) {
+                // This is a version string like "`1.2.17` -> `1.2.19`"
+                // Try to extract the package name from the URL
+                const urlMatch = match.match(/\]\(([^)]+)\)/)
+                if (urlMatch && urlMatch[1]) {
+                  const url = urlMatch[1]
+
+                  // Extract package name from Renovate diff URLs like:
+                  // https://renovatebot.com/diffs/npm/%40types%2Fbun/1.2.17/1.2.19
+                  // https://renovatebot.com/diffs/npm/cac/6.7.13/6.7.14
+                  const diffUrlMatch = url.match(/\/diffs\/npm\/([^/]+)\//)
+                  if (diffUrlMatch && diffUrlMatch[1]) {
+                    // Decode URL encoding like %40types%2Fbun -> @types/bun
+                    const extractedPackage = decodeURIComponent(diffUrlMatch[1])
+
+                    if (extractedPackage && extractedPackage.length > 1 && !packages.includes(extractedPackage)) {
+                      packages.push(extractedPackage)
+                    }
+                  }
+                }
+                continue // Skip the normal processing for version strings
+              }
+
+              // Normal processing for direct package names
+              // Skip if it's a URL, badge, or contains special characters
+              // CRITICAL: Skip version strings like "`1.2.17` -> `1.2.19`"
+              if (!packageName.includes('://')
+                && !packageName.includes('Compare Source')
+                && !packageName.includes('badge')
+                && !packageName.includes('!')
+                && !packageName.startsWith('[![')
+                && !packageName.includes('`') // Skip anything with backticks (version strings)
+                && !packageName.includes('->') // Skip version arrows
+                && !packageName.includes(' -> ') // Skip spaced version arrows
+                && !packageName.match(/^\d+\.\d+/) // Skip version numbers
+                && !packageName.includes(' ') // Package names shouldn't have spaces
+                && packageName.length > 0
+                && !packages.includes(packageName)) {
+                packages.push(packageName)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Pattern 3: Extract from PR body - look for package names in backticks (avoid table content)
+    // This handles cases where the title doesn't contain specific package names
+    // but the body lists them like: `@types/bun`, `cac`, `ts-pkgx`
+    if (packages.length < 3) { // Allow backtick extraction to supplement table extraction
+      const bodyMatches = pr.body.match(/`([^`]+)`/g)
+      if (bodyMatches) {
+        for (const match of bodyMatches) {
+          let packageName = match.replace(/`/g, '').trim()
+
+          // Skip anything that looks like version information
+          if (packageName.includes('->')
+            || packageName.includes(' -> ')
+            || packageName.includes('` -> `')
+            || packageName.match(/^\d+\.\d+/) // Starts with version number
+            || packageName.match(/^v\d+/) // Version tags
+            || packageName.match(/[\d.]+\s*->\s*[\d.]+/) // Version arrows
+            || packageName.match(/^[\d.]+$/) // Pure version numbers like "1.2.17"
+            || packageName.match(/^\d+\.\d+\.\d+/) // Semver patterns
+            || packageName.match(/^\d+\.\d+\.\d+\./) // Longer version patterns
+            || packageName.match(/^\^?\d+\.\d+/) // Version ranges like "^1.2.3"
+            || packageName.match(/^~\d+\.\d+/) // Tilde version ranges
+            || packageName.includes('://') // URLs with protocol
+            || packageName.includes('Compare Source')
+            || packageName.includes('badge')
+            || packageName.includes(' ')) { // Package names shouldn't have spaces
+            continue
+          }
+
+          // Clean up the package name - take first part only
+          packageName = packageName.split(',')[0].trim()
+
+          // Only include if it looks like a valid package/dependency name
+          if (packageName
+            && packageName.length > 1
+            && !packages.includes(packageName)
+            && (
+          // Must match one of these patterns for valid package names:
+              packageName.startsWith('@') // Scoped packages like @types/node
+              || packageName.includes('/') // GitHub actions like actions/checkout
+              || packageName.match(/^[a-z][a-z0-9.-]*$/i) // Simple package names like lodash, ts-pkgx, bun.com
+            )) {
             packages.push(packageName)
           }
         }
       }
     }
 
-    // Fallback: try to extract from simple backtick patterns
-    if (packages.length === 0) {
-      const bodyMatches = pr.body.match(/`([^`]+)`/g)
-      if (bodyMatches) {
-        for (const match of bodyMatches) {
-          const content = match.replace(/`/g, '')
-          // Only extract if it looks like a package name (no version arrows, URLs, or special chars)
-          if (!content.includes('->')
-            && !content.includes('://')
-            && !content.includes(' ')
-            && !content.includes('Compare Source')
-            && content.length > 0
-            && !packages.includes(content)) {
-            packages.push(content)
-          }
-        }
-      }
-    }
-
-    return packages.slice(0, 5) // Limit to first 5 packages to keep it clean
+    // NO LIMIT - return all packages like Renovate does
+    return packages
   }
 
   /**

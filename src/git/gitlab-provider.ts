@@ -97,13 +97,8 @@ export class GitLabProvider implements GitProvider {
     console.log(`Would close issue #${issueNumber}`)
   }
 
-  async pinIssue(issueNumber: number): Promise<void> {
-    // TODO: Implement GitLab API call to pin issue
-    console.log(`Would pin issue #${issueNumber}`)
-  }
-
-  async unpinIssue(issueNumber: number): Promise<void> {
-    // TODO: Implement GitLab API call to unpin issue
-    console.log(`Would unpin issue #${issueNumber}`)
+  async unpinIssue(_issueNumber: number): Promise<void> {
+    // GitLab doesn't have issue pinning functionality
+    console.log(`ℹ️ GitLab does not support issue pinning`)
   }
 }

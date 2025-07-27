@@ -103,15 +103,17 @@ describe('DashboardGenerator', () => {
 
 | Package | Change | Age | Adoption | Passing | Confidence |
 |---|---|---|---|---|---|
-| [@types/bun](https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/bun) | \`1.2.17\` -> \`1.2.19\` | [![age](badge)] | [![adoption](badge)] | [![passing](badge)] | [![confidence](badge)] |
-| [cac](https://github.com/egoist/cac) | \`6.7.13\` -> \`6.7.14\` | [![age](badge)] | [![adoption](badge)] | [![passing](badge)] | [![confidence](badge)] |
-| [ts-pkgx](https://github.com/stacksjs/ts-pkgx) | \`0.4.4\` -> \`0.4.7\` | [![age](badge)] | [![adoption](badge)] | [![passing](badge)] | [![confidence](badge)] |
+| [@types/bun](https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/bun) | [\`1.2.17\` -> \`1.2.19\`](https://renovatebot.com/diffs/npm/%40types%2Fbun/1.2.17/1.2.19) | [![age](badge)] | [![adoption](badge)] | [![passing](badge)] | [![confidence](badge)] |
+| [cac](https://github.com/egoist/cac) | [\`6.7.13\` -> \`6.7.14\`](https://renovatebot.com/diffs/npm/cac/6.7.13/6.7.14) | [![age](badge)] | [![adoption](badge)] | [![passing](badge)] | [![confidence](badge)] |
+| [ts-pkgx](https://github.com/stacksjs/ts-pkgx) | [\`0.4.4\` -> \`0.4.7\`](https://renovatebot.com/diffs/npm/ts-pkgx/0.4.4/0.4.7) | [![age](badge)] | [![adoption](badge)] | [![passing](badge)] | [![confidence](badge)] |
 
 ### GitHub Actions
 
 | Action | Change | File | Status |
 |---|---|---|---|
-| [actions/checkout](https://github.com/actions/checkout) | \`v4\` -> \`v4.2.2\` | ci.yml | ✅ Available |`,
+| [actions/checkout](https://github.com/actions/checkout) | \`v4\` -> \`v4.2.2\` | ci.yml | ✅ Available |
+
+---`,
           head: 'update-deps',
           base: 'main',
           state: 'open',
@@ -134,7 +136,7 @@ describe('DashboardGenerator', () => {
 
         const result = generator.generateDashboard(dashboardData)
 
-        // Should extract package names from table format
+        // Should extract package names from table format (npm packages from URLs + GitHub Actions)
         expect(result.body).toContain('(`@types/bun`, `cac`, `ts-pkgx`, `actions/checkout`')
       })
 
@@ -274,6 +276,54 @@ describe('DashboardGenerator', () => {
           // If no packages extracted (which is expected for this test), verify no invalid content in PR listing
           expect(result.body).toContain('](../pull/127)')
         }
+      })
+
+      it('should handle real-world PR body with version arrows like the user is seeing', () => {
+        const realWorldPR: PullRequest = {
+          number: 20,
+          title: 'chore(deps): update all non-major dependencies',
+          body: `This PR contains the following updates:
+
+### Dependencies
+
+- \`@stacksjs/eslint-config\`: \`4.10.2-beta.3\` -> \`4.14.0-beta.3\`
+- \`@types/bun\`: \`1.2.17\` -> \`1.2.19\`
+- \`cac\`: \`6.7.13\` -> \`6.7.14\`
+- \`ts-pkgx\`: \`0.4.4\` -> \`0.4.8\`
+- Check \`bun.com\` for details
+
+### Summary
+Updated several packages including \`@stacksjs/eslint-config\`, \`@types/bun\`, \`cac\`, and \`ts-pkgx\`.`,
+          head: 'buddy-bot/update-non-major-updates-1751575575536',
+          base: 'main',
+          state: 'open',
+          url: 'https://github.com/test-owner/test-repo/pull/20',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          author: 'buddy-bot',
+          reviewers: [],
+          assignees: [],
+          labels: ['dependencies'],
+          draft: false,
+        }
+
+        const dashboardData: DashboardData = {
+          repository: { owner: 'test-owner', name: 'test-repo', provider: 'github' },
+          openPRs: [realWorldPR],
+          detectedDependencies: { packageJson: [], dependencyFiles: [], githubActions: [] },
+          lastUpdated: new Date(),
+        }
+
+        const result = generator.generateDashboard(dashboardData)
+
+        // Should extract only clean package names, not version strings
+        expect(result.body).toContain('(`@stacksjs/eslint-config`, `@types/bun`, `cac`, `ts-pkgx`, `bun.com`')
+        expect(result.body).not.toContain('1.2.17')
+        expect(result.body).not.toContain('1.2.19')
+        expect(result.body).not.toContain('6.7.13')
+        expect(result.body).not.toContain('6.7.14')
+        expect(result.body).not.toContain('0.4.4')
+        expect(result.body).not.toContain('0.4.8')
       })
     })
 

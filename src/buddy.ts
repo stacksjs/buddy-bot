@@ -760,15 +760,11 @@ export class Buddy {
           assignees: dashboardConfig.assignees,
         })
 
-        // Pin the issue if configured (even if it's an existing issue)
+        // Note: GitHub REST API does not support pinning issues programmatically
+        // Users need to pin the dashboard issue manually through the GitHub UI
         if (dashboardConfig.pin) {
-          try {
-            await gitProvider.pinIssue(issue.number)
-            this.logger.info(`📌 Pinned existing dashboard issue #${issue.number}`)
-          }
-          catch (error) {
-            this.logger.warn(`Failed to pin dashboard issue: ${error}`)
-          }
+          this.logger.info(`💡 To pin dashboard issue #${issue.number}, please do so manually in the GitHub UI`)
+          this.logger.info(`📌 Go to: ${issue.url} and click "Pin issue" in the right sidebar`)
         }
       }
       else {
@@ -782,15 +778,11 @@ export class Buddy {
           assignees: dashboardConfig.assignees,
         })
 
-        // Pin the issue if configured
+        // Note: GitHub REST API does not support pinning issues programmatically
+        // Users need to pin the dashboard issue manually through the GitHub UI
         if (dashboardConfig.pin) {
-          try {
-            await gitProvider.pinIssue(issue.number)
-            this.logger.info(`📌 Pinned new dashboard issue #${issue.number}`)
-          }
-          catch (error) {
-            this.logger.warn(`Failed to pin dashboard issue: ${error}`)
-          }
+          this.logger.info(`💡 To pin dashboard issue #${issue.number}, please do so manually in the GitHub UI`)
+          this.logger.info(`📌 Go to: ${issue.url} and click "Pin issue" in the right sidebar`)
         }
       }
 
@@ -814,9 +806,15 @@ export class Buddy {
 
     // Filter PRs to only include dependency updates (likely created by buddy-bot)
     const dependencyPRs = openPRs.filter(pr =>
-      pr.labels.includes('dependencies')
-      || pr.title.toLowerCase().includes('update')
-      || pr.title.toLowerCase().includes('chore(deps)'),
+      // Exclude Renovate PRs
+      !pr.author.toLowerCase().includes('renovate')
+      && !pr.head.includes('renovate/')
+      && !pr.title.toLowerCase().includes('renovate')
+      && (
+        pr.labels.includes('dependencies')
+        || pr.title.toLowerCase().includes('update')
+        || pr.title.toLowerCase().includes('chore(deps)')
+      ),
     )
 
     // Categorize package files

@@ -658,29 +658,17 @@ export class GitHubProvider implements GitProvider {
     }
   }
 
-  async pinIssue(issueNumber: number): Promise<void> {
+  async unpinIssue(issueNumber: number): Promise<void> {
     try {
-      // GitHub's pin/unpin issue API requires special headers and is relatively new
-      await this.apiRequest(`PUT /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
-
-      console.log(`✅ Pinned issue #${issueNumber}`)
+      await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
     }
-    catch (error) {
-      console.warn(`⚠️ Failed to pin issue #${issueNumber}:`, error)
+    catch (error: any) {
+      console.log(`⚠️ Failed to unpin issue #${issueNumber}:`, error)
       // Don't throw error for pinning failures as it's not critical
     }
   }
 
-  async unpinIssue(issueNumber: number): Promise<void> {
-    try {
-      // GitHub's pin/unpin issue API requires special headers and is relatively new
-      await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
-
-      console.log(`✅ Unpinned issue #${issueNumber}`)
-    }
-    catch (error) {
-      console.warn(`⚠️ Failed to unpin issue #${issueNumber}:`, error)
-      // Don't throw error for unpinning failures as it's not critical
-    }
-  }
+  // Note: GitHub REST API does not support pinning issues programmatically
+  // Pinning can only be done manually through the GitHub web interface
+  // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/pinning-an-issue-to-your-repository
 }
