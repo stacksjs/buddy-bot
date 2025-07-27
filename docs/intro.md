@@ -24,15 +24,74 @@ Buddy-bot is a modern dependency management tool that automatically scans your p
 # Install buddy-bot
 bun add --global buddy-bot
 
-# Scan for outdated packages
+# Interactive setup (recommended)
+buddy-bot setup
+
+# Or scan for outdated packages
 buddy-bot scan
 
 # Create update pull requests
 buddy-bot update
-
-# Generate GitHub Actions workflows
-buddy-bot workflow daily
 ```
+
+## 🛠️ Interactive Setup
+
+The fastest way to get started is with the interactive setup command:
+
+```bash
+buddy-bot setup
+```
+
+This comprehensive setup wizard provides a **Renovate-like experience** that automatically configures your entire dependency management workflow:
+
+### Setup Process
+
+**🔍 Step 1: Repository Detection**
+- Automatically detects your GitHub repository from git remote
+- Validates repository access and configuration
+
+**🔑 Step 2: GitHub Token Setup**
+- Guides you through creating a Personal Access Token (PAT)
+- Explains required scopes (`repo`, `workflow`) for full functionality
+- Helps set up repository secrets for enhanced features
+
+**🔧 Step 3: Repository Settings**
+- Walks you through GitHub Actions permissions configuration
+- Ensures proper workflow permissions for PR creation
+
+**⚙️ Step 4: Workflow Configuration**
+Choose from carefully crafted presets:
+- **Standard Setup** - Dashboard updates 3x/week, balanced dependency updates
+- **High Frequency** - Check for updates multiple times per day
+- **Security Focused** - Frequent patch updates with security-first approach
+- **Minimal Updates** - Weekly checks, lower frequency
+- **Development/Testing** - Manual triggers + frequent checks for testing
+- **Custom Configuration** - Create your own schedule
+
+**📝 Step 5: Configuration Generation**
+- Creates `buddy-bot.config.json` with your repository settings
+- Includes sensible defaults and customization options
+
+**🔄 Step 6: Workflow Generation**
+Generates three core GitHub Actions workflows:
+- `buddy-dashboard.yml` - Dependency Dashboard Management
+- `buddy-update-check.yml` - Auto-rebase PR checker
+- `buddy-update.yml` - Scheduled dependency updates
+
+**🎯 Step 7: Final Instructions**
+- Provides clear next steps with git commands
+- Links to GitHub settings pages for easy configuration
+- Explains token setup and repository permissions
+
+### What You Get
+
+After setup completes, you'll have:
+- ✅ **Complete automation** - Three production-ready workflows
+- ✅ **Professional dashboard** - Single issue tracking all dependencies
+- ✅ **Interactive rebasing** - Checkbox-based PR updates
+- ✅ **Smart scheduling** - Optimized update frequency
+- ✅ **Security focus** - Prioritized security updates
+- ✅ **Team integration** - Proper permissions and settings
 
 ## 📖 Example Pull Request
 

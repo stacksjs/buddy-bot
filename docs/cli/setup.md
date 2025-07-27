@@ -1,169 +1,423 @@
-# Setup Commands
+# Setup Command
 
-Interactive setup and configuration for buddy-bot.
+Interactive setup wizard for automated dependency management.
 
-## setup
+## Overview
 
-Interactive setup wizard for automated dependency updates.
+The `setup` command provides a comprehensive, Renovate-like setup experience that guides you through configuring Buddy Bot for your project. It automates the entire process from repository detection to workflow generation.
 
 ```bash
 buddy-bot setup [options]
 ```
 
-### Description
+## Quick Start
 
-The setup command guides you through configuring buddy-bot for your project. It creates the necessary configuration files, sets up GitHub Actions workflows, and helps configure repository settings.
+```bash
+# Run interactive setup (recommended)
+buddy-bot setup
 
-### Options
+# Setup with verbose logging
+buddy-bot setup --verbose
+```
+
+## Features
+
+The setup wizard provides a complete configuration experience:
+
+- **🔍 Automatic Repository Detection** - Detects GitHub repository from git remote
+- **🔑 Token Setup Guidance** - Walks through Personal Access Token creation
+- **🔧 Repository Settings** - Configures GitHub Actions permissions
+- **⚙️ Workflow Presets** - Choose from pre-configured update strategies
+- **📝 Configuration Generation** - Creates `buddy-bot.config.json` with your settings
+- **🔄 Workflow Creation** - Generates three core GitHub Actions workflows
+- **🎯 Clear Instructions** - Provides next steps and links to settings
+
+## Setup Flow
+
+### Step 1: Repository Detection
+```
+📍 Step 1: Repository Detection
+✅ Detected repository: your-org/your-repo
+🔗 GitHub URL: https://github.com/your-org/your-repo
+```
+
+Automatically detects your GitHub repository from `git remote get-url origin` and validates the repository information.
+
+### Step 2: GitHub Token Setup
+```
+🔑 Step 2: GitHub Token Setup
+For full functionality, Buddy Bot needs a Personal Access Token (PAT).
+This enables workflow file updates and advanced GitHub Actions features.
+```
+
+Provides three options:
+- **Create new token** - Full guidance through PAT creation process
+- **Have existing token** - Setup for existing PAT
+- **Skip for now** - Use limited GITHUB_TOKEN permissions
+
+### Step 3: Repository Settings
+```
+🔧 Step 3: Repository Settings
+```
+
+Guides you through configuring GitHub Actions permissions:
+1. Repository settings → Actions → General
+2. Select "Read and write permissions"
+3. Enable "Allow GitHub Actions to create and approve pull requests"
+
+### Step 4: Workflow Configuration
+```
+⚙️ Step 4: Workflow Configuration
+What type of update schedule would you like?
+```
+
+Choose from carefully crafted presets:
+
+#### Available Presets
+
+| Preset | Description | Dashboard | Updates | Auto-merge |
+|--------|-------------|-----------|---------|------------|
+| **Standard Setup** | Balanced approach for most projects | 3x/week | Mon/Wed/Fri | Patch only |
+| **High Frequency** | Multiple checks per day | Daily | Every 6 hours | Patch only |
+| **Security Focused** | Security-first approach | Daily | Every 4 hours | Security patches |
+| **Minimal Updates** | Low-frequency updates | Weekly | Monday only | Manual |
+| **Development/Testing** | Testing and debugging | Manual | Every 15 min | Disabled |
+| **Custom Configuration** | Build your own schedule | Custom | Custom | Custom |
+
+### Step 5: Configuration File Generation
+```
+📝 Step 5: Configuration File
+✅ Created buddy-bot.config.json with your repository settings.
+💡 You can edit this file to customize Buddy Bot's behavior.
+```
+
+Creates a complete configuration file with:
+- Repository information
+- Dashboard settings
+- Workflow templates
+- Package strategies
+- Default options
+
+### Step 6: Workflow Generation
+```
+🔄 Step 6: Workflow Generation
+✨ Setting up Standard Setup...
+📋 Dashboard updates 3x/week, balanced dependency updates
+```
+
+Generates three core workflows:
+
+#### 1. Dashboard Workflow (`buddy-dashboard.yml`)
+- **Schedule**: Monday, Wednesday, Friday at 9 AM UTC
+- **Purpose**: Manages dependency dashboard issue
+- **Features**: Manual triggers, dry-run mode, verbose logging
+
+#### 2. Update Check Workflow (`buddy-update-check.yml`)
+- **Schedule**: Every 15 minutes
+- **Purpose**: Auto-rebase PRs with checked rebase boxes
+- **Features**: Automatic PR updates, conflict resolution
+
+#### 3. Update Workflow (`buddy-update.yml`)
+- **Schedule**: Based on selected preset
+- **Purpose**: Scheduled dependency updates
+- **Features**: Manual triggers, strategy selection, package filtering
+
+### Step 7: Final Instructions
+```
+🎉 Setup Complete!
+✅ Generated 3 core workflows in .github/workflows/:
+   - buddy-dashboard.yml (Dependency Dashboard Management)
+   - buddy-update-check.yml (Auto-rebase PR checker)
+   - buddy-update.yml (Scheduled dependency updates)
+📁 Configuration file: buddy-bot.config.json
+```
+
+Provides clear next steps with:
+- Git commands for committing changes
+- Token setup instructions (if needed)
+- Repository permissions configuration
+- Links to GitHub settings pages
+
+## Command Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--template <type>` | Configuration template to use | `'standard'` |
-| `--dry-run` | Show what would be created without making changes | `false` |
-| `--force` | Overwrite existing configuration files | `false` |
-| `--verbose, -v` | Enable verbose logging | `false` |
+| `--verbose, -v` | Enable verbose logging and detailed output | `false` |
 
-### Templates
+## Generated Files
 
-Available configuration templates:
+The setup process creates several files:
 
-- **`standard`** - Basic configuration for most projects
-- **`comprehensive`** - Full-featured configuration with all options
-- **`security`** - Security-focused updates only
-- **`minimal`** - Minimal configuration for simple projects
-
-### Examples
-
-```bash
-# Interactive setup with default template
-buddy-bot setup
-
-# Use comprehensive template
-buddy-bot setup --template comprehensive
-
-# Preview changes without creating files
-buddy-bot setup --dry-run
-
-# Force overwrite existing configuration
-buddy-bot setup --force
+### Configuration File (`buddy-bot.config.json`)
+```json
+{
+  "repository": {
+    "owner": "your-org",
+    "name": "your-repo",
+    "provider": "github"
+  },
+  "dashboard": {
+    "enabled": true,
+    "pin": false,
+    "title": "Dependency Updates Dashboard"
+  },
+  "workflows": {
+    "enabled": true,
+    "outputDir": ".github/workflows",
+    "templates": {
+      "daily": true,
+      "weekly": true,
+      "monthly": true
+    }
+  },
+  "packages": {
+    "strategy": "all",
+    "ignore": []
+  },
+  "verbose": false
+}
 ```
 
-### Interactive Flow
+### Workflow Files
 
-The setup wizard will ask about:
-
-1. **Repository Information**
-   - Git provider (GitHub, GitLab, etc.)
-   - Repository owner and name
-   - Base branch
-
-2. **Update Strategy**
-   - Package update strategy (patch, minor, major, all)
-   - Packages to ignore
-   - Package groupings
-
-3. **Pull Request Settings**
-   - Reviewers and assignees
-   - Labels to apply
-   - Auto-merge configuration
-
-4. **Scheduling**
-   - Update frequency
-   - GitHub Actions workflow generation
-
-### Generated Files
-
-The setup process creates:
-
-- `buddy-bot.config.ts` - Main configuration file
-- `.github/workflows/dependencies.yml` - GitHub Actions workflow (optional)
-- `.gitignore` updates - Ignore buddy-bot cache files
-
-### Configuration Example
-
-Generated `buddy-bot.config.ts`:
-
-```typescript
-import type { BuddyBotConfig } from 'buddy-bot'
-
-export default {
-  repository: {
-    provider: 'github',
-    owner: 'your-org',
-    name: 'your-repo',
-  },
-  packages: {
-    strategy: 'patch',
-    ignore: ['@types/node'],
-  },
-  pullRequest: {
-    reviewers: ['team-lead'],
-    labels: ['dependencies', 'automated'],
-  },
-  schedule: {
-    cron: '0 2 * * 1', // Weekly on Monday at 2 AM
-  },
-} satisfies BuddyBotConfig
-```
-
-### GitHub Actions Workflow
-
-Generated `.github/workflows/dependencies.yml`:
-
+#### Dashboard Workflow
 ```yaml
-name: Dependency Updates
+name: Buddy Dashboard Management
+
 on:
   schedule:
-    - cron: '0 2 * * 1'
-  workflow_dispatch:
-
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-      - run: bun install
-      - run: bunx buddy-bot update
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - cron: '0 9 * * 1,3,5' # Monday, Wednesday, Friday at 9 AM UTC
+  workflow_dispatch: # Manual triggering
 ```
 
-### Post-Setup Steps
+#### Update Check Workflow
+```yaml
+name: Buddy Update Check
 
-After running setup:
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Check every 15 minutes
+  workflow_dispatch: # Manual trigger
+```
 
-1. **Review Configuration**
-   ```bash
-   # Check configuration
-   buddy-bot scan --dry-run
+#### Update Workflow
+```yaml
+name: Standard Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1,3,5' # Mon, Wed, Fri
+  workflow_dispatch: # Manual trigger with options
+```
+
+## Token Setup Guide
+
+### Creating a Personal Access Token
+
+1. **Go to GitHub Settings**
+   ```
+   https://github.com/settings/tokens
    ```
 
-2. **Test GitHub Integration**
-   ```bash
-   # Test GitHub permissions
-   buddy-bot scan --verbose
+2. **Generate New Token**
+   - Click "Generate new token"
+   - Give it a descriptive name (e.g., "buddy-bot-token")
+
+3. **Select Required Scopes**
+   - ✅ `repo` - Full control of private repositories
+   - ✅ `workflow` - Read and write permissions for GitHub Actions
+
+4. **Copy Token**
+   - Copy the generated token immediately
+   - You won't be able to see it again
+
+5. **Add Repository Secret**
+   ```
+   https://github.com/your-org/your-repo/settings/secrets/actions
+   ```
+   - Click "New repository secret"
+   - Name: `BUDDY_BOT_TOKEN`
+   - Value: Your generated token
+   - Click "Add secret"
+
+### Token Benefits
+
+| Feature | GITHUB_TOKEN | BUDDY_BOT_TOKEN |
+|---------|--------------|-----------------|
+| **Package Updates** | ✅ Yes | ✅ Yes |
+| **PR Creation** | ✅ Yes | ✅ Yes |
+| **Workflow Updates** | ❌ No | ✅ Yes |
+| **Advanced Features** | ❌ Limited | ✅ Full |
+
+## Repository Settings
+
+Configure GitHub Actions permissions:
+
+1. **Repository Settings**
+   ```
+   https://github.com/your-org/your-repo/settings/actions
    ```
 
-3. **Commit Changes**
-   ```bash
-   git add buddy-bot.config.ts .github/workflows/
-   git commit -m "Add buddy-bot configuration"
+2. **Workflow Permissions**
+   - Select "Read and write permissions"
+   - ✅ Check "Allow GitHub Actions to create and approve pull requests"
+   - Click "Save"
+
+3. **Organization Settings** (if applicable)
    ```
+   https://github.com/organizations/your-org/settings/actions
+   ```
+   - Configure the same permissions as above
+   - Organization settings may override repository settings
 
-### Troubleshooting
+## Preset Details
 
-**Setup fails with permission error:**
-- Ensure you have write access to the repository
-- Check GitHub token permissions
+### Standard Setup (Recommended)
+- **Dashboard**: Monday, Wednesday, Friday at 9 AM UTC
+- **Updates**: Monday, Wednesday, Friday at 9 AM UTC
+- **Strategy**: All updates (major, minor, patch)
+- **Auto-merge**: Disabled (manual review required)
+- **Best for**: Most projects wanting balanced automation
 
-**Configuration validation fails:**
-- Review the generated config file
-- Run `buddy-bot scan --verbose` for detailed errors
+### High Frequency
+- **Dashboard**: Daily at 9 AM UTC
+- **Updates**: Every 6 hours
+- **Strategy**: All updates
+- **Auto-merge**: Disabled
+- **Best for**: Active projects needing quick updates
 
-**GitHub Actions workflow not working:**
-- Check repository settings > Actions > General
-- Ensure workflow permissions are enabled
+### Security Focused
+- **Dashboard**: Daily at 9 AM UTC
+- **Updates**: Every 4 hours
+- **Strategy**: All updates
+- **Auto-merge**: Disabled
+- **Best for**: Security-critical applications
+
+### Minimal Updates
+- **Dashboard**: Weekly on Monday at 9 AM UTC
+- **Updates**: Monday only at 9 AM UTC
+- **Strategy**: All updates
+- **Auto-merge**: Disabled
+- **Best for**: Stable projects with low change frequency
+
+### Development/Testing
+- **Dashboard**: Manual trigger only
+- **Updates**: Every 15 minutes
+- **Strategy**: Patch updates only
+- **Auto-merge**: Disabled
+- **Best for**: Testing Buddy Bot functionality
+
+## Post-Setup
+
+After running setup, follow these steps:
+
+### 1. Review Generated Files
+```bash
+# Check configuration
+cat buddy-bot.config.json
+
+# Review workflows
+ls -la .github/workflows/
+```
+
+### 2. Test Setup
+```bash
+# Test repository detection
+buddy-bot scan --verbose
+
+# Test dashboard creation
+buddy-bot dashboard --dry-run
+```
+
+### 3. Commit Changes
+```bash
+# Add generated files
+git add .github/workflows/ buddy-bot.config.json
+
+# Commit setup
+git commit -m "Add Buddy Bot dependency management workflows"
+
+# Push to repository
+git push
+```
+
+### 4. Verify Workflows
+1. Go to repository **Actions** tab
+2. Verify workflows appear in the list
+3. Test manual trigger on dashboard workflow
+4. Check workflow permissions if needed
+
+## Troubleshooting
+
+### Setup Issues
+
+**"Not a git repository" error:**
+```bash
+# Ensure you're in a git repository
+git status
+
+# Initialize if needed
+git init
+git remote add origin https://github.com/your-org/your-repo.git
+```
+
+**"Could not detect repository" error:**
+```bash
+# Check git remote
+git remote get-url origin
+
+# Should return: https://github.com/your-org/your-repo.git
+# or: git@github.com:your-org/your-repo.git
+```
+
+### Permission Issues
+
+**"GitHub Actions is not permitted" error:**
+1. Check repository settings → Actions → General
+2. Ensure "Read and write permissions" is selected
+3. Enable "Allow GitHub Actions to create and approve pull requests"
+4. Check organization settings if applicable
+
+**Workflow files not updating:**
+1. Ensure `BUDDY_BOT_TOKEN` secret is set
+2. Verify token has `workflow` scope
+3. Check repository permissions above
+
+### Token Issues
+
+**"Bad credentials" error:**
+1. Verify `GITHUB_TOKEN` or `BUDDY_BOT_TOKEN` is set
+2. Check token hasn't expired
+3. Ensure token has required scopes (`repo`, `workflow`)
+
+## Examples
+
+### Basic Setup
+```bash
+# Standard interactive setup
+buddy-bot setup
+```
+
+### Verbose Setup
+```bash
+# Setup with detailed logging
+buddy-bot setup --verbose
+```
+
+### Testing Setup Locally
+```bash
+# Test repository detection
+buddy-bot setup --verbose
+
+# If setup completes, test scanning
+buddy-bot scan --dry-run
+```
+
+## Next Steps
+
+After successful setup:
+
+1. **[Learn about the Dashboard](../features/dependency-dashboard.md)** - Understand dependency management
+2. **[Explore Update Strategies](../features/update-strategies.md)** - Configure update behavior
+3. **[Configure Package Management](../features/package-management.md)** - Fine-tune package handling
+4. **[Review Pull Request Features](../features/pull-requests.md)** - Understand PR automation

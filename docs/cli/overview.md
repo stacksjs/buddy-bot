@@ -8,9 +8,14 @@ Buddy provides a comprehensive command-line interface for dependency management,
 # Install Buddy globally
 bun add -g buddy-bot
 
+# Interactive setup (recommended first step)
+buddy-bot setup
+
 # Or use with bunx (no installation required)
-bunx buddy-bot --help
+bunx buddy-bot setup
 ```
+
+**🚀 Start with `setup`** - The setup command provides a complete Renovate-like configuration experience that automatically configures workflows, tokens, and repository settings.
 
 ## Command Structure
 
@@ -24,7 +29,7 @@ buddy-bot <command> [options] [arguments]
 
 | Command | Description |
 |---------|-------------|
-| [`setup`](/cli/setup#setup) | Interactive setup for automated dependency updates |
+| [`setup`](/cli/setup) | **Interactive setup wizard** - Complete Renovate-like experience |
 | [`open-settings`](/cli/utility#open-settings) | Open GitHub repository and organization settings |
 
 ### 🔍 Scanning & Analysis

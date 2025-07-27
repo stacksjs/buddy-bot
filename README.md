@@ -35,10 +35,10 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 bun add -g buddy-bot
 
 # Interactive setup (recommended)
-bunx buddy-bot setup
+buddy-bot setup
 
-# Or run directly
-bunx buddy-bot scan
+# Or run directly for scanning only
+buddy-bot scan
 ```
 
 ## Usage
@@ -51,16 +51,45 @@ The easiest way to get started is with the interactive setup command:
 buddy-bot setup
 ```
 
-This will guide you through creating GitHub Actions workflows for automated dependency updates. Choose from several presets:
+This comprehensive setup wizard will guide you through configuring automated dependency updates for your project in a Renovate-like experience. The setup process includes:
 
-- **Standard Project** - Daily patch updates, weekly minor updates, monthly major updates
-- **High Frequency Updates** - Check for updates 4 times per day _(6AM, 12PM, 6PM, 12AM)_
+**🔍 Step 1: Repository Detection**
+- Automatically detects your GitHub repository from git remote
+- Validates repository access and configuration
+
+**🔑 Step 2: GitHub Token Setup**
+- Guides you through creating a Personal Access Token (PAT)
+- Explains required scopes (`repo`, `workflow`) for full functionality
+- Helps set up repository secrets for enhanced features
+
+**🔧 Step 3: Repository Settings**
+- Walks you through GitHub Actions permissions configuration
+- Ensures proper workflow permissions for PR creation
+
+**⚙️ Step 4: Workflow Configuration**
+Choose from several carefully crafted presets:
+
+- **Standard Setup (Recommended)** - Dashboard updates 3x/week, balanced dependency updates
+- **High Frequency** - Check for updates multiple times per day
 - **Security Focused** - Frequent patch updates with security-first approach
-- **Minimal Updates** - Weekly patch updates, monthly minor/major updates
-- **Docker Project** - Optimized for containerized applications
-- **Monorepo** - Multiple packages in a single repository
-- **Development/Testing** - Manual trigger + every 5 minutes _(perfect for testing)_
-- **Custom Configuration** - Create your own update schedule
+- **Minimal Updates** - Weekly checks, lower frequency
+- **Development/Testing** - Manual triggers + frequent checks for testing
+- **Custom Configuration** - Create your own schedule
+
+**📝 Step 5: Configuration File Generation**
+- Creates `buddy-bot.config.json` with your repository settings
+- Includes sensible defaults and customization options
+
+**🔄 Step 6: Workflow Generation**
+- Generates three core GitHub Actions workflows:
+  - `buddy-dashboard.yml` - Dependency Dashboard Management
+  - `buddy-update-check.yml` - Auto-rebase PR checker
+  - `buddy-update.yml` - Scheduled dependency updates
+
+**🎯 Step 7: Final Instructions**
+- Provides clear next steps with git commands
+- Links to GitHub settings pages for easy configuration
+- Explains token setup and repository permissions
 
 ### Command Line Interface
 

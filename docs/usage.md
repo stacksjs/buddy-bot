@@ -6,6 +6,31 @@ Buddy automatically detects and updates multiple dependency file formats includi
 
 ## Quick Start
 
+### Option 1: Interactive Setup (Recommended)
+
+The fastest way to get started is with the interactive setup:
+
+```bash
+# Install buddy-bot
+bun add -g buddy-bot
+
+# Run interactive setup
+buddy-bot setup
+```
+
+The setup wizard will automatically:
+- 🔍 Detect your repository
+- 🔑 Guide token creation and setup
+- 🔧 Configure GitHub Actions permissions
+- ⚙️ Generate workflows and configuration
+- 🎯 Provide clear next steps
+
+**[📖 Complete Setup Guide →](/cli/setup)**
+
+### Option 2: Manual Configuration
+
+If you prefer manual setup:
+
 1. **Install buddy-bot** _(see [Installation](/install))_
 2. **Set up GitHub Actions permissions** for PR creation
 3. **Create configuration** _(optional)_

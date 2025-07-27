@@ -315,4 +315,42 @@ bun pm cache rm
 bun install
 ```
 
-Read more about how to use it in the [Usage](/usage) section of the documentation.
+## Getting Started
+
+After installation, the fastest way to get started is with the interactive setup:
+
+```bash
+# Run interactive setup (recommended)
+buddy-bot setup
+```
+
+This comprehensive setup wizard will:
+- **🔍 Detect your repository** automatically from git remote
+- **🔑 Guide token setup** for Personal Access Tokens and repository secrets
+- **🔧 Configure permissions** for GitHub Actions
+- **⚙️ Choose workflow presets** optimized for your project type
+- **📝 Generate configuration** files and settings
+- **🔄 Create workflows** for automated dependency management
+- **🎯 Provide next steps** with clear instructions
+
+### Alternative: Manual Usage
+
+If you prefer manual configuration, you can start with scanning:
+
+```bash
+# Scan for outdated dependencies
+buddy-bot scan
+
+# Create dependency dashboard
+buddy-bot dashboard
+
+# Update dependencies with pull requests
+buddy-bot update
+```
+
+## Next Steps
+
+- **[Complete Setup Guide](/cli/setup)** - Detailed setup documentation
+- **[Usage Examples](/usage)** - How to use buddy-bot effectively
+- **[Configuration](/config)** - Customize buddy-bot behavior
+- **[CLI Reference](/cli/)** - Complete command documentation

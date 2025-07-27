@@ -9,6 +9,9 @@ hero:
   image: /images/logo-white.png
   actions:
     - theme: brand
+      text: Interactive Setup
+      link: /cli/setup
+    - theme: alt
       text: Get Started
       link: /intro
     - theme: alt

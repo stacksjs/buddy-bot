@@ -7,6 +7,17 @@ import prompts from 'prompts'
 import { version } from '../package.json'
 import { Buddy } from '../src/buddy'
 import { config } from '../src/config'
+import {
+  confirmTokenSetup,
+  detectRepository,
+  generateConfigFile,
+  generateCoreWorkflows,
+  getWorkflowPreset,
+  guideRepositorySettings,
+  guideTokenCreation,
+  setupCustomWorkflow,
+  showFinalInstructions,
+} from '../src/setup'
 import { Logger } from '../src/utils/logger'
 
 const cli = new CAC('buddy-bot')
@@ -59,26 +70,6 @@ interface CLIOptions {
   dryRun?: boolean
 }
 
-interface WorkflowPreset {
-  name: string
-  description: string
-  templates: {
-    comprehensive?: boolean
-    daily?: boolean
-    weekly?: boolean
-    monthly?: boolean
-    docker?: boolean
-    monorepo?: boolean
-  }
-  custom?: {
-    name: string
-    schedule: string
-    strategy: 'major' | 'minor' | 'patch' | 'all'
-    autoMerge?: boolean
-    autoMergeStrategy?: 'merge' | 'squash' | 'rebase'
-  }[]
-}
-
 cli
   .command('setup', '🚀 Interactive setup for automated dependency updates (recommended)')
   .option('--verbose, -v', 'Enable verbose logging')
@@ -91,20 +82,82 @@ cli
       console.log('🤖 Welcome to Buddy Bot Setup!')
       console.log('Let\'s configure automated dependency updates for your project.\n')
 
-      const response = await prompts([
+      // Step 1: Repository Detection
+      console.log('📍 Step 1: Repository Detection')
+      const repoInfo = await detectRepository()
+      if (!repoInfo) {
+        console.log('❌ Could not detect repository. Please ensure you\'re in a Git repository.')
+        process.exit(1)
+      }
+
+      console.log(`✅ Detected repository: ${repoInfo.owner}/${repoInfo.name}`)
+      console.log(`🔗 GitHub URL: https://github.com/${repoInfo.owner}/${repoInfo.name}\n`)
+
+      // Step 2: Token Setup Guide
+      console.log('🔑 Step 2: GitHub Token Setup')
+      console.log('For full functionality, Buddy Bot needs a Personal Access Token (PAT).')
+      console.log('This enables workflow file updates and advanced GitHub Actions features.\n')
+
+      const tokenResponse = await prompts([
+        {
+          type: 'select',
+          name: 'tokenSetup',
+          message: 'Do you have a GitHub Personal Access Token with \'repo\' and \'workflow\' scopes?',
+          choices: [
+            {
+              title: 'Yes, I have a token ready',
+              description: 'I\'ll provide the token or set it up as a repository secret',
+              value: 'have-token',
+            },
+            {
+              title: 'No, guide me through creating one',
+              description: 'Show me how to create a Personal Access Token',
+              value: 'create-token',
+            },
+            {
+              title: 'Skip for now, use limited permissions',
+              description: 'Use GITHUB_TOKEN only (workflow updates won\'t work)',
+              value: 'skip-token',
+            },
+          ],
+        },
+      ])
+
+      if (!tokenResponse.tokenSetup) {
+        console.log('Setup cancelled.')
+        return
+      }
+
+      let hasCustomToken = false
+
+      if (tokenResponse.tokenSetup === 'create-token') {
+        await guideTokenCreation(repoInfo)
+        hasCustomToken = await confirmTokenSetup()
+      }
+      else if (tokenResponse.tokenSetup === 'have-token') {
+        hasCustomToken = await confirmTokenSetup()
+      }
+
+      // Step 3: Repository Settings
+      console.log('\n🔧 Step 3: Repository Settings')
+      await guideRepositorySettings(repoInfo)
+
+      // Step 4: Workflow Configuration
+      console.log('\n⚙️  Step 4: Workflow Configuration')
+      const workflowResponse = await prompts([
         {
           type: 'select',
           name: 'useCase',
-          message: 'What would you like to use Buddy Bot for?',
+          message: 'What type of update schedule would you like?',
           choices: [
             {
-              title: 'Standard Project (Recommended)',
-              description: 'Daily patch updates, weekly minor updates, monthly major updates',
+              title: 'Standard Setup (Recommended)',
+              description: 'Dashboard updates 3x/week, dependency updates on schedule',
               value: 'standard',
             },
             {
-              title: 'High Frequency Updates',
-              description: 'Check for updates 4 times per day (6AM, 12PM, 6PM, 12AM)',
+              title: 'High Frequency',
+              description: 'Check for updates multiple times per day',
               value: 'high-frequency',
             },
             {
@@ -114,57 +167,50 @@ cli
             },
             {
               title: 'Minimal Updates',
-              description: 'Weekly patch updates, monthly minor/major updates',
+              description: 'Weekly checks, lower frequency',
               value: 'minimal',
             },
             {
-              title: 'Docker Project',
-              description: 'Optimized for containerized applications',
-              value: 'docker',
-            },
-            {
-              title: 'Monorepo',
-              description: 'Multiple packages in a single repository',
-              value: 'monorepo',
-            },
-            {
               title: 'Development/Testing',
-              description: 'Manual trigger + every 5 minutes (for testing)',
+              description: 'Manual triggers + frequent checks for testing',
               value: 'testing',
             },
             {
               title: 'Custom Configuration',
-              description: 'Create your own update schedule',
+              description: 'Create your own schedule',
               value: 'custom',
             },
           ],
         },
       ])
 
-      if (!response.useCase) {
+      if (!workflowResponse.useCase) {
         console.log('Setup cancelled.')
         return
       }
 
-      const preset = getWorkflowPreset(response.useCase)
+      // Step 5: Generate Configuration File
+      console.log('\n📝 Step 5: Configuration File')
+      await generateConfigFile(repoInfo, hasCustomToken)
 
-      if (response.useCase === 'custom') {
+      // Step 6: Generate Workflows
+      console.log('\n🔄 Step 6: Workflow Generation')
+      const preset = getWorkflowPreset(workflowResponse.useCase)
+
+      if (workflowResponse.useCase === 'custom') {
         await setupCustomWorkflow(preset, logger)
       }
       else {
-        console.log(`\n✨ Setting up ${preset.name}...`)
-        console.log(`📋 ${preset.description}\n`)
+        console.log(`✨ Setting up ${preset.name}...`)
+        console.log(`📋 ${preset.description}`)
       }
 
-      await generateWorkflowsFromPreset(preset, logger)
+      // Generate the core workflows based on the provided templates
+      await generateCoreWorkflows(preset, repoInfo, hasCustomToken, logger)
 
-      console.log('\n🎉 Setup complete! Your automated dependency update workflows have been generated.')
-      console.log('\n💡 Next steps:')
-      console.log('  1. Review the generated workflows in .github/workflows/')
-      console.log('  2. Commit and push the workflow files to your repository')
-      console.log('  3. Ensure GITHUB_TOKEN is available as a repository secret')
-      console.log('  4. Configure buddy-bot.config.ts with your repository settings')
-      console.log('\n🔗 Learn more: https://docs.github.com/en/actions')
+      // Step 7: Final Setup Instructions
+      console.log('\n🎉 Setup Complete!')
+      await showFinalInstructions(repoInfo, hasCustomToken)
     }
     catch (error) {
       logger.error('Setup failed:', error)
@@ -1526,307 +1572,3 @@ cli.command('version', 'Show the version of Buddy Bot').action(() => {
 cli.version(version)
 cli.help()
 cli.parse()
-
-// Helper functions for setup command
-function getWorkflowPreset(useCase: string): WorkflowPreset {
-  const presets: Record<string, WorkflowPreset> = {
-    'standard': {
-      name: 'Standard Project',
-      description: 'Daily patch updates, weekly minor updates, monthly major updates',
-      templates: {
-        daily: true,
-        weekly: true,
-        monthly: true,
-      },
-    },
-    'high-frequency': {
-      name: 'High Frequency Updates',
-      description: 'Check for updates 4 times per day (6AM, 12PM, 6PM, 12AM)',
-      templates: {},
-      custom: [
-        { name: 'morning-updates', schedule: '0 6 * * *', strategy: 'patch', autoMerge: true, autoMergeStrategy: 'squash' },
-        { name: 'noon-updates', schedule: '0 12 * * *', strategy: 'patch', autoMerge: true, autoMergeStrategy: 'squash' },
-        { name: 'evening-updates', schedule: '0 18 * * *', strategy: 'patch', autoMerge: true, autoMergeStrategy: 'squash' },
-        { name: 'midnight-updates', schedule: '0 0 * * *', strategy: 'minor', autoMerge: false },
-      ],
-    },
-    'security': {
-      name: 'Security Focused',
-      description: 'Frequent patch updates with security-first approach',
-      templates: {},
-      custom: [
-        { name: 'security-patches', schedule: '0 */6 * * *', strategy: 'patch', autoMerge: true, autoMergeStrategy: 'squash' },
-        { name: 'weekly-minor', schedule: '0 9 * * 1', strategy: 'minor', autoMerge: false },
-      ],
-    },
-    'minimal': {
-      name: 'Minimal Updates',
-      description: 'Weekly patch updates, monthly minor/major updates',
-      templates: {
-        weekly: true,
-        monthly: true,
-      },
-    },
-    'docker': {
-      name: 'Docker Project',
-      description: 'Optimized for containerized applications',
-      templates: {
-        docker: true,
-        weekly: true,
-      },
-    },
-    'monorepo': {
-      name: 'Monorepo',
-      description: 'Multiple packages in a single repository',
-      templates: {
-        monorepo: true,
-        daily: true,
-      },
-    },
-    'testing': {
-      name: 'Development/Testing',
-      description: 'Manual trigger + every 5 minutes (for testing)',
-      templates: {},
-      custom: [
-        {
-          name: 'testing-updates',
-          schedule: '*/5 * * * *',
-          strategy: 'patch',
-          autoMerge: false, // No auto-merge for testing
-        },
-      ],
-    },
-    'custom': {
-      name: 'Custom Configuration',
-      description: 'Create your own update schedule',
-      templates: {},
-      custom: [],
-    },
-  }
-
-  return presets[useCase] || presets.standard
-}
-
-async function setupCustomWorkflow(preset: WorkflowPreset, _logger: any): Promise<void> {
-  const response = await prompts([
-    {
-      type: 'multiselect',
-      name: 'templates',
-      message: 'Which built-in workflow templates would you like to enable?',
-      choices: [
-        { title: 'Daily Updates', description: 'Run patch updates daily', value: 'daily' },
-        { title: 'Weekly Updates', description: 'Run minor updates weekly', value: 'weekly' },
-        { title: 'Monthly Updates', description: 'Run major updates monthly', value: 'monthly' },
-        { title: 'Comprehensive', description: 'All-in-one workflow', value: 'comprehensive' },
-        { title: 'Docker Support', description: 'Container-optimized workflows', value: 'docker' },
-        { title: 'Monorepo Support', description: 'Multi-package workflows', value: 'monorepo' },
-      ],
-    },
-    {
-      type: 'confirm',
-      name: 'addCustom',
-      message: 'Would you like to add custom workflow schedules?',
-      initial: false,
-    },
-  ])
-
-  // Enable selected templates
-  if (response.templates) {
-    for (const template of response.templates) {
-      preset.templates[template as keyof typeof preset.templates] = true
-    }
-  }
-
-  // Add custom workflows if requested
-  if (response.addCustom) {
-    let addMore = true
-    preset.custom = preset.custom || []
-
-    while (addMore) {
-      const customWorkflow = await prompts([
-        {
-          type: 'text',
-          name: 'name',
-          message: 'Workflow name (e.g., "security-updates"):',
-          validate: (value: string) => value.length > 0 ? true : 'Name is required',
-        },
-        {
-          type: 'select',
-          name: 'schedule',
-          message: 'Update frequency:',
-          choices: [
-            { title: 'Every 6 hours', value: '0 */6 * * *' },
-            { title: 'Twice daily (9AM, 9PM)', value: '0 9,21 * * *' },
-            { title: 'Daily at 9AM', value: '0 9 * * *' },
-            { title: 'Weekly (Monday 9AM)', value: '0 9 * * 1' },
-            { title: 'Custom cron expression', value: 'custom' },
-          ],
-        },
-        {
-          type: prev => prev === 'custom' ? 'text' : null,
-          name: 'customSchedule',
-          message: 'Enter cron expression (e.g., "0 */4 * * *"):',
-          validate: (value: string) => value.length > 0 ? true : 'Cron expression is required',
-        },
-        {
-          type: 'select',
-          name: 'strategy',
-          message: 'Update strategy:',
-          choices: [
-            { title: 'Patch only (safest)', value: 'patch' },
-            { title: 'Minor + Patch', value: 'minor' },
-            { title: 'All updates', value: 'all' },
-          ],
-        },
-        {
-          type: 'confirm',
-          name: 'autoMerge',
-          message: 'Enable auto-merge for this workflow?',
-          initial: false,
-        },
-        {
-          type: prev => prev ? 'select' : null,
-          name: 'autoMergeStrategy',
-          message: 'Auto-merge strategy:',
-          choices: [
-            { title: 'Squash and merge (recommended)', value: 'squash' },
-            { title: 'Create a merge commit', value: 'merge' },
-            { title: 'Rebase and merge', value: 'rebase' },
-          ],
-          initial: 0,
-        },
-      ])
-
-      if (customWorkflow.name) {
-        preset.custom.push({
-          name: customWorkflow.name,
-          schedule: customWorkflow.customSchedule || customWorkflow.schedule,
-          strategy: customWorkflow.strategy,
-          autoMerge: customWorkflow.autoMerge,
-          autoMergeStrategy: customWorkflow.autoMergeStrategy,
-        })
-      }
-
-      const continueResponse = await prompts({
-        type: 'confirm',
-        name: 'continue',
-        message: 'Add another custom workflow?',
-        initial: false,
-      })
-
-      addMore = continueResponse.continue
-    }
-  }
-}
-
-async function generateWorkflowsFromPreset(preset: WorkflowPreset, logger: any): Promise<void> {
-  const { GitHubActionsTemplate } = await import('../src/templates/github-actions')
-  const fs = await import('node:fs')
-  const path = await import('node:path')
-
-  // Create a config object from the preset
-  const workflowConfig = {
-    ...config,
-    workflows: {
-      enabled: true,
-      outputDir: '.github/workflows',
-      templates: preset.templates,
-      custom: preset.custom || [],
-    },
-  }
-
-  // Ensure output directory exists
-  const outputDir = workflowConfig.workflows.outputDir
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true })
-  }
-
-  let generated = 0
-
-  // Generate template workflows
-  if (preset.templates.daily) {
-    const workflows = GitHubActionsTemplate.generateScheduledWorkflows(workflowConfig)
-    fs.writeFileSync(path.join(outputDir, 'buddy-bot-daily.yml'), workflows['dependency-updates-daily.yml'])
-    logger.info('Generated daily update workflow')
-    generated++
-  }
-
-  if (preset.templates.weekly) {
-    const workflows = GitHubActionsTemplate.generateScheduledWorkflows(workflowConfig)
-    fs.writeFileSync(path.join(outputDir, 'buddy-bot-weekly.yml'), workflows['dependency-updates-weekly.yml'])
-    logger.info('Generated weekly update workflow')
-    generated++
-  }
-
-  if (preset.templates.monthly) {
-    const workflows = GitHubActionsTemplate.generateScheduledWorkflows(workflowConfig)
-    fs.writeFileSync(path.join(outputDir, 'buddy-bot-monthly.yml'), workflows['dependency-updates-monthly.yml'])
-    logger.info('Generated monthly update workflow')
-    generated++
-  }
-
-  if (preset.templates.comprehensive) {
-    const comprehensiveWorkflow = GitHubActionsTemplate.generateComprehensiveWorkflow(workflowConfig)
-    fs.writeFileSync(path.join(outputDir, 'buddy-bot-comprehensive.yml'), comprehensiveWorkflow)
-    logger.info('Generated comprehensive workflow')
-    generated++
-  }
-
-  if (preset.templates.docker) {
-    const dockerWorkflow = GitHubActionsTemplate.generateDockerWorkflow(workflowConfig)
-    fs.writeFileSync(path.join(outputDir, 'buddy-bot-docker.yml'), dockerWorkflow)
-    logger.info('Generated Docker workflow')
-    generated++
-  }
-
-  if (preset.templates.monorepo) {
-    const monorepoWorkflow = GitHubActionsTemplate.generateMonorepoWorkflow(workflowConfig)
-    fs.writeFileSync(path.join(outputDir, 'buddy-bot-monorepo.yml'), monorepoWorkflow)
-    logger.info('Generated monorepo workflow')
-    generated++
-  }
-
-  // Generate custom workflows
-  if (preset.custom && preset.custom.length > 0) {
-    for (const customWorkflow of preset.custom) {
-      let workflow: string
-
-      // Use specialized testing workflow for testing preset
-      if (customWorkflow.name === 'testing-updates') {
-        workflow = GitHubActionsTemplate.generateTestingWorkflow(workflowConfig)
-        fs.writeFileSync(path.join(outputDir, 'buddy-update.yml'), workflow)
-        logger.info('Generated testing workflow with 5-minute schedule and manual triggers')
-      }
-      else {
-        // Create auto-merge config object if enabled
-        let autoMergeConfig: boolean | { enabled: boolean, strategy: 'merge' | 'squash' | 'rebase', conditions?: string[] } = customWorkflow.autoMerge || false
-
-        if (customWorkflow.autoMerge && customWorkflow.autoMergeStrategy) {
-          autoMergeConfig = {
-            enabled: true,
-            strategy: customWorkflow.autoMergeStrategy,
-            conditions: customWorkflow.strategy === 'patch' ? ['patch-only'] : [],
-          }
-        }
-
-        workflow = GitHubActionsTemplate.generateCustomWorkflow({
-          name: customWorkflow.name,
-          schedule: customWorkflow.schedule,
-          strategy: customWorkflow.strategy,
-          autoMerge: autoMergeConfig,
-        }, workflowConfig)
-        fs.writeFileSync(path.join(outputDir, `buddy-bot-${customWorkflow.name}.yml`), workflow)
-        logger.info(`Generated custom workflow: ${customWorkflow.name}`)
-      }
-
-      generated++
-    }
-  }
-
-  if (generated === 0) {
-    logger.warn('No workflows were generated. Consider selecting at least one template or custom workflow.')
-  }
-  else {
-    logger.success(`Generated ${generated} workflow${generated === 1 ? '' : 's'} in ${outputDir}`)
-  }
-}
