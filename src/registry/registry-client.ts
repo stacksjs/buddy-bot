@@ -552,8 +552,9 @@ export class RegistryClient {
     }
 
     try {
-      // Run composer outdated to get outdated packages
-      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
+      // Use composer outdated --strict to get only updates that respect version constraints
+      // This will show updates within the allowed version ranges (e.g., ^10.0 will show 10.x updates, not 11.x)
+      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct', '--strict'])
       const composerData = JSON.parse(output)
 
       const updates: PackageUpdate[] = []
@@ -573,7 +574,7 @@ export class RegistryClient {
         this.logger.warn('Failed to read composer.json for dependency type detection:', error)
       }
 
-      // Parse composer outdated output
+      // Parse composer outdated output (now with --strict to respect constraints)
       if (composerData.installed) {
         for (const pkg of composerData.installed) {
           if (pkg.name && pkg.version && pkg.latest) {
