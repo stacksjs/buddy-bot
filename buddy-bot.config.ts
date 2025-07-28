@@ -7,13 +7,7 @@ const config: BuddyBotConfig = {
     ignore: ['typescript', 'bun-plugin-dtsx'],
     includePrerelease: false, // Don't include alpha, beta, rc versions by default
     excludeMajor: false, // Allow major updates (controlled by ignore list)
-    groups: [
-      {
-        name: 'all non-major dependencies',
-        patterns: ['*'],
-        strategy: 'all',
-      },
-    ],
+    // No custom groups - use default grouping (major separate, non-major together)
   },
 
   // Repository settings for PR creation
