@@ -811,8 +811,10 @@ cli
 async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ name: string, currentVersion: string, newVersion: string }>> {
   const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
 
-  // Match table rows with package updates
-  const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]/g
+  // Match table rows with package updates - handles both npm and Composer formats
+  // npm format: | [package] | [`version` -> `version`] |
+  // Composer format: | [package](link) | `version` -> `version` | file | status |
+  const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*(?:\[)?`\^?([^`]+)`\s*->\s*`\^?([^`]+)`(?:\])?/g
 
   let match
   // eslint-disable-next-line no-cond-assign
