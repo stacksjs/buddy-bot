@@ -49,11 +49,11 @@ export class GitHubProvider implements GitProvider {
       // Filter out workflow files if we detect permission issues
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
-      
+
       if (workflowFiles.length > 0) {
         console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require 'workflows' permission.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
-        
+
         // If we have non-workflow files, try to commit just those
         if (nonWorkflowFiles.length > 0) {
           console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
@@ -147,11 +147,11 @@ export class GitHubProvider implements GitProvider {
       // Filter out workflow files if we detect permission issues
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
-      
+
       if (workflowFiles.length > 0) {
         console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require 'workflows' permission.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
-        
+
         // If we have non-workflow files, try to commit just those
         if (nonWorkflowFiles.length > 0) {
           console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
