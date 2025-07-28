@@ -215,9 +215,7 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
       console.log(`📋 [DEBUG] Current versions in ${filePath}:`)
       if (composerData.require) {
         for (const [pkg, version] of Object.entries(composerData.require)) {
-          if (fileUpdates_.some(u => u.name === pkg)) {
-            console.log(`  ${pkg}: ${version}`)
-          }
+          console.log(`  ${pkg}: ${version}`)
         }
       }
 
