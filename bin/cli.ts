@@ -765,14 +765,18 @@ cli
         return
       }
 
-      // Find the matching update group
+      // Find the matching update group - must match exactly
       const group = scanResult.groups.find(g =>
         g.updates.length === packageUpdates.length
-        && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name)),
-      ) || scanResult.groups[0] // Fallback to first group
+        && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name))
+        && packageUpdates.every(pu => g.updates.some(u => u.name === pu.name))
+      )
 
       if (!group) {
-        logger.error('❌ Could not find matching update group')
+        logger.error('❌ Could not find matching update group. This likely means the package grouping has changed.')
+        logger.info(`📋 PR packages: ${packageUpdates.map(p => p.name).join(', ')}`)
+        logger.info(`📋 Available groups: ${scanResult.groups.map(g => `${g.name} (${g.updates.length} packages)`).join(', ')}`)
+        logger.info(`💡 Close this PR manually and let buddy-bot create new ones with correct grouping`)
         return
       }
 
