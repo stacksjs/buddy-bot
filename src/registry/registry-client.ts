@@ -539,6 +539,21 @@ export class RegistryClient {
   }
 
   /**
+   * Extract major version number from a version string
+   */
+  private getMajorVersion(version: string): string {
+    return version.replace(/^[v\^~>=<]+/, '').split('.')[0] || '0'
+  }
+
+  /**
+   * Extract minor version number from a version string
+   */
+  private getMinorVersion(version: string): string {
+    const parts = version.replace(/^[v\^~>=<]+/, '').split('.')
+    return parts[1] || '0'
+  }
+
+  /**
    * Get outdated Composer packages
    */
   async getComposerOutdatedPackages(): Promise<PackageUpdate[]> {
@@ -552,9 +567,8 @@ export class RegistryClient {
     }
 
     try {
-      // Use composer outdated --strict to get only updates that respect version constraints
-      // This will show updates within the allowed version ranges (e.g., ^10.0 will show 10.x updates, not 11.x)
-      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct', '--strict'])
+      // Use composer outdated to get all available updates, then filter based on version constraints
+      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
       const composerData = JSON.parse(output)
 
       const updates: PackageUpdate[] = []
@@ -574,11 +588,50 @@ export class RegistryClient {
         this.logger.warn('Failed to read composer.json for dependency type detection:', error)
       }
 
-      // Parse composer outdated output (now with --strict to respect constraints)
+      // Parse composer outdated output and filter based on version constraints
       if (composerData.installed) {
         for (const pkg of composerData.installed) {
           if (pkg.name && pkg.version && pkg.latest) {
-            const updateType = getUpdateType(pkg.version, pkg.latest)
+            // Get the version constraint from composer.json
+            const requireConstraint = composerJsonData.require?.[pkg.name]
+            const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
+            const constraint = requireConstraint || requireDevConstraint
+            
+            if (!constraint) {
+              continue // Skip packages not found in composer.json
+            }
+
+            // Check if the latest version respects the version constraint
+            let newVersion = pkg.latest
+            const currentMajor = this.getMajorVersion(pkg.version)
+            const latestMajor = this.getMajorVersion(pkg.latest)
+            
+            // For caret constraints (^), only allow updates within the same major version
+            if (constraint.startsWith('^')) {
+              if (currentMajor !== latestMajor) {
+                continue // Skip major version updates for caret constraints
+              }
+            }
+            
+            // For tilde constraints (~), handle according to the constraint level
+            if (constraint.startsWith('~')) {
+              const currentMinor = this.getMinorVersion(pkg.version)
+              const latestMinor = this.getMinorVersion(pkg.latest)
+              
+              // ~1.2 allows patch updates within 1.2.x
+              if (constraint.includes('.')) {
+                if (currentMajor !== latestMajor || currentMinor !== latestMinor) {
+                  continue // Skip if not within same minor version
+                }
+              } else {
+                // ~1 allows minor and patch updates within 1.x.x
+                if (currentMajor !== latestMajor) {
+                  continue // Skip if not within same major version
+                }
+              }
+            }
+
+            const updateType = getUpdateType(pkg.version, newVersion)
 
             // Skip ignored packages
             const ignoredPackages = this.config?.packages?.ignore || []
@@ -604,7 +657,7 @@ export class RegistryClient {
             updates.push({
               name: pkg.name,
               currentVersion: pkg.version,
-              newVersion: pkg.latest,
+              newVersion,
               updateType,
               dependencyType,
               file: 'composer.json',
