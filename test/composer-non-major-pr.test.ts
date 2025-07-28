@@ -4,7 +4,7 @@ import type { UpdateGroup } from '../src/types'
 
 describe('Composer Non-Major PR', () => {
   let prGenerator: PullRequestGenerator
-  
+
   beforeEach(() => {
     const mockConfig = {
       repository: {
@@ -32,7 +32,7 @@ describe('Composer Non-Major PR', () => {
         },
         {
           name: 'cac',
-          currentVersion: '6.7.13', 
+          currentVersion: '6.7.13',
           newVersion: '6.7.14',
           updateType: 'patch',
           dependencyType: 'dependencies',
@@ -71,25 +71,25 @@ describe('Composer Non-Major PR', () => {
     }
 
     const prBody = await prGenerator.generateBody(nonMajorGroup)
-    
+
     // Should include npm dependencies section
     expect(prBody).toContain('### npm Dependencies')
     expect(prBody).toContain('@types/bun')
     expect(prBody).toContain('cac')
-    
+
     // Should include Composer dependencies section
     expect(prBody).toContain('### PHP/Composer Dependencies')
     expect(prBody).toContain('monolog/monolog')
     expect(prBody).toContain('phpunit/phpunit')
-    
+
     // Should include GitHub Actions section
     expect(prBody).toContain('### GitHub Actions')
     expect(prBody).toContain('actions/checkout')
-    
+
     // Verify Composer package links
     expect(prBody).toContain('https://packagist.org/packages/monolog%2Fmonolog')
     expect(prBody).toContain('https://packagist.org/packages/phpunit%2Fphpunit')
-    
+
     // Verify version changes in Composer section
     expect(prBody).toContain('`3.7.0` -> `3.8.0`')
     expect(prBody).toContain('`10.5.0` -> `10.5.2`')
@@ -115,11 +115,11 @@ describe('Composer Non-Major PR', () => {
     }
 
     const prBody = await prGenerator.generateBody(composerOnlyGroup)
-    
+
     // Should only have Composer section
     expect(prBody).toContain('### PHP/Composer Dependencies')
     expect(prBody).toContain('psr/log')
-    
+
     // Should NOT have npm or GitHub Actions sections
     expect(prBody).not.toContain('### npm Dependencies')
     expect(prBody).not.toContain('### GitHub Actions')
@@ -127,7 +127,7 @@ describe('Composer Non-Major PR', () => {
 
   it('should show correct status for require vs require-dev packages', async () => {
     const mixedComposerGroup: UpdateGroup = {
-      name: 'Non-Major Updates', 
+      name: 'Non-Major Updates',
       updates: [
         {
           name: 'symfony/http-foundation',
@@ -152,13 +152,13 @@ describe('Composer Non-Major PR', () => {
     }
 
     const prBody = await prGenerator.generateBody(mixedComposerGroup)
-    
+
     // Both should appear in Composer section
     expect(prBody).toContain('symfony/http-foundation')
     expect(prBody).toContain('phpstan/phpstan')
     expect(prBody).toContain('### PHP/Composer Dependencies')
-    
+
     // Should show file references
     expect(prBody).toContain('composer.json')
   })
-}) 
+})

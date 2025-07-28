@@ -596,7 +596,7 @@ export class RegistryClient {
             const requireConstraint = composerJsonData.require?.[pkg.name]
             const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
             const constraint = requireConstraint || requireDevConstraint
-            
+
             if (!constraint) {
               continue // Skip packages not found in composer.json
             }
@@ -605,19 +605,19 @@ export class RegistryClient {
             let newVersion = pkg.latest
             const currentMajor = this.getMajorVersion(pkg.version)
             const latestMajor = this.getMajorVersion(pkg.latest)
-            
+
             // For caret constraints (^), only allow updates within the same major version
             if (constraint.startsWith('^')) {
               if (currentMajor !== latestMajor) {
                 continue // Skip major version updates for caret constraints
               }
             }
-            
+
             // For tilde constraints (~), handle according to the constraint level
             if (constraint.startsWith('~')) {
               const currentMinor = this.getMinorVersion(pkg.version)
               const latestMinor = this.getMinorVersion(pkg.latest)
-              
+
               // ~1.2 allows patch updates within 1.2.x
               if (constraint.includes('.')) {
                 if (currentMajor !== latestMajor || currentMinor !== latestMinor) {
