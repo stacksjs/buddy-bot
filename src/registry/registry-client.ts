@@ -568,11 +568,8 @@ export class RegistryClient {
 
     try {
       // Use composer outdated to get all available updates, then filter based on version constraints
-      this.logger.info('Running composer outdated command...')
       const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
-      this.logger.info(`Composer outdated raw output: ${output}`)
       const composerData = JSON.parse(output)
-      this.logger.info(`Parsed composer data:`, composerData)
 
       const updates: PackageUpdate[] = []
 
@@ -582,84 +579,30 @@ export class RegistryClient {
         const fs = await import('node:fs')
         const path = await import('node:path')
         const composerJsonPath = path.join(this.projectPath, 'composer.json')
-        this.logger.info(`Looking for composer.json at: ${composerJsonPath}`)
         if (fs.existsSync(composerJsonPath)) {
           const composerContent = fs.readFileSync(composerJsonPath, 'utf-8')
           composerJsonData = JSON.parse(composerContent)
-          this.logger.info(`Found composer.json with packages:`, Object.keys(composerJsonData.require || {}), Object.keys(composerJsonData['require-dev'] || {}))
-        } else {
-          this.logger.warn(`composer.json not found at ${composerJsonPath}`)
         }
       }
       catch (error) {
         this.logger.warn('Failed to read composer.json for dependency type detection:', error)
       }
 
-            // Parse composer outdated output and filter based on version constraints
+                  // Parse composer outdated output and filter based on version constraints
       if (composerData.installed) {
-        this.logger.info(`Processing ${composerData.installed.length} outdated Composer packages`)
-
         for (const pkg of composerData.installed) {
           if (pkg.name && pkg.version && pkg.latest) {
-            this.logger.info(`Checking ${pkg.name}: ${pkg.version} → ${pkg.latest}`)
-
             // Get the version constraint from composer.json
             const requireConstraint = composerJsonData.require?.[pkg.name]
             const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
             const constraint = requireConstraint || requireDevConstraint
-
-            this.logger.info(`Constraint for ${pkg.name}: ${constraint}`)
-
+            
             if (!constraint) {
-              this.logger.info(`Skipping ${pkg.name}: not found in composer.json`)
               continue // Skip packages not found in composer.json
             }
 
-                        // Check if the latest version respects the version constraint
+                        // Include all available updates - let grouping and strategy handle filtering
             let newVersion = pkg.latest
-            const currentMajor = this.getMajorVersion(pkg.version)
-            const latestMajor = this.getMajorVersion(pkg.latest)
-
-            this.logger.info(`Version analysis for ${pkg.name}: current major=${currentMajor}, latest major=${latestMajor}`)
-
-            // For caret constraints (^), only allow updates within the same major version
-            if (constraint.startsWith('^')) {
-              if (currentMajor !== latestMajor) {
-                this.logger.info(`Skipping ${pkg.name}: major version change not allowed by ^ constraint`)
-                continue // Skip major version updates for caret constraints
-              }
-            }
-
-            // For tilde constraints (~), handle according to the constraint level
-            if (constraint.startsWith('~')) {
-              const currentMinor = this.getMinorVersion(pkg.version)
-              const latestMinor = this.getMinorVersion(pkg.latest)
-
-              // ~1.2.3 allows patch updates within 1.2.x
-              // ~1.2 allows minor and patch updates within 1.x.x  
-              const constraintParts = constraint.replace('~', '').split('.')
-              if (constraintParts.length >= 3) {
-                // ~1.2.3 - only allow patches in same minor version
-                if (currentMajor !== latestMajor || currentMinor !== latestMinor) {
-                  this.logger.info(`Skipping ${pkg.name}: version change not allowed by ~x.y.z constraint`)
-                  continue
-                }
-              } else if (constraintParts.length >= 2) {
-                // ~1.2 - allow minor/patch in same major version
-                if (currentMajor !== latestMajor) {
-                  this.logger.info(`Skipping ${pkg.name}: major version change not allowed by ~x.y constraint`)
-                  continue
-                }
-              } else {
-                // ~1 - allow minor/patch in same major version
-                if (currentMajor !== latestMajor) {
-                  this.logger.info(`Skipping ${pkg.name}: major version change not allowed by ~x constraint`)
-                  continue
-                }
-              }
-            }
-
-            this.logger.info(`Accepted ${pkg.name}: ${pkg.version} → ${newVersion}`)
 
             const updateType = getUpdateType(pkg.version, newVersion)
 
