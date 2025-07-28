@@ -209,13 +209,14 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   const minorUpdates = updates.filter(u => u.updateType === 'minor')
   const patchUpdates = updates.filter(u => u.updateType === 'patch')
 
-  if (majorUpdates.length > 0) {
+  // Create individual PRs for each major update
+  for (const majorUpdate of majorUpdates) {
     groups.push({
-      name: 'Major Updates',
-      updates: majorUpdates,
+      name: `Major Update - ${majorUpdate.name}`,
+      updates: [majorUpdate],
       updateType: 'major',
-      title: formatPRTitle(majorUpdates),
-      body: formatPRBody(majorUpdates),
+      title: `chore(deps): update dependency ${majorUpdate.name} to ${majorUpdate.newVersion}`,
+      body: formatPRBody([majorUpdate]),
     })
   }
 

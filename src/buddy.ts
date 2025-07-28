@@ -603,22 +603,29 @@ export class Buddy {
   /**
    * Check if two PR titles are similar (for dependency updates)
    */
-  private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
-    // Normalize titles by removing timestamps and similar variations
-    const normalize = (title: string) =>
-      title.toLowerCase()
-        .replace(/\b(non-major|major|minor|patch)\b/g, '') // Remove update type words
-        .replace(/\b\d+\b/g, '') // Remove numbers
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .trim()
+    private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
+    // Exact match is always similar
+    if (existingTitle.toLowerCase() === newTitle.toLowerCase()) {
+      return true
+    }
+    
+    // Don't match different update types (major vs non-major, individual vs grouped)
+    const existingLower = existingTitle.toLowerCase()
+    const newLower = newTitle.toLowerCase()
+    
+    // If one is for "all non-major" and other is for specific dependency, they're different
+    if ((existingLower.includes('all non-major') && newLower.includes('dependency ')) ||
+        (newLower.includes('all non-major') && existingLower.includes('dependency '))) {
+      return false
+    }
+    
+    // Different specific dependencies are different PRs
+    if (existingLower.includes('dependency ') && newLower.includes('dependency ')) {
+      return false // Each dependency gets its own PR
+    }
 
-    const normalizedExisting = normalize(existingTitle)
-    const normalizedNew = normalize(newTitle)
-
-    // Check if titles are similar (considering common dependency update patterns)
-    return normalizedExisting === normalizedNew
-      || (existingTitle.includes('dependency') && newTitle.includes('dependency'))
-      || (existingTitle.includes('update') && newTitle.includes('update'))
+    // Otherwise, not similar
+    return false
   }
 
   /**
