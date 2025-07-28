@@ -334,7 +334,7 @@ The setup process creates several files:
 
 #### Dashboard Workflow
 ```yaml
-name: Buddy Dashboard Management
+name: Buddy Dashboard
 
 on:
   schedule:

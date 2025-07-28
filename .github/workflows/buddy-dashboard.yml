@@ -1,4 +1,4 @@
-name: Buddy Dashboard Management
+name: Buddy Dashboard
 
 on:
   schedule:

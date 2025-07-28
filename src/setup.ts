@@ -1036,7 +1036,7 @@ export function generateDashboardWorkflow(hasCustomToken: boolean): string {
     // eslint-disable-next-line no-template-curly-in-string
     : '${{ secrets.GITHUB_TOKEN }}'
 
-  return `name: Buddy Dashboard Management
+  return `name: Buddy Dashboard
 
 on:
   schedule:
