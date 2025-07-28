@@ -635,17 +635,26 @@ export class RegistryClient {
               const currentMinor = this.getMinorVersion(pkg.version)
               const latestMinor = this.getMinorVersion(pkg.latest)
 
-              // ~1.2 allows patch updates within 1.2.x
-              if (constraint.includes('.')) {
+              // ~1.2.3 allows patch updates within 1.2.x
+              // ~1.2 allows minor and patch updates within 1.x.x  
+              const constraintParts = constraint.replace('~', '').split('.')
+              if (constraintParts.length >= 3) {
+                // ~1.2.3 - only allow patches in same minor version
                 if (currentMajor !== latestMajor || currentMinor !== latestMinor) {
-                  this.logger.info(`Skipping ${pkg.name}: version change not allowed by ~x.y constraint`)
-                  continue // Skip if not within same minor version
+                  this.logger.info(`Skipping ${pkg.name}: version change not allowed by ~x.y.z constraint`)
+                  continue
+                }
+              } else if (constraintParts.length >= 2) {
+                // ~1.2 - allow minor/patch in same major version
+                if (currentMajor !== latestMajor) {
+                  this.logger.info(`Skipping ${pkg.name}: major version change not allowed by ~x.y constraint`)
+                  continue
                 }
               } else {
-                // ~1 allows minor and patch updates within 1.x.x
+                // ~1 - allow minor/patch in same major version
                 if (currentMajor !== latestMajor) {
                   this.logger.info(`Skipping ${pkg.name}: major version change not allowed by ~x constraint`)
-                  continue // Skip if not within same major version
+                  continue
                 }
               }
             }
