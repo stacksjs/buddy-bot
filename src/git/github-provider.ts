@@ -46,6 +46,23 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithGit(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
+      // Filter out workflow files if we detect permission issues
+      const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
+      const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
+      
+      if (workflowFiles.length > 0) {
+        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require 'workflows' permission.`)
+        console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        
+        // If we have non-workflow files, try to commit just those
+        if (nonWorkflowFiles.length > 0) {
+          console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
+          files = nonWorkflowFiles
+        } else {
+          throw new Error('All files are workflow files but GitHub App lacks workflows permission. Please add "workflows: write" permission to the GitHub App.')
+        }
+      }
+
       // Configure Git identity if not already set
       // try {
       //   await this.runCommand('git', ['config', 'user.name', 'buddy-bot[bot]'])
@@ -127,6 +144,23 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
+      // Filter out workflow files if we detect permission issues
+      const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
+      const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
+      
+      if (workflowFiles.length > 0) {
+        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require 'workflows' permission.`)
+        console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        
+        // If we have non-workflow files, try to commit just those
+        if (nonWorkflowFiles.length > 0) {
+          console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
+          files = nonWorkflowFiles
+        } else {
+          throw new Error('All files are workflow files but GitHub App lacks workflows permission. Please add "workflows: write" permission to the GitHub App.')
+        }
+      }
+
       // Get current branch SHA
       const branchRef = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${branchName}`)
       const currentSha = branchRef.object.sha

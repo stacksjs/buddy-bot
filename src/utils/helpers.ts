@@ -220,37 +220,15 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
     })
   }
 
-  if (minorUpdates.length > 0 || patchUpdates.length > 0) {
+    if (minorUpdates.length > 0 || patchUpdates.length > 0) {
     const nonMajorUpdates = [...minorUpdates, ...patchUpdates]
-    
-    // Separate GitHub Actions updates from regular package updates
-    const githubActionsUpdates = nonMajorUpdates.filter(u => 
-      u.file?.includes('.github/workflows/') || u.name?.includes('actions/') || u.name?.includes('oven-sh/') || u.name?.includes('shivammathur/')
-    )
-    const regularNonMajorUpdates = nonMajorUpdates.filter(u => 
-      !u.file?.includes('.github/workflows/') && !u.name?.includes('actions/') && !u.name?.includes('oven-sh/') && !u.name?.includes('shivammathur/')
-    )
-    
-    // Create separate groups to avoid workflow permission issues
-    if (githubActionsUpdates.length > 0) {
-      groups.push({
-        name: 'GitHub Actions Updates',
-        updates: githubActionsUpdates,
-        updateType: 'patch',
-        title: 'chore(ci): update GitHub Actions dependencies',
-        body: formatPRBody(githubActionsUpdates),
-      })
-    }
-    
-    if (regularNonMajorUpdates.length > 0) {
-      groups.push({
-        name: 'Non-Major Updates',
-        updates: regularNonMajorUpdates,
-        updateType: minorUpdates.length > 0 ? 'minor' : 'patch',
-        title: 'chore(deps): update all non-major dependencies',
-        body: formatPRBody(regularNonMajorUpdates),
-      })
-    }
+    groups.push({
+      name: 'Non-Major Updates',
+      updates: nonMajorUpdates,
+      updateType: minorUpdates.length > 0 ? 'minor' : 'patch',
+      title: 'chore(deps): update all non-major dependencies',
+      body: formatPRBody(nonMajorUpdates),
+    })
   }
 
   return groups
