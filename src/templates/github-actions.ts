@@ -437,7 +437,7 @@ jobs:
    * Generate testing workflow with enhanced manual controls
    */
   static generateTestingWorkflow(_config?: BuddyBotConfig): string {
-    return `name: Buddy Testing Updates
+    return `name: Buddy Update
 
 on:
   schedule:

@@ -1149,7 +1149,7 @@ export function generateUpdateCheckWorkflow(hasCustomToken: boolean): string {
     // eslint-disable-next-line no-template-curly-in-string
     : '${{ secrets.GITHUB_TOKEN }}'
 
-  return `name: Buddy Update Check
+  return `name: Buddy Check
 
 on:
   schedule:

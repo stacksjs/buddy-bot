@@ -72,7 +72,7 @@ buddy-bot update-check --dry-run --verbose
 ### Manual Trigger via GitHub Actions
 
 1. Go to **Actions** tab in your repository
-2. Select **"Buddy Update Check"** workflow
+2. Select **"Buddy Check"** workflow
 3. Click **"Run workflow"**
 4. Choose options:
    - **Dry run**: Preview changes without applying them
@@ -85,7 +85,7 @@ buddy-bot update-check --dry-run --verbose
 The rebase workflow is automatically created when you run `buddy-bot setup`. It includes:
 
 ```yaml
-name: Buddy Update Check
+name: Buddy Check
 
 on:
   schedule:

@@ -344,7 +344,7 @@ on:
 
 #### Update Check Workflow
 ```yaml
-name: Buddy Update Check
+name: Buddy Check
 
 on:
   schedule:

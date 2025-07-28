@@ -27,7 +27,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       const { generateUpdateCheckWorkflow } = await import('../src/setup')
       const workflow = generateUpdateCheckWorkflow(true)
 
-      expect(workflow).toContain('name: Buddy Update Check')
+      expect(workflow).toContain('name: Buddy Check')
       expect(workflow).toContain('cron: \'*/15 * * * *\'')
       expect(workflow).toContain('bun buddy update-check')
       expect(workflow).toContain('dry_run:')
