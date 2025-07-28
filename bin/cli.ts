@@ -769,7 +769,7 @@ cli
       const group = scanResult.groups.find(g =>
         g.updates.length === packageUpdates.length
         && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name))
-        && packageUpdates.every(pu => g.updates.some(u => u.name === pu.name))
+        && packageUpdates.every(pu => g.updates.some(u => u.name === pu.name)),
       )
 
       if (!group) {
