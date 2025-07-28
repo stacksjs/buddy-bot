@@ -209,13 +209,14 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   const minorUpdates = updates.filter(u => u.updateType === 'minor')
   const patchUpdates = updates.filter(u => u.updateType === 'patch')
 
-  if (majorUpdates.length > 0) {
+  // Create individual PRs for each major update
+  for (const majorUpdate of majorUpdates) {
     groups.push({
-      name: 'Major Updates',
-      updates: majorUpdates,
+      name: `Major Update - ${majorUpdate.name}`,
+      updates: [majorUpdate],
       updateType: 'major',
-      title: formatPRTitle(majorUpdates),
-      body: formatPRBody(majorUpdates),
+      title: `chore(deps): update dependency ${majorUpdate.name} to ${majorUpdate.newVersion}`,
+      body: formatPRBody([majorUpdate]),
     })
   }
 
@@ -225,7 +226,7 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
       name: 'Non-Major Updates',
       updates: nonMajorUpdates,
       updateType: minorUpdates.length > 0 ? 'minor' : 'patch',
-      title: formatPRTitle(nonMajorUpdates),
+      title: 'chore(deps): update all non-major dependencies',
       body: formatPRBody(nonMajorUpdates),
     })
   }
@@ -256,9 +257,9 @@ export function sortUpdatesByPriority(updates: PackageUpdate[]): PackageUpdate[]
  * Parse version string and determine update type using Bun's semver
  */
 export function getUpdateType(currentVersion: string, newVersion: string): 'major' | 'minor' | 'patch' {
-  // Remove any prefixes like ^, ~, >=, etc.
-  const cleanCurrent = currentVersion.replace(/^[\^~>=<]+/, '')
-  const cleanNew = newVersion.replace(/^[\^~>=<]+/, '')
+  // Remove any prefixes like ^, ~, >=, v, etc.
+  const cleanCurrent = currentVersion.replace(/^[v^~>=<]+/, '')
+  const cleanNew = newVersion.replace(/^[v^~>=<]+/, '')
 
   const currentParts = cleanCurrent.split('.').map(Number)
   const newParts = cleanNew.split('.').map(Number)

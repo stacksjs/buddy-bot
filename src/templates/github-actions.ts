@@ -1,4 +1,5 @@
 import type { BuddyBotConfig } from '../types'
+import * as fs from 'node:fs'
 
 export interface WorkflowConfig {
   name: string
@@ -15,6 +16,32 @@ export interface WorkflowConfig {
 }
 
 export class GitHubActionsTemplate {
+  /**
+   * Check if the project needs Composer support
+   */
+  private static needsComposerSupport(): boolean {
+    return fs.existsSync('composer.json')
+  }
+
+  /**
+   * Generate PHP and Composer setup steps for workflows
+   */
+  private static generateComposerSetupSteps(): string {
+    return `
+      - name: Setup PHP and Composer (if needed)
+        if: \${{ hashFiles('composer.json') != '' }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+
+      - name: Install Composer dependencies (if needed)
+        if: \${{ hashFiles('composer.json') != '' }}
+        run: composer install --no-dev --prefer-dist --optimize-autoloader
+`
+  }
+
   /**
    * Generate standard setup steps for workflows
    */
@@ -88,7 +115,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+\${GitHubActionsTemplate.generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
 
@@ -267,7 +294,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+\${GitHubActionsTemplate.generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
 
@@ -410,7 +437,7 @@ jobs:
    * Generate testing workflow with enhanced manual controls
    */
   static generateTestingWorkflow(_config?: BuddyBotConfig): string {
-    return `name: Buddy Testing Updates
+    return `name: Buddy Update
 
 on:
   schedule:
@@ -467,7 +494,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+\${GitHubActionsTemplate.generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
 

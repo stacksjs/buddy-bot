@@ -46,6 +46,27 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithGit(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
+      // Filter out workflow files since they require special permissions
+      const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
+      const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
+
+      if (workflowFiles.length > 0) {
+        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
+        console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
+
+        // If we have non-workflow files, commit just those
+        if (nonWorkflowFiles.length > 0) {
+          console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
+          files = nonWorkflowFiles
+        }
+        else {
+          console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
+          console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
+          return // Exit early if no non-workflow files to commit
+        }
+      }
+
       // Configure Git identity if not already set
       // try {
       //   await this.runCommand('git', ['config', 'user.name', 'buddy-bot[bot]'])
@@ -62,8 +83,10 @@ export class GitHubProvider implements GitProvider {
       // This prevents merge conflicts by starting with a clean slate
       console.log(`🔄 Resetting ${branchName} to main for clean rebase...`)
 
-      // Checkout main first
+      // Checkout main first and reset working directory to clean state
       await this.runCommand('git', ['checkout', 'main'])
+      await this.runCommand('git', ['reset', '--hard', 'HEAD'])
+      await this.runCommand('git', ['clean', '-fd'])
 
       // Reset the branch to main (delete and recreate)
       try {
@@ -127,6 +150,27 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
+      // Filter out workflow files since they require special permissions
+      const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
+      const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
+
+      if (workflowFiles.length > 0) {
+        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
+        console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
+
+        // If we have non-workflow files, commit just those
+        if (nonWorkflowFiles.length > 0) {
+          console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
+          files = nonWorkflowFiles
+        }
+        else {
+          console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
+          console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
+          return // Exit early if no non-workflow files to commit
+        }
+      }
+
       // Get current branch SHA
       const branchRef = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${branchName}`)
       const currentSha = branchRef.object.sha
