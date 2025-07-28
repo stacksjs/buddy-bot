@@ -608,17 +608,17 @@ export class Buddy {
     if (existingTitle.toLowerCase() === newTitle.toLowerCase()) {
       return true
     }
-    
+
     // Don't match different update types (major vs non-major, individual vs grouped)
     const existingLower = existingTitle.toLowerCase()
     const newLower = newTitle.toLowerCase()
-    
+
     // If one is for "all non-major" and other is for specific dependency, they're different
     if ((existingLower.includes('all non-major') && newLower.includes('dependency ')) ||
         (newLower.includes('all non-major') && existingLower.includes('dependency '))) {
       return false
     }
-    
+
     // Different specific dependencies are different PRs
     if (existingLower.includes('dependency ') && newLower.includes('dependency ')) {
       return false // Each dependency gets its own PR
