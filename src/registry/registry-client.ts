@@ -568,8 +568,11 @@ export class RegistryClient {
 
     try {
       // Use composer outdated to get all available updates, then filter based on version constraints
+      this.logger.info('Running composer outdated command...')
       const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
+      this.logger.info(`Composer outdated raw output: ${output}`)
       const composerData = JSON.parse(output)
+      this.logger.info(`Parsed composer data:`, composerData)
 
       const updates: PackageUpdate[] = []
 
@@ -579,9 +582,13 @@ export class RegistryClient {
         const fs = await import('node:fs')
         const path = await import('node:path')
         const composerJsonPath = path.join(this.projectPath, 'composer.json')
+        this.logger.info(`Looking for composer.json at: ${composerJsonPath}`)
         if (fs.existsSync(composerJsonPath)) {
           const composerContent = fs.readFileSync(composerJsonPath, 'utf-8')
           composerJsonData = JSON.parse(composerContent)
+          this.logger.info(`Found composer.json with packages:`, Object.keys(composerJsonData.require || {}), Object.keys(composerJsonData['require-dev'] || {}))
+        } else {
+          this.logger.warn(`composer.json not found at ${composerJsonPath}`)
         }
       }
       catch (error) {
@@ -591,18 +598,18 @@ export class RegistryClient {
             // Parse composer outdated output and filter based on version constraints
       if (composerData.installed) {
         this.logger.info(`Processing ${composerData.installed.length} outdated Composer packages`)
-        
+
         for (const pkg of composerData.installed) {
           if (pkg.name && pkg.version && pkg.latest) {
             this.logger.info(`Checking ${pkg.name}: ${pkg.version} → ${pkg.latest}`)
-            
+
             // Get the version constraint from composer.json
             const requireConstraint = composerJsonData.require?.[pkg.name]
             const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
             const constraint = requireConstraint || requireDevConstraint
-            
+
             this.logger.info(`Constraint for ${pkg.name}: ${constraint}`)
-            
+
             if (!constraint) {
               this.logger.info(`Skipping ${pkg.name}: not found in composer.json`)
               continue // Skip packages not found in composer.json
@@ -612,9 +619,9 @@ export class RegistryClient {
             let newVersion = pkg.latest
             const currentMajor = this.getMajorVersion(pkg.version)
             const latestMajor = this.getMajorVersion(pkg.latest)
-            
+
             this.logger.info(`Version analysis for ${pkg.name}: current major=${currentMajor}, latest major=${latestMajor}`)
-            
+
             // For caret constraints (^), only allow updates within the same major version
             if (constraint.startsWith('^')) {
               if (currentMajor !== latestMajor) {
@@ -622,12 +629,12 @@ export class RegistryClient {
                 continue // Skip major version updates for caret constraints
               }
             }
-            
+
             // For tilde constraints (~), handle according to the constraint level
             if (constraint.startsWith('~')) {
               const currentMinor = this.getMinorVersion(pkg.version)
               const latestMinor = this.getMinorVersion(pkg.latest)
-              
+
               // ~1.2 allows patch updates within 1.2.x
               if (constraint.includes('.')) {
                 if (currentMajor !== latestMajor || currentMinor !== latestMinor) {
@@ -642,7 +649,7 @@ export class RegistryClient {
                 }
               }
             }
-            
+
             this.logger.info(`Accepted ${pkg.name}: ${pkg.version} → ${newVersion}`)
 
             const updateType = getUpdateType(pkg.version, newVersion)
