@@ -74,6 +74,11 @@ jobs:
       - name: Build buddy-bot
         run: bun run build
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "buddy-bot[bot]"
+          git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
+
       - name: Verify Composer setup
         run: |
           echo "🔍 Verifying Composer and PHP setup..."
