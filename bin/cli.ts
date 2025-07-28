@@ -765,14 +765,18 @@ cli
         return
       }
 
-      // Find the matching update group
+      // Find the matching update group - must match exactly
       const group = scanResult.groups.find(g =>
         g.updates.length === packageUpdates.length
-        && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name)),
-      ) || scanResult.groups[0] // Fallback to first group
+        && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name))
+        && packageUpdates.every(pu => g.updates.some(u => u.name === pu.name)),
+      )
 
       if (!group) {
-        logger.error('❌ Could not find matching update group')
+        logger.error('❌ Could not find matching update group. This likely means the package grouping has changed.')
+        logger.info(`📋 PR packages: ${packageUpdates.map(p => p.name).join(', ')}`)
+        logger.info(`📋 Available groups: ${scanResult.groups.map(g => `${g.name} (${g.updates.length} packages)`).join(', ')}`)
+        logger.info(`💡 Close this PR manually and let buddy-bot create new ones with correct grouping`)
         return
       }
 
@@ -811,8 +815,10 @@ cli
 async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ name: string, currentVersion: string, newVersion: string }>> {
   const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
 
-  // Match table rows with package updates
-  const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]/g
+  // Match table rows with package updates - handles both npm and Composer formats
+  // npm format: | [package] | [`version` -> `version`] |
+  // Composer format: | [package](link) | `version` -> `version` | file | status |
+  const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[?`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]?/g
 
   let match
   // eslint-disable-next-line no-cond-assign
@@ -914,14 +920,18 @@ cli
                 continue
               }
 
-              // Find the matching update group
+              // Find the matching update group - must match exactly
               const group = scanResult.groups.find(g =>
                 g.updates.length === packageUpdates.length
-                && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name)),
-              ) || scanResult.groups[0] // Fallback to first group
+                && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name))
+                && packageUpdates.every(pu => g.updates.some(u => u.name === pu.name)),
+              )
 
               if (!group) {
-                logger.warn(`⚠️ Could not find matching update group for PR #${pr.number}, skipping`)
+                logger.warn(`⚠️ Could not find matching update group for PR #${pr.number}. This likely means the package grouping has changed.`)
+                logger.info(`📋 PR packages: ${packageUpdates.map(p => p.name).join(', ')}`)
+                logger.info(`📋 Available groups: ${scanResult.groups.map(g => `${g.name} (${g.updates.length} packages)`).join(', ')}`)
+                logger.info(`💡 Skipping rebase - close this PR manually and let buddy-bot create new ones with correct grouping`)
                 continue
               }
 

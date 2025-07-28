@@ -63,6 +63,102 @@ describe('Integration Ecosystem & Plugin Architecture', () => {
       expect(plugins).toHaveLength(0)
     })
 
+    // Group file-based tests together with their own setup to ensure isolation
+    describe('file-based configuration', () => {
+      beforeEach(async () => {
+        // Extra aggressive cleanup for these specific tests
+        delete process.env.SLACK_WEBHOOK_URL
+        delete process.env.DISCORD_WEBHOOK_URL
+        delete process.env.JIRA_API_TOKEN
+        delete process.env.JIRA_BASE_URL
+        delete process.env.JIRA_PROJECT_KEY
+
+        // Clean up any potential file remnants
+        if (fs.existsSync('.buddy')) {
+          fs.rmSync('.buddy', { recursive: true, force: true })
+        }
+
+        // Small delay to ensure filesystem operations complete
+        await new Promise(resolve => setTimeout(resolve, 10))
+      })
+
+      afterEach(async () => {
+        // Extra cleanup after each test
+        delete process.env.SLACK_WEBHOOK_URL
+        delete process.env.DISCORD_WEBHOOK_URL
+        delete process.env.JIRA_API_TOKEN
+        delete process.env.JIRA_BASE_URL
+        delete process.env.JIRA_PROJECT_KEY
+
+        if (fs.existsSync('.buddy')) {
+          fs.rmSync('.buddy', { recursive: true, force: true })
+        }
+
+        // Small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 10))
+      })
+
+      it('should discover plugins from file-based configuration', async () => {
+        // Verify environment is truly clean
+        expect(process.env.SLACK_WEBHOOK_URL).toBeUndefined()
+        expect(process.env.DISCORD_WEBHOOK_URL).toBeUndefined()
+        expect(process.env.JIRA_API_TOKEN).toBeUndefined()
+
+        // Create .buddy/slack-webhook file
+        fs.mkdirSync('.buddy', { recursive: true })
+        fs.writeFileSync('.buddy/slack-webhook', 'https://hooks.slack.com/services/test')
+
+        // Create a fresh PluginManager instance to avoid state pollution
+        const freshPluginManager = new PluginManager()
+        const plugins = await freshPluginManager.discoverPlugins()
+
+        expect(plugins).toHaveLength(1)
+        expect(plugins[0].name).toBe('slack-integration')
+        expect(plugins[0].configuration.webhook_url).toBe('') // Environment variable is empty, but file exists so plugin is discovered
+      })
+
+      it('should load custom plugins from .buddy/plugins directory', async () => {
+        // Verify environment is truly clean
+        expect(process.env.SLACK_WEBHOOK_URL).toBeUndefined()
+        expect(process.env.DISCORD_WEBHOOK_URL).toBeUndefined()
+        expect(process.env.JIRA_API_TOKEN).toBeUndefined()
+
+        // Create custom plugin configuration
+        fs.mkdirSync('.buddy/plugins', { recursive: true })
+        const customPlugin = {
+          name: 'custom-integration',
+          version: '2.0.0',
+          enabled: true,
+          triggers: [{ event: 'setup_complete' }],
+          hooks: [
+            {
+              name: 'custom-hook',
+              priority: 15,
+              async: false,
+              handler() {
+                // eslint-disable-next-line no-console
+                console.log('Custom hook executed')
+              },
+            },
+          ],
+          configuration: { custom_setting: 'value' },
+        }
+
+        fs.writeFileSync(
+          path.join('.buddy/plugins', 'custom.json'),
+          JSON.stringify(customPlugin),
+        )
+
+        // Create a fresh PluginManager instance to avoid state pollution
+        const freshPluginManager = new PluginManager()
+        const plugins = await freshPluginManager.discoverPlugins()
+
+        expect(plugins).toHaveLength(1)
+        expect(plugins[0].name).toBe('custom-integration')
+        expect(plugins[0].version).toBe('2.0.0')
+      })
+    })
+
     it('should discover Slack plugin when webhook URL is configured', async () => {
       process.env.SLACK_WEBHOOK_URL = 'https://hooks.slack.com/test'
 
@@ -97,6 +193,9 @@ describe('Integration Ecosystem & Plugin Architecture', () => {
 
       expect(plugins).toHaveLength(1)
       expect(plugins[0].name).toBe('jira-integration')
+      expect(plugins[0].version).toBe('1.0.0')
+      expect(plugins[0].triggers).toHaveLength(1)
+      expect(plugins[0].triggers[0].event).toBe('setup_complete')
       expect(plugins[0].configuration.api_token).toBe('test-token')
       expect(plugins[0].configuration.base_url).toBe('https://test.atlassian.net')
     })
@@ -114,51 +213,6 @@ describe('Integration Ecosystem & Plugin Architecture', () => {
       expect(pluginNames).toContain('slack-integration')
       expect(pluginNames).toContain('discord-integration')
       expect(pluginNames).toContain('jira-integration')
-    })
-
-    it('should discover plugins from file-based configuration', async () => {
-      // Create .buddy/slack-webhook file
-      fs.mkdirSync('.buddy', { recursive: true })
-      fs.writeFileSync('.buddy/slack-webhook', 'https://hooks.slack.com/services/test')
-
-      const plugins = await pluginManager.discoverPlugins()
-
-      expect(plugins).toHaveLength(1)
-      expect(plugins[0].name).toBe('slack-integration')
-    })
-
-    it('should load custom plugins from .buddy/plugins directory', async () => {
-      // Create custom plugin configuration
-      fs.mkdirSync('.buddy/plugins', { recursive: true })
-      const customPlugin = {
-        name: 'custom-integration',
-        version: '2.0.0',
-        enabled: true,
-        triggers: [{ event: 'setup_complete' }],
-        hooks: [
-          {
-            name: 'custom-hook',
-            priority: 15,
-            async: false,
-            handler() {
-              // eslint-disable-next-line no-console
-              console.log('Custom hook executed')
-            },
-          },
-        ],
-        configuration: { custom_setting: 'value' },
-      }
-
-      fs.writeFileSync(
-        path.join('.buddy/plugins', 'custom.json'),
-        JSON.stringify(customPlugin),
-      )
-
-      const plugins = await pluginManager.discoverPlugins()
-
-      expect(plugins).toHaveLength(1)
-      expect(plugins[0].name).toBe('custom-integration')
-      expect(plugins[0].version).toBe('2.0.0')
     })
 
     it('should handle malformed custom plugin files gracefully', async () => {

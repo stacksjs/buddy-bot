@@ -1,8 +1,10 @@
+/* eslint-disable no-console */
 import type { BuddyBotConfig, PackageMetadata, PackageUpdate } from '../types'
 import type { Logger } from '../utils/logger'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import process from 'node:process'
 import { PackageRegistryError } from '../types'
 import { getUpdateType } from '../utils/helpers'
 
@@ -539,55 +541,96 @@ export class RegistryClient {
   }
 
   /**
+   * Extract major version number from a version string
+   */
+  private getMajorVersion(version: string): string {
+    return version.replace(/^[v^~>=<]+/, '').split('.')[0] || '0'
+  }
+
+  /**
+   * Extract minor version number from a version string
+   */
+  private getMinorVersion(version: string): string {
+    const parts = version.replace(/^[v^~>=<]+/, '').split('.')
+    return parts[1] || '0'
+  }
+
+  /**
    * Get outdated Composer packages
    */
   async getComposerOutdatedPackages(): Promise<PackageUpdate[]> {
-    try {
-      // Check if composer is available
-      await this.runCommand('composer', ['--version'])
-    }
-    catch {
-      this.logger.warn('Composer not found, skipping Composer package updates')
-      return []
-    }
+    this.logger.info('Checking for outdated Composer packages...')
+    const updates: PackageUpdate[] = []
 
     try {
-      // Run composer outdated to get outdated packages
-      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
-      const composerData = JSON.parse(output)
-
-      const updates: PackageUpdate[] = []
-
-      // Read composer.json to determine dependency types
-      let composerJsonData: { 'require'?: Record<string, string>, 'require-dev'?: Record<string, string> } = {}
+      // First check if composer is available
+      console.log('🔍 Checking Composer availability...')
       try {
-        const fs = await import('node:fs')
-        const path = await import('node:path')
-        const composerJsonPath = path.join(this.projectPath, 'composer.json')
-        if (fs.existsSync(composerJsonPath)) {
-          const composerContent = fs.readFileSync(composerJsonPath, 'utf-8')
-          composerJsonData = JSON.parse(composerContent)
-        }
+        const composerVersion = await this.runCommand('composer', ['--version'])
+        console.log('✅ Composer version:', composerVersion.split('\n')[0])
       }
       catch (error) {
-        this.logger.warn('Failed to read composer.json for dependency type detection:', error)
+        console.log('❌ Composer not available:', error)
+        this.logger.warn('Composer not found, skipping Composer package updates')
+        return []
       }
 
-      // Parse composer outdated output
+      // First, let's log what composer.json contains
+      const composerJsonPath = path.join(process.cwd(), 'composer.json')
+      console.log(`🔍 Reading composer.json from: ${composerJsonPath}`)
+
+      if (!fs.existsSync(composerJsonPath)) {
+        console.log('❌ composer.json not found')
+        return []
+      }
+
+      const composerJsonContent = fs.readFileSync(composerJsonPath, 'utf8')
+      const composerJsonData = JSON.parse(composerJsonContent)
+
+      console.log('📦 composer.json require packages:', Object.keys(composerJsonData.require || {}))
+      console.log('📦 composer.json require-dev packages:', Object.keys(composerJsonData['require-dev'] || {}))
+
+      // Run composer outdated to get available updates (including require-dev packages)
+      console.log('🔍 Running composer outdated (including dev dependencies)...')
+      const composerOutput = await this.runCommand('composer', ['outdated', '--format=json'])
+      console.log('📊 Raw composer outdated output length:', composerOutput.length)
+
+      let composerData: any
+      try {
+        composerData = JSON.parse(composerOutput)
+        console.log(`📋 Composer outdated found ${composerData.installed?.length || 0} packages`)
+      }
+      catch (parseError) {
+        console.log('❌ Failed to parse composer outdated JSON:', parseError)
+        console.log('Raw output:', composerOutput.substring(0, 500))
+        return []
+      }
+
+      // Parse composer outdated output and find multiple update paths per package
       if (composerData.installed) {
+        console.log('🔄 Processing outdated packages...')
         for (const pkg of composerData.installed) {
+          console.log(`\n📦 Processing package: ${pkg.name}`)
+          console.log(`   Current version: ${pkg.version}`)
+          console.log(`   Latest version: ${pkg.latest}`)
+
           if (pkg.name && pkg.version && pkg.latest) {
-            const updateType = getUpdateType(pkg.version, pkg.latest)
+            // Get the version constraint from composer.json
+            const requireConstraint = composerJsonData.require?.[pkg.name]
+            const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
+            const constraint = requireConstraint || requireDevConstraint
+
+            console.log(`   Constraint: ${constraint || 'NOT FOUND'}`)
+
+            if (!constraint) {
+              console.log(`   ⚠️  Skipping ${pkg.name} - not found in composer.json`)
+              continue // Skip packages not found in composer.json
+            }
 
             // Skip ignored packages
             const ignoredPackages = this.config?.packages?.ignore || []
             if (ignoredPackages.includes(pkg.name)) {
-              continue
-            }
-
-            // Check if this is a major update and if major updates are excluded
-            const excludeMajor = this.config?.packages?.excludeMajor ?? false
-            if (excludeMajor && updateType === 'major') {
+              console.log(`   ⚠️  Skipping ${pkg.name} - in ignore list`)
               continue
             }
 
@@ -596,26 +639,79 @@ export class RegistryClient {
             if (composerJsonData['require-dev'] && composerJsonData['require-dev'][pkg.name]) {
               dependencyType = 'require-dev'
             }
+            console.log(`   Dependency type: ${dependencyType}`)
 
             // Get additional metadata for the package
             const metadata = await this.getComposerPackageMetadata(pkg.name)
 
-            updates.push({
-              name: pkg.name,
-              currentVersion: pkg.version,
-              newVersion: pkg.latest,
-              updateType,
-              dependencyType,
-              file: 'composer.json',
-              metadata,
-              releaseNotesUrl: this.getComposerReleaseNotesUrl(pkg.name, metadata),
-              changelogUrl: this.getComposerChangelogUrl(pkg.name, metadata),
-              homepage: metadata?.homepage,
-            })
+            // Find multiple update paths: patch, minor, and major
+            // Extract the base version from the constraint (e.g., "^3.0" -> "3.0.0")
+            const constraintBaseVersion = this.extractConstraintBaseVersion(constraint)
+            console.log(`   Constraint base version: ${constraintBaseVersion}`)
+
+            // Always use constraint base version for consistent detection across environments
+            // This ensures we detect updates based on composer.json constraints, not installed versions
+            if (!constraintBaseVersion) {
+              console.warn(`❌ Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
+              continue
+            }
+
+            const currentVersion = constraintBaseVersion
+            const latestVersion = pkg.latest
+            console.log(`   Using current version: ${currentVersion} (from constraint)`)
+            console.log(`   Target latest version: ${latestVersion}`)
+
+            // Get all available versions by querying composer show
+            let availableVersions: string[] = []
+            try {
+              console.log(`   🔍 Getting available versions for ${pkg.name}...`)
+              const showOutput = await this.runCommand('composer', ['show', pkg.name, '--available', '--format=json'])
+              const showData = JSON.parse(showOutput)
+              if (showData.versions) {
+                availableVersions = showData.versions // This is already an array of version strings
+                console.log(`   📋 Found ${availableVersions.length} available versions`)
+              }
+            }
+            catch (error) {
+              console.warn(`❌ Failed to get available versions for ${pkg.name}, using latest only:`, error)
+              availableVersions = [latestVersion]
+            }
+
+            // Find the best constraint updates (e.g., ^3.0 -> ^3.9.0)
+            console.log(`   🎯 Finding best constraint updates...`)
+            const updateCandidates = await this.findBestConstraintUpdates(constraint, availableVersions, currentVersion)
+            console.log(`   📊 Found ${updateCandidates.length} update candidates`)
+
+            for (const candidate of updateCandidates) {
+              const updateType = getUpdateType(currentVersion, candidate.version)
+              console.log(`   📈 Update candidate: ${currentVersion} → ${candidate.version} (${updateType})`)
+
+              // Check if this update type should be excluded
+              const excludeMajor = this.config?.packages?.excludeMajor ?? false
+              if (excludeMajor && updateType === 'major') {
+                console.log(`   ⚠️  Skipping major update for ${pkg.name} - excludeMajor is true`)
+                continue
+              }
+
+              console.log(`   ✅ Adding update: ${pkg.name} ${currentVersion} → ${candidate.version}`)
+              updates.push({
+                name: pkg.name,
+                currentVersion,
+                newVersion: candidate.version,
+                updateType,
+                dependencyType,
+                file: 'composer.json',
+                metadata,
+                releaseNotesUrl: this.getComposerReleaseNotesUrl(pkg.name, metadata),
+                changelogUrl: this.getComposerChangelogUrl(pkg.name, metadata),
+                homepage: metadata?.homepage,
+              })
+            }
           }
         }
       }
 
+      console.log(`✅ Final result: Found ${updates.length} Composer package updates`)
       this.logger.success(`Found ${updates.length} Composer package updates`)
       return updates
     }
@@ -623,6 +719,111 @@ export class RegistryClient {
       this.logger.warn('Failed to check for outdated Composer packages:', error)
       return []
     }
+  }
+
+  /**
+   * Find the best patch, minor, and major updates for a package
+   */
+  private async findBestUpdates(currentVersion: string, availableVersions: string[], _constraint: string): Promise<{ version: string, type: 'patch' | 'minor' | 'major' }[]> {
+    const { getUpdateType } = await import('../utils/helpers')
+    const candidates: { version: string, type: 'patch' | 'minor' | 'major' }[] = []
+
+    // Parse current version
+    const currentParts = this.parseVersion(currentVersion)
+    if (!currentParts) {
+      return []
+    }
+
+    let bestPatch: string | null = null
+    let bestMinor: string | null = null
+    let bestMajor: string | null = null
+
+    for (const version of availableVersions) {
+      // Skip dev/alpha/beta versions for now (could be enhanced later)
+      if (version.includes('dev') || version.includes('alpha') || version.includes('beta') || version.includes('RC')) {
+        continue
+      }
+
+      const versionParts = this.parseVersion(version)
+      if (!versionParts) {
+        continue
+      }
+
+      // Skip versions that are not newer
+      const comparison = this.compareVersions(version, currentVersion)
+      if (comparison <= 0) {
+        continue
+      }
+
+      const updateType = getUpdateType(currentVersion, version)
+
+      // Find best update for each type
+      if (updateType === 'patch' && versionParts.major === currentParts.major && versionParts.minor === currentParts.minor) {
+        if (!bestPatch || this.compareVersions(version, bestPatch) > 0) {
+          bestPatch = version
+        }
+      }
+      else if (updateType === 'minor' && versionParts.major === currentParts.major) {
+        if (!bestMinor || this.compareVersions(version, bestMinor) > 0) {
+          bestMinor = version
+        }
+      }
+      else if (updateType === 'major') {
+        if (!bestMajor || this.compareVersions(version, bestMajor) > 0) {
+          bestMajor = version
+        }
+      }
+    }
+
+    // Add the best candidates
+    if (bestPatch) {
+      candidates.push({ version: bestPatch, type: 'patch' })
+    }
+    if (bestMinor) {
+      candidates.push({ version: bestMinor, type: 'minor' })
+    }
+    if (bestMajor) {
+      candidates.push({ version: bestMajor, type: 'major' })
+    }
+
+    return candidates
+  }
+
+  /**
+   * Parse a version string into major.minor.patch
+   */
+  private parseVersion(version: string): { major: number, minor: number, patch: number } | null {
+    // Remove 'v' prefix and any pre-release identifiers
+    const cleanVersion = version.replace(/^v/, '').split('-')[0].split('+')[0]
+    const parts = cleanVersion.split('.').map(p => Number.parseInt(p, 10))
+
+    if (parts.length < 2 || parts.some(p => Number.isNaN(p))) {
+      return null
+    }
+
+    return {
+      major: parts[0] || 0,
+      minor: parts[1] || 0,
+      patch: parts[2] || 0,
+    }
+  }
+
+  /**
+   * Compare two version strings
+   * Returns: -1 if a < b, 0 if a === b, 1 if a > b
+   */
+  private compareVersions(a: string, b: string): number {
+    const parseA = this.parseVersion(a)
+    const parseB = this.parseVersion(b)
+
+    if (!parseA || !parseB)
+      return 0
+
+    if (parseA.major !== parseB.major)
+      return parseA.major - parseB.major
+    if (parseA.minor !== parseB.minor)
+      return parseA.minor - parseB.minor
+    return parseA.patch - parseB.patch
   }
 
   /**
@@ -770,5 +971,84 @@ export class RegistryClient {
     }
 
     return undefined
+  }
+
+  /**
+   * Extract the base version from a version constraint (e.g., "^3.0" -> "3.0.0")
+   */
+  private extractConstraintBaseVersion(constraint: string): string | null {
+    const match = constraint.match(/^[\^~>=<]*([\d.]+)/)
+    if (match) {
+      return match[1]
+    }
+    return null
+  }
+
+  /**
+   * Find the best constraint updates (e.g., ^3.0 -> ^3.9.0)
+   */
+  private async findBestConstraintUpdates(constraint: string, availableVersions: string[], currentVersion: string): Promise<{ version: string, type: 'patch' | 'minor' | 'major' }[]> {
+    const { getUpdateType } = await import('../utils/helpers')
+    const candidates: { version: string, type: 'patch' | 'minor' | 'major' }[] = []
+
+    // Parse current version
+    const currentParts = this.parseVersion(currentVersion)
+    if (!currentParts) {
+      return []
+    }
+
+    let bestPatch: string | null = null
+    let bestMinor: string | null = null
+    let bestMajor: string | null = null
+
+    for (const version of availableVersions) {
+      // Skip dev/alpha/beta versions for now (could be enhanced later)
+      if (version.includes('dev') || version.includes('alpha') || version.includes('beta') || version.includes('RC')) {
+        continue
+      }
+
+      const versionParts = this.parseVersion(version)
+      if (!versionParts) {
+        continue
+      }
+
+      // Skip versions that are not newer
+      const comparison = this.compareVersions(version, currentVersion)
+      if (comparison <= 0) {
+        continue
+      }
+
+      const updateType = getUpdateType(currentVersion, version)
+
+      // Find best update for each type
+      if (updateType === 'patch' && versionParts.major === currentParts.major && versionParts.minor === currentParts.minor) {
+        if (!bestPatch || this.compareVersions(version, bestPatch) > 0) {
+          bestPatch = version
+        }
+      }
+      else if (updateType === 'minor' && versionParts.major === currentParts.major) {
+        if (!bestMinor || this.compareVersions(version, bestMinor) > 0) {
+          bestMinor = version
+        }
+      }
+      else if (updateType === 'major') {
+        if (!bestMajor || this.compareVersions(version, bestMajor) > 0) {
+          bestMajor = version
+        }
+      }
+    }
+
+    // Add the best candidates
+    if (bestPatch) {
+      candidates.push({ version: bestPatch, type: 'patch' })
+    }
+    if (bestMinor) {
+      candidates.push({ version: bestMinor, type: 'minor' })
+    }
+    if (bestMajor) {
+      candidates.push({ version: bestMajor, type: 'major' })
+    }
+
+    return candidates
   }
 }

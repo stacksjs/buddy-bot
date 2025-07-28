@@ -1010,6 +1010,25 @@ export async function generateConfigFile(repoInfo: RepositoryInfo, hasCustomToke
   console.log(`💡 You can edit this file to customize Buddy Bot's behavior.\n`)
 }
 
+/**
+ * Generate PHP and Composer setup steps for workflows
+ */
+function generateComposerSetupSteps(): string {
+  return `
+      - name: Setup PHP and Composer (if needed)
+        if: \${{ hashFiles('composer.json') != '' }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+
+      - name: Install Composer dependencies (if needed)
+        if: \${{ hashFiles('composer.json') != '' }}
+        run: composer install --prefer-dist --optimize-autoloader
+`
+}
+
 export function generateDashboardWorkflow(hasCustomToken: boolean): string {
   const tokenEnv = hasCustomToken
     // eslint-disable-next-line no-template-curly-in-string
@@ -1017,7 +1036,7 @@ export function generateDashboardWorkflow(hasCustomToken: boolean): string {
     // eslint-disable-next-line no-template-curly-in-string
     : '${{ secrets.GITHUB_TOKEN }}'
 
-  return `name: Buddy Dashboard Management
+  return `name: Buddy Dashboard
 
 on:
   schedule:
@@ -1073,7 +1092,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+${generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
 
@@ -1130,7 +1149,7 @@ export function generateUpdateCheckWorkflow(hasCustomToken: boolean): string {
     // eslint-disable-next-line no-template-curly-in-string
     : '${{ secrets.GITHUB_TOKEN }}'
 
-  return `name: Buddy Update Check
+  return `name: Buddy Check
 
 on:
   schedule:
@@ -1168,7 +1187,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+${generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
 
@@ -1288,7 +1307,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+${generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
 

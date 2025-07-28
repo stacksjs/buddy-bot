@@ -80,6 +80,9 @@ The following updates have all been created. To force a retry/rebase of any, cli
       section += '\n'
     }
 
+    // Add the "rebase all open PRs" checkbox like Renovate
+    section += ` - [ ] <!-- rebase-all-open-prs -->**Click on this checkbox to rebase all open PRs at once**\n`
+
     section += '\n'
     return section
   }
@@ -101,14 +104,31 @@ The following updates have all been created. To force a retry/rebase of any, cli
       section += this.generatePackageJsonSection(dependencies.packageJson)
     }
 
+    // Composer dependencies (separate from other dependency files)
+    const composerFiles = dependencies.dependencyFiles.filter(file =>
+      file.path === 'composer.json' || file.path.endsWith('/composer.json'),
+    )
+
+    // Split composer.json from root vs vendor files
+    const rootComposerFiles = composerFiles.filter(file => file.path === 'composer.json')
+    const vendorComposerFiles = composerFiles.filter(file => file.path !== 'composer.json')
+
+    if (rootComposerFiles.length > 0) {
+      section += this.generateComposerSection(rootComposerFiles)
+    }
+
     // GitHub Actions
     if (dependencies.githubActions.length > 0) {
       section += this.generateGitHubActionsSection(dependencies.githubActions)
     }
 
-    // Other dependency files
-    if (dependencies.dependencyFiles.length > 0) {
-      section += this.generateDependencyFilesSection(dependencies.dependencyFiles)
+    // Other dependency files (excluding composer.json files which are handled above)
+    const otherDependencyFiles = dependencies.dependencyFiles.filter(file =>
+      !file.path.endsWith('/composer.json') && file.path !== 'composer.json',
+    )
+
+    if (otherDependencyFiles.length > 0 || vendorComposerFiles.length > 0) {
+      section += this.generateDependencyFilesSection([...otherDependencyFiles, ...vendorComposerFiles])
     }
 
     return section
@@ -238,6 +258,49 @@ The following updates have all been created. To force a retry/rebase of any, cli
   }
 
   /**
+   * Generate the Composer section
+   */
+  private generateComposerSection(composerFiles: PackageFile[]): string {
+    let section = `<details><summary>composer</summary>
+<blockquote>
+
+`
+
+    for (const file of composerFiles) {
+      const fileName = file.path.split('/').pop() || file.path
+      section += `<details><summary>${fileName}</summary>
+
+`
+
+      // Group dependencies by type (require, require-dev)
+      const depsByType = {
+        'require': file.dependencies.filter(d => d.type === 'require'),
+        'require-dev': file.dependencies.filter(d => d.type === 'require-dev'),
+      }
+
+      for (const [_type, deps] of Object.entries(depsByType)) {
+        if (deps.length > 0) {
+          for (const dep of deps) {
+            section += ` - \`${dep.name} ${dep.currentVersion}\`\n`
+          }
+        }
+      }
+
+      section += `
+</details>
+
+`
+    }
+
+    section += `</blockquote>
+</details>
+
+`
+
+    return section
+  }
+
+  /**
    * Generate the footer section
    */
   private generateFooter(): string {
@@ -257,10 +320,14 @@ The following updates have all been created. To force a retry/rebase of any, cli
     // Examples: "chore(deps): update dependency react to v18"
     //           "chore(deps): update all non-major dependencies"
     //           "update @types/node to v20"
+    //           "update require-dev phpunit/phpunit to v12" (Renovate)
+    //           "update require symfony/console to v7" (Renovate)
     const titlePatterns = [
       /update.*?dependency\s+(\S+)/i,
+      /update\s+require(?:-dev)?\s+(\S+)\s+to\s+v?\d+/i, // Renovate format: "update require-dev package to v12"
       /update\s+(\S+)\s+to\s+v?\d+/i,
       /bump\s+(\S+)\s+from/i,
+      /chore\(deps\):\s*update\s+dependency\s+(\S+)/i, // More specific chore(deps) pattern
     ]
 
     for (const pattern of titlePatterns) {

@@ -6,7 +6,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       const { generateDashboardWorkflow } = await import('../src/setup')
       const workflow = generateDashboardWorkflow(true)
 
-      expect(workflow).toContain('name: Buddy Dashboard Management')
+      expect(workflow).toContain('name: Buddy Dashboard')
       expect(workflow).toContain('cron: \'0 9 * * 1,3,5\'')
       expect(workflow).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
       expect(workflow).toContain('bun buddy dashboard')
@@ -17,7 +17,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       const { generateDashboardWorkflow } = await import('../src/setup')
       const workflow = generateDashboardWorkflow(false)
 
-      expect(workflow).toContain('name: Buddy Dashboard Management')
+      expect(workflow).toContain('name: Buddy Dashboard')
       // eslint-disable-next-line no-template-curly-in-string
       expect(workflow).toContain('${{ secrets.GITHUB_TOKEN }}')
       expect(workflow).not.toContain('BUDDY_BOT_TOKEN')
@@ -27,7 +27,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       const { generateUpdateCheckWorkflow } = await import('../src/setup')
       const workflow = generateUpdateCheckWorkflow(true)
 
-      expect(workflow).toContain('name: Buddy Update Check')
+      expect(workflow).toContain('name: Buddy Check')
       expect(workflow).toContain('cron: \'*/15 * * * *\'')
       expect(workflow).toContain('bun buddy update-check')
       expect(workflow).toContain('dry_run:')

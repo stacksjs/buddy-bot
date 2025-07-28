@@ -1,4 +1,4 @@
-name: Buddy Update Check
+name: Buddy Check
 
 on:
   schedule:
@@ -41,8 +41,20 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup PHP and Composer (if needed)
+        if: ${{ hashFiles('composer.json') != '' }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+
       - name: Install dependencies
         run: bun install
+
+      - name: Install Composer dependencies (if needed)
+        if: ${{ hashFiles('composer.json') != '' }}
+        run: composer install --prefer-dist --optimize-autoloader
 
       - name: Build buddy-bot
         run: bun run build

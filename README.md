@@ -341,7 +341,7 @@ export JIRA_PROJECT_KEY="BUDDY"  # Optional, defaults to BUDDY
 
 Create custom integrations by defining plugins in `.buddy/plugins/`:
 
-```json
+```jsonc
 // .buddy/plugins/custom-integration.json
 {
   "name": "custom-integration",

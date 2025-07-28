@@ -182,7 +182,8 @@ describe('Buddy - Composer Integration', () => {
 
       const _fileUpdates = await buddy.generateAllFileUpdates(nonComposerUpdates)
 
-      expect(mockGenerateComposerUpdates).toHaveBeenCalledWith(nonComposerUpdates)
+      // Should NOT call generateComposerUpdates since there are no composer files in the updates
+      expect(mockGenerateComposerUpdates).not.toHaveBeenCalled()
     })
   })
 

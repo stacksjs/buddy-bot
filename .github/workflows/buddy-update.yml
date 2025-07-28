@@ -1,4 +1,4 @@
-name: Buddy Testing Updates
+name: Buddy Update
 
 on:
   schedule:
@@ -31,13 +31,17 @@ on:
         type: boolean
 
 env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # For workflow file updates, you need a Personal Access Token with 'repo' and 'workflow' scopes
+  # Create a PAT at: https://github.com/settings/tokens
+  # Add it as a repository secret named 'BUDDY_BOT_TOKEN'
+  # If BUDDY_BOT_TOKEN is not available, falls back to GITHUB_TOKEN (limited permissions)
+  GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
-  actions: read
+  actions: write
   checks: read
   statuses: read
 
@@ -49,14 +53,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 # Fetch full history for rebasing
+          persist-credentials: true
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Setup PHP and Composer
+      - name: Setup PHP and Composer (if needed)
+        if: ${{ hashFiles('composer.json') != '' }}
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -66,11 +73,17 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Install Composer dependencies
-        run: composer install --no-dev --prefer-dist --optimize-autoloader
+      - name: Install Composer dependencies (if needed)
+        if: ${{ hashFiles('composer.json') != '' }}
+        run: composer install --prefer-dist --optimize-autoloader
 
       - name: Build buddy-bot
         run: bun run build
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "buddy-bot[bot]"
+          git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
 
       - name: Verify Composer setup
         run: |
@@ -129,7 +142,7 @@ jobs:
           fi
 
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Run Buddy dependency updates
         if: ${{ github.event.inputs.dry_run != 'true' }}
@@ -159,7 +172,7 @@ jobs:
           fi
 
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Dry run notification
         if: ${{ github.event.inputs.dry_run == 'true' }}

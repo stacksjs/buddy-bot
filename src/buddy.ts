@@ -84,17 +84,17 @@ export class Buddy {
         ? this.groupUpdatesByConfig(updates)
         : groupUpdates(updates)
 
-      const duration = Date.now() - startTime
+      const scanDuration = Date.now() - startTime
 
       const result: UpdateScanResult = {
         totalPackages,
         updates,
         groups,
         scannedAt: new Date(),
-        duration,
+        duration: scanDuration,
       }
 
-      this.logger.success(`Scan completed in ${duration}ms. Found ${updates.length} updates.`)
+      this.logger.success(`Scan completed in ${scanDuration}ms. Found ${updates.length} updates.`)
       return result
     }
     catch (error) {
@@ -151,7 +151,11 @@ export class Buddy {
             (pr.title === prTitle
               || pr.head.startsWith(branchPattern)
               || this.isSimilarPRTitle(pr.title, prTitle))
-            && (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/')),
+            && (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/'))
+            && !pr.head.includes('renovate/') // Exclude Renovate PRs
+            && !pr.head.includes('dependabot/') // Exclude Dependabot PRs
+            && !pr.author.toLowerCase().includes('renovate') // Exclude Renovate bot
+            && !pr.author.toLowerCase().includes('dependabot'), // Exclude Dependabot bot
           )
 
           if (existingPR) {
@@ -175,6 +179,7 @@ export class Buddy {
                 title: prTitle,
                 body: prBody,
                 labels: dynamicLabels,
+                reviewers: this.config.pullRequest?.reviewers,
                 assignees: this.config.pullRequest?.assignees,
               })
 
@@ -190,6 +195,33 @@ export class Buddy {
 
           // Create branch
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
+
+          // Ensure we're on a clean main branch before generating updates
+          // This prevents reading modified files from previous PR generations
+          try {
+            const { spawn } = await import('node:child_process')
+            const runGitCommand = (command: string, args: string[]): Promise<void> => {
+              return new Promise((resolve, reject) => {
+                const child = spawn(command, args, { stdio: 'pipe' })
+                child.on('close', (code) => {
+                  if (code === 0)
+                    resolve()
+                  else reject(new Error(`Git command failed with code ${code}`))
+                })
+                child.on('error', reject)
+              })
+            }
+
+            // Reset to clean main state before generating file updates
+            await runGitCommand('git', ['checkout', 'main'])
+            await runGitCommand('git', ['reset', '--hard', 'HEAD'])
+            await runGitCommand('git', ['clean', '-fd'])
+            // eslint-disable-next-line no-console
+            console.log(`🧹 Reset to clean main state before generating updates for ${group.name}`)
+          }
+          catch (error) {
+            console.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
+          }
 
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
@@ -442,36 +474,58 @@ export class Buddy {
     }
 
     // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
-    try {
-      const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
-      const dependencyFileUpdates = await generateDependencyFileUpdates(updates)
-      fileUpdates.push(...dependencyFileUpdates)
-    }
-    catch (error) {
-      this.logger.error('Failed to generate dependency file updates:', error)
-      // Continue with package.json updates even if dependency file updates fail
+    // Only process if we have dependency file updates to avoid unnecessary processing
+    const dependencyFileUpdates = updates.filter(update =>
+      (update.file.includes('.yaml') || update.file.includes('.yml'))
+      && !update.file.includes('.github/workflows/'),
+    )
+    if (dependencyFileUpdates.length > 0) {
+      try {
+        const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
+        // Pass only the dependency file updates to avoid cross-contamination
+        const depFileUpdates = await generateDependencyFileUpdates(dependencyFileUpdates)
+        fileUpdates.push(...depFileUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate dependency file updates:', error)
+        // Continue with other updates even if dependency file updates fail
+      }
     }
 
     // Handle Composer updates
-    try {
-      const { generateComposerUpdates } = await import('./utils/composer-parser')
-      const composerUpdates = await generateComposerUpdates(updates)
-      fileUpdates.push(...composerUpdates)
-    }
-    catch (error) {
-      this.logger.error('Failed to generate Composer updates:', error)
-      // Continue with other updates even if Composer updates fail
+    // Only process if we have composer updates to avoid unnecessary processing
+    const composerUpdates = updates.filter(update =>
+      update.file.endsWith('composer.json') || update.file.endsWith('composer.lock'),
+    )
+    if (composerUpdates.length > 0) {
+      try {
+        const { generateComposerUpdates } = await import('./utils/composer-parser')
+        // Pass only the composer updates for this specific group to prevent cross-contamination
+        const compUpdates = await generateComposerUpdates(composerUpdates)
+        fileUpdates.push(...compUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate Composer updates:', error)
+        // Continue with other updates even if Composer updates fail
+      }
     }
 
     // Handle GitHub Actions updates
-    try {
-      const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')
-      const githubActionsUpdates = await generateGitHubActionsUpdates(updates)
-      fileUpdates.push(...githubActionsUpdates)
-    }
-    catch (error) {
-      this.logger.error('Failed to generate GitHub Actions updates:', error)
-      // Continue with other updates even if GitHub Actions updates fail
+    // Only process if we have GitHub Actions updates to avoid unnecessary processing
+    const githubActionsUpdates = updates.filter(update =>
+      update.file.includes('.github/workflows/'),
+    )
+    if (githubActionsUpdates.length > 0) {
+      try {
+        const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')
+        // Pass only the GitHub Actions updates for this specific group
+        const ghActionsUpdates = await generateGitHubActionsUpdates(githubActionsUpdates)
+        fileUpdates.push(...ghActionsUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate GitHub Actions updates:', error)
+        // Continue with other updates even if GitHub Actions updates fail
+      }
     }
 
     return fileUpdates
@@ -604,21 +658,40 @@ export class Buddy {
    * Check if two PR titles are similar (for dependency updates)
    */
   private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
-    // Normalize titles by removing timestamps and similar variations
-    const normalize = (title: string) =>
-      title.toLowerCase()
-        .replace(/\b(non-major|major|minor|patch)\b/g, '') // Remove update type words
-        .replace(/\b\d+\b/g, '') // Remove numbers
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .trim()
+    // Exact match is always similar
+    if (existingTitle.toLowerCase() === newTitle.toLowerCase()) {
+      return true
+    }
 
-    const normalizedExisting = normalize(existingTitle)
-    const normalizedNew = normalize(newTitle)
+    // For major updates, be very specific - only match if it's the exact same package and version
+    if (newTitle.toLowerCase().includes('update dependency ')) {
+      // Extract package name from titles like "chore(deps): update dependency package-name to v1.0"
+      const newPackageMatch = newTitle.match(/update dependency (\S+)/i)
+      const existingPackageMatch = existingTitle.match(/update dependency (\S+)/i)
 
-    // Check if titles are similar (considering common dependency update patterns)
-    return normalizedExisting === normalizedNew
-      || (existingTitle.includes('dependency') && newTitle.includes('dependency'))
-      || (existingTitle.includes('update') && newTitle.includes('update'))
+      if (newPackageMatch && existingPackageMatch) {
+        // Only similar if same package name
+        return newPackageMatch[1] === existingPackageMatch[1]
+      }
+    }
+
+    // Don't match different update types (major vs non-major, individual vs grouped)
+    const existingLower = existingTitle.toLowerCase()
+    const newLower = newTitle.toLowerCase()
+
+    // If one is for "all non-major" and other is for specific dependency, they're different
+    if ((existingLower.includes('all non-major') && newLower.includes('dependency '))
+      || (newLower.includes('all non-major') && existingLower.includes('dependency '))) {
+      return false
+    }
+
+    // Different specific dependencies are different PRs
+    if (existingLower.includes('dependency ') && newLower.includes('dependency ')) {
+      return false // Each dependency gets its own PR
+    }
+
+    // Otherwise, not similar
+    return false
   }
 
   /**
@@ -815,17 +888,22 @@ export class Buddy {
       gitProvider.getPullRequests('open'),
     ])
 
-    // Filter PRs to only include dependency updates (likely created by buddy-bot)
+    // Filter PRs to include all dependency updates (from any source: buddy-bot, renovate, etc.)
     const dependencyPRs = openPRs.filter(pr =>
-      // Exclude Renovate PRs
-      !pr.author.toLowerCase().includes('renovate')
-      && !pr.head.includes('renovate/')
-      && !pr.title.toLowerCase().includes('renovate')
-      && (
-        pr.labels.includes('dependencies')
-        || pr.title.toLowerCase().includes('update')
-        || pr.title.toLowerCase().includes('chore(deps)')
-      ),
+      // Include any PR that appears to be a dependency update
+      pr.labels.includes('dependencies')
+      || pr.labels.includes('dependency')
+      || pr.labels.includes('deps')
+      || pr.title.toLowerCase().includes('update')
+      || pr.title.toLowerCase().includes('chore(deps)')
+      || pr.title.toLowerCase().includes('bump')
+      || pr.title.toLowerCase().includes('upgrade')
+      || pr.title.toLowerCase().includes('renovate')
+      || pr.head.includes('renovate/')
+      || pr.head.includes('dependabot/')
+      || pr.head.includes('buddy-bot/')
+      || pr.head.includes('update-')
+      || pr.head.includes('bump-'),
     )
 
     // Categorize package files

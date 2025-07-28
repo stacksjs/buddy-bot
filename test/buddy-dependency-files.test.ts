@@ -73,7 +73,7 @@ describe('Buddy - Dependency Files Integration', () => {
       file: 'package.json',
     },
     {
-      name: '@types/bun (dev)',
+      name: '@types/bun',
       currentVersion: '^1.2.17',
       newVersion: '1.2.19',
       updateType: 'patch',
@@ -84,16 +84,16 @@ describe('Buddy - Dependency Files Integration', () => {
 
   const dependencyFileUpdates: PackageUpdate[] = [
     {
-      name: 'ts-pkgx',
-      currentVersion: '^0.4.4',
-      newVersion: '0.4.7',
+      name: 'lodash',
+      currentVersion: '^4.17.20',
+      newVersion: '4.17.21',
       updateType: 'patch',
       dependencyType: 'dependencies',
       file: 'deps.yaml',
     },
   ]
 
-  const mixedUpdates = [...packageJsonUpdates, ...dependencyFileUpdates]
+  const mixedUpdates: PackageUpdate[] = [...packageJsonUpdates, ...dependencyFileUpdates]
 
   describe('generateAllFileUpdates with dependency files', () => {
     it('should handle both package.json and dependency file updates', async () => {
@@ -110,8 +110,8 @@ describe('Buddy - Dependency Files Integration', () => {
       expect(packageJsonUpdate?.content).toContain('"cac": "6.7.14"')
       expect(packageJsonUpdate?.content).toContain('"@types/bun": "^1.2.19"')
 
-      // Check that dependency file parser was called
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedUpdates)
+      // Check that dependency file parser was called with filtered dependency file updates only
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyFileUpdates)
     })
 
     it('should only process package.json when no dependency files present', async () => {
@@ -124,8 +124,8 @@ describe('Buddy - Dependency Files Integration', () => {
       expect(result[0].content).toContain('"cac": "6.7.14"')
       expect(result[0].content).toContain('"@types/bun": "^1.2.19"')
 
-      // Dependency file parser should still be called (but returns empty)
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(packageJsonUpdates)
+      // Dependency file parser should not be called since there are no dependency file updates
+      expect(mockGenerateDependencyFileUpdates).not.toHaveBeenCalled()
     })
 
     it('should only process dependency files when no package.json updates', async () => {
@@ -138,7 +138,7 @@ describe('Buddy - Dependency Files Integration', () => {
       const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
       expect(packageJsonFiles).toHaveLength(0)
 
-      // Dependency file parser should be called
+      // Dependency file parser should be called with dependency file updates
       expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyFileUpdates)
     })
 
@@ -152,9 +152,9 @@ describe('Buddy - Dependency Files Integration', () => {
       const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
       expect(packageJsonFiles.length).toBeGreaterThanOrEqual(0) // At least package.json should be processed
 
-      // Both parsers should be called
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedUpdates)
-      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(mixedUpdates)
+      // Both parsers should be called with their respective filtered updates
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyFileUpdates)
+      expect(mockGenerateGitHubActionsUpdates).not.toHaveBeenCalled() // No GitHub Actions updates in this test
     })
 
     it('should preserve version prefixes in package.json', async () => {
@@ -224,26 +224,18 @@ describe('Buddy - Dependency Files Integration', () => {
 
       const result = await buddy.generateAllFileUpdates(dependencyOnlyUpdates)
 
-      // Should not process package.json since no package.json updates
+      // Should call dependency file parser with all dependency file updates
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyOnlyUpdates)
+
+      // Should not have package.json files since there are no package.json updates
       const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
       expect(packageJsonFiles).toHaveLength(0)
-
-      // Should call dependency file parser
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyOnlyUpdates)
     })
 
-    // Test with GitHub Actions files mixed in
+    // Combined test scenario
     const mixedFileUpdates: PackageUpdate[] = [
       ...packageJsonUpdates,
       ...dependencyFileUpdates,
-      {
-        name: 'actions/checkout',
-        currentVersion: 'v4',
-        newVersion: 'v4.2.2',
-        updateType: 'patch',
-        dependencyType: 'github-actions',
-        file: '.github/workflows/ci.yml',
-      },
       {
         name: 'actions/setup-node',
         currentVersion: 'v3',
@@ -260,9 +252,10 @@ describe('Buddy - Dependency Files Integration', () => {
 
       const result = await buddy.generateAllFileUpdates(mixedFileUpdates)
 
-      // All parsers should be called
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(mixedFileUpdates)
-      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(mixedFileUpdates)
+      // All parsers should be called with their respective filtered updates
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyFileUpdates)
+      const githubActionsUpdates = mixedFileUpdates.filter(u => u.file.includes('.github/workflows/'))
+      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(githubActionsUpdates)
 
       // Should process package.json
       const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
@@ -272,25 +265,44 @@ describe('Buddy - Dependency Files Integration', () => {
 
   describe('error handling', () => {
     it('should continue processing when dependency file updates fail', async () => {
-      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
+      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { cac: '^6.7.13' } }, null, 2))
       mockGenerateDependencyFileUpdates.mockRejectedValue(new Error('Dependency file error'))
 
-      // The function should handle the error gracefully and continue processing
-      const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
+      // Create an update that has both package.json and dependency file components
+      const mixedUpdatesWithError = [
+        packageJsonUpdates[0], // This should still work
+        dependencyFileUpdates[0], // This will trigger the dependency file parser error
+      ]
 
-      // Should still process package.json
+      // The function should handle the error gracefully and continue processing
+      const result = await buddy.generateAllFileUpdates(mixedUpdatesWithError)
+
+      // Should still process package.json despite dependency file error
       expect(result).toHaveLength(1)
       expect(result[0].path).toBe('package.json')
     })
 
     it('should continue processing when GitHub Actions updates fail', async () => {
-      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
+      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { cac: '^6.7.13' } }, null, 2))
       mockGenerateGitHubActionsUpdates.mockRejectedValue(new Error('GitHub Actions error'))
 
-      // The function should handle the error gracefully and continue processing
-      const result = await buddy.generateAllFileUpdates([packageJsonUpdates[0]])
+      // Create an update that has both package.json and GitHub Actions components
+      const mixedUpdatesWithError: PackageUpdate[] = [
+        packageJsonUpdates[0], // This should still work
+        {
+          name: 'actions/checkout',
+          currentVersion: 'v4',
+          newVersion: 'v4.2.2',
+          updateType: 'patch' as const,
+          dependencyType: 'github-actions',
+          file: '.github/workflows/ci.yml',
+        },
+      ]
 
-      // Should still process package.json
+      // The function should handle the error gracefully and continue processing
+      const result = await buddy.generateAllFileUpdates(mixedUpdatesWithError)
+
+      // Should still process package.json despite GitHub Actions error
       expect(result).toHaveLength(1)
       expect(result[0].path).toBe('package.json')
     })
@@ -298,33 +310,11 @@ describe('Buddy - Dependency Files Integration', () => {
 
   describe('package.json filtering logic', () => {
     it('should correctly filter package.json updates', async () => {
-      readFileSpy.mockReturnValue(JSON.stringify({ dependencies: { lodash: '^4.17.20' } }, null, 2))
+      readFileSpy.mockReturnValue(mockPackageJsonContent)
 
-      const testUpdates: PackageUpdate[] = [
-        {
-          name: 'lodash',
-          currentVersion: '^4.17.20',
-          newVersion: '4.17.21',
-          updateType: 'patch',
-          dependencyType: 'dependencies',
-          file: 'package.json',
-        },
-        {
-          name: 'bun.sh',
-          currentVersion: '^1.2.16',
-          newVersion: '1.2.19',
-          updateType: 'patch',
-          dependencyType: 'dependencies',
-          file: 'deps.yaml',
-        },
-        {
-          name: 'actions/checkout',
-          currentVersion: 'v4',
-          newVersion: 'v4.2.2',
-          updateType: 'patch',
-          dependencyType: 'github-actions',
-          file: '.github/workflows/ci.yml',
-        },
+      const testUpdates = [
+        ...packageJsonUpdates,
+        ...dependencyFileUpdates,
       ]
 
       const result = await buddy.generateAllFileUpdates(testUpdates)
@@ -333,9 +323,8 @@ describe('Buddy - Dependency Files Integration', () => {
       const packageJsonFiles = result.filter((u: any) => u.path === 'package.json')
       expect(packageJsonFiles.length).toBeLessThanOrEqual(1)
 
-      // All parsers should still be called
-      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(testUpdates)
-      expect(mockGenerateGitHubActionsUpdates).toHaveBeenCalledWith(testUpdates)
+      // Dependency file parser should be called with dependency file updates only
+      expect(mockGenerateDependencyFileUpdates).toHaveBeenCalledWith(dependencyFileUpdates)
     })
   })
 })

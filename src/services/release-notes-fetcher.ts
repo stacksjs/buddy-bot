@@ -348,8 +348,13 @@ export class ReleaseNotesFetcher {
     confidence: string
   } {
     const packageName = encodeURIComponent(packageInfo.name)
-    const encodedCurrent = encodeURIComponent(currentVersion)
-    const encodedNew = encodeURIComponent(newVersion)
+
+    // Normalize versions: remove v prefix and ensure proper semver format
+    const normalizedCurrent = this.normalizeVersionForBadges(currentVersion)
+    const normalizedNew = this.normalizeVersionForBadges(newVersion)
+
+    const encodedCurrent = encodeURIComponent(normalizedCurrent)
+    const encodedNew = encodeURIComponent(normalizedNew)
 
     return {
       age: `[![age](https://developer.mend.io/api/mc/badges/age/npm/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
@@ -357,5 +362,90 @@ export class ReleaseNotesFetcher {
       passing: `[![passing](https://developer.mend.io/api/mc/badges/compatibility/npm/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
       confidence: `[![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
     }
+  }
+
+  /**
+   * Fetch Composer package information from Packagist
+   */
+  async fetchComposerPackageInfo(packageName: string): Promise<PackageInfo> {
+    try {
+      const response = await fetch(`https://packagist.org/packages/${encodeURIComponent(packageName)}.json`, {
+        headers: { 'User-Agent': this.userAgent },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Packagist responded with ${response.status}`)
+      }
+
+      const data = await response.json() as any
+      const packageData = data.package
+
+      if (!packageData) {
+        return { name: packageName }
+      }
+
+      // Get the latest stable version info
+      const versions = Object.keys(packageData.versions || {})
+      const latestVersion = versions.find(v => !v.includes('dev') && !v.includes('alpha') && !v.includes('beta')) || versions[0]
+      const versionData = packageData.versions[latestVersion] || {}
+
+      return {
+        name: packageData.name,
+        description: versionData.description,
+        homepage: versionData.homepage,
+        repository: versionData.source ? { type: 'git', url: versionData.source.url } : undefined,
+        license: versionData.license?.[0] || versionData.license,
+        author: versionData.authors?.[0],
+        keywords: versionData.keywords,
+        // Packagist doesn't provide download stats like npm, so we'll skip weeklyDownloads
+        lastPublish: versionData.time,
+      }
+    }
+    catch (error) {
+      console.warn(`Failed to fetch Packagist info for ${packageName}:`, error)
+      return { name: packageName }
+    }
+  }
+
+  /**
+   * Generate Composer-specific confidence badges and metrics
+   */
+  generateComposerBadges(packageInfo: PackageInfo, currentVersion: string, newVersion: string): {
+    age: string
+    adoption: string
+    passing: string
+    confidence: string
+  } {
+    const packageName = encodeURIComponent(packageInfo.name)
+
+    // Normalize versions: remove v prefix and ensure proper semver format
+    const normalizedCurrent = this.normalizeVersionForBadges(currentVersion)
+    const normalizedNew = this.normalizeVersionForBadges(newVersion)
+
+    const encodedCurrent = encodeURIComponent(normalizedCurrent)
+    const encodedNew = encodeURIComponent(normalizedNew)
+
+    return {
+      age: `[![age](https://developer.mend.io/api/mc/badges/age/packagist/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
+      adoption: `[![adoption](https://developer.mend.io/api/mc/badges/adoption/packagist/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
+      passing: `[![passing](https://developer.mend.io/api/mc/badges/compatibility/packagist/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
+      confidence: `[![confidence](https://developer.mend.io/api/mc/badges/confidence/packagist/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
+    }
+  }
+
+  /**
+   * Normalize version for badge URLs (remove v prefix, ensure proper format)
+   */
+  private normalizeVersionForBadges(version: string): string {
+    // Remove v prefix
+    let normalized = version.replace(/^v/, '')
+
+    // If version is just major.minor (e.g., "3.0"), add .0 to make it "3.0.0"
+    const parts = normalized.split('.')
+    if (parts.length === 2) {
+      normalized = `${normalized}.0`
+    }
+
+    return normalized
   }
 }

@@ -7,6 +7,7 @@ const config: BuddyBotConfig = {
     ignore: ['typescript', 'bun-plugin-dtsx'],
     includePrerelease: false, // Don't include alpha, beta, rc versions by default
     excludeMajor: false, // Allow major updates (controlled by ignore list)
+    // No custom groups - use default grouping (major separate, non-major together)
   },
 
   // Repository settings for PR creation
@@ -19,8 +20,8 @@ const config: BuddyBotConfig = {
 
   // Pull request configuration
   pullRequest: {
-    reviewers: [],
-    assignees: [],
+    reviewers: ['chrisbbreuer', 'glennmichael123'],
+    assignees: ['chrisbbreuer', 'glennmichael123'],
     labels: ['dependencies'],
     autoMerge: {
       enabled: true,
