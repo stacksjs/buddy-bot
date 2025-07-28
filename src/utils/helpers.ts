@@ -257,8 +257,8 @@ export function sortUpdatesByPriority(updates: PackageUpdate[]): PackageUpdate[]
  */
 export function getUpdateType(currentVersion: string, newVersion: string): 'major' | 'minor' | 'patch' {
   // Remove any prefixes like ^, ~, >=, v, etc.
-  const cleanCurrent = currentVersion.replace(/^[v\^~>=<]+/, '')
-  const cleanNew = newVersion.replace(/^[v\^~>=<]+/, '')
+  const cleanCurrent = currentVersion.replace(/^[v^~>=<]+/, '')
+  const cleanNew = newVersion.replace(/^[v^~>=<]+/, '')
 
   const currentParts = cleanCurrent.split('.').map(Number)
   const newParts = cleanNew.split('.').map(Number)
