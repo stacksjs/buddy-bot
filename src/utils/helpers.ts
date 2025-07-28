@@ -31,6 +31,12 @@ export async function parsePackageFile(content: string, filePath: string): Promi
       return await parseDependencyFile(filePath, content)
     }
 
+    // Handle Composer files
+    if (fileName === 'composer.json' || fileName === 'composer.lock') {
+      const { parseComposerFile } = await import('./composer-parser')
+      return await parseComposerFile(filePath, content)
+    }
+
     // Add other file type parsers as needed
     return null
   }

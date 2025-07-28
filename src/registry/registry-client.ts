@@ -72,6 +72,21 @@ export class RegistryClient {
         })
       }
 
+      // Also check for Composer packages if composer.json exists
+      const fs = await import('node:fs')
+      const path = await import('node:path')
+      const composerJsonPath = path.join(this.projectPath, 'composer.json')
+
+      if (fs.existsSync(composerJsonPath)) {
+        try {
+          const composerUpdates = await this.getComposerOutdatedPackages()
+          updates.push(...composerUpdates)
+        }
+        catch (error) {
+          this.logger.warn('Failed to check Composer packages:', error)
+        }
+      }
+
       this.logger.success(`Found ${updates.length} package updates`)
       return updates
     }
@@ -521,5 +536,239 @@ export class RegistryClient {
       this.logger.warn(`Failed to search packages via registry API:`, error)
       return []
     }
+  }
+
+  /**
+   * Get outdated Composer packages
+   */
+  async getComposerOutdatedPackages(): Promise<PackageUpdate[]> {
+    try {
+      // Check if composer is available
+      await this.runCommand('composer', ['--version'])
+    }
+    catch {
+      this.logger.warn('Composer not found, skipping Composer package updates')
+      return []
+    }
+
+    try {
+      // Run composer outdated to get outdated packages
+      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
+      const composerData = JSON.parse(output)
+
+      const updates: PackageUpdate[] = []
+
+      // Read composer.json to determine dependency types
+      let composerJsonData: { 'require'?: Record<string, string>, 'require-dev'?: Record<string, string> } = {}
+      try {
+        const fs = await import('node:fs')
+        const path = await import('node:path')
+        const composerJsonPath = path.join(this.projectPath, 'composer.json')
+        if (fs.existsSync(composerJsonPath)) {
+          const composerContent = fs.readFileSync(composerJsonPath, 'utf-8')
+          composerJsonData = JSON.parse(composerContent)
+        }
+      }
+      catch (error) {
+        this.logger.warn('Failed to read composer.json for dependency type detection:', error)
+      }
+
+      // Parse composer outdated output
+      if (composerData.installed) {
+        for (const pkg of composerData.installed) {
+          if (pkg.name && pkg.version && pkg.latest) {
+            const updateType = getUpdateType(pkg.version, pkg.latest)
+
+            // Skip ignored packages
+            const ignoredPackages = this.config?.packages?.ignore || []
+            if (ignoredPackages.includes(pkg.name)) {
+              continue
+            }
+
+            // Check if this is a major update and if major updates are excluded
+            const excludeMajor = this.config?.packages?.excludeMajor ?? false
+            if (excludeMajor && updateType === 'major') {
+              continue
+            }
+
+            // Determine dependency type by checking composer.json
+            let dependencyType: 'require' | 'require-dev' = 'require'
+            if (composerJsonData['require-dev'] && composerJsonData['require-dev'][pkg.name]) {
+              dependencyType = 'require-dev'
+            }
+
+            // Get additional metadata for the package
+            const metadata = await this.getComposerPackageMetadata(pkg.name)
+
+            updates.push({
+              name: pkg.name,
+              currentVersion: pkg.version,
+              newVersion: pkg.latest,
+              updateType,
+              dependencyType,
+              file: 'composer.json',
+              metadata,
+              releaseNotesUrl: this.getComposerReleaseNotesUrl(pkg.name, metadata),
+              changelogUrl: this.getComposerChangelogUrl(pkg.name, metadata),
+              homepage: metadata?.homepage,
+            })
+          }
+        }
+      }
+
+      this.logger.success(`Found ${updates.length} Composer package updates`)
+      return updates
+    }
+    catch (error) {
+      this.logger.warn('Failed to check for outdated Composer packages:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get Composer package metadata from Packagist
+   */
+  async getComposerPackageMetadata(packageName: string): Promise<PackageMetadata | undefined> {
+    try {
+      const response = await fetch(`https://packagist.org/packages/${packageName}.json`)
+
+      if (!response.ok) {
+        return undefined
+      }
+
+      const data = await response.json() as any
+      const packageData = data.package
+
+      if (!packageData) {
+        return undefined
+      }
+
+      // Get the latest version info
+      const versions = Object.keys(packageData.versions || {})
+      const latestVersion = versions.find(v => !v.includes('dev') && !v.includes('alpha') && !v.includes('beta')) || versions[0]
+      const versionData = packageData.versions[latestVersion] || {}
+
+      return {
+        name: packageData.name,
+        description: versionData.description,
+        repository: versionData.source?.url || versionData.homepage,
+        homepage: versionData.homepage,
+        license: Array.isArray(versionData.license) ? versionData.license.join(', ') : versionData.license,
+        author: versionData.authors?.[0]?.name,
+        keywords: versionData.keywords,
+        latestVersion,
+        versions,
+        weeklyDownloads: packageData.downloads?.monthly, // Packagist provides monthly, not weekly
+        dependencies: versionData.require,
+        devDependencies: versionData['require-dev'],
+      }
+    }
+    catch (error) {
+      this.logger.warn(`Failed to get Composer metadata for ${packageName}:`, error)
+      return undefined
+    }
+  }
+
+  /**
+   * Check if a Composer package exists in Packagist
+   */
+  async composerPackageExists(packageName: string): Promise<boolean> {
+    try {
+      const response = await fetch(`https://packagist.org/packages/${packageName}.json`)
+      return response.ok
+    }
+    catch {
+      return false
+    }
+  }
+
+  /**
+   * Get latest version of a Composer package from Packagist
+   */
+  async getComposerLatestVersion(packageName: string): Promise<string | null> {
+    try {
+      const response = await fetch(`https://packagist.org/packages/${packageName}.json`)
+
+      if (!response.ok) {
+        return null
+      }
+
+      const data = await response.json() as any
+      const packageData = data.package
+
+      if (!packageData?.versions) {
+        return null
+      }
+
+      // Get stable versions only (exclude dev, alpha, beta)
+      const versions = Object.keys(packageData.versions)
+      const stableVersions = versions.filter(v =>
+        !v.includes('dev')
+        && !v.includes('alpha')
+        && !v.includes('beta')
+        && !v.includes('rc'),
+      )
+
+      if (stableVersions.length === 0) {
+        return versions[0] || null
+      }
+
+      // Sort versions and get the latest stable
+      const sortedVersions = stableVersions.sort((a, b) => {
+        try {
+          // Use built-in version comparison if available
+          if (typeof Bun !== 'undefined' && Bun.semver) {
+            return Bun.semver.order(a, b)
+          }
+          // Fallback to string comparison
+          return a.localeCompare(b, undefined, { numeric: true })
+        }
+        catch {
+          return a.localeCompare(b)
+        }
+      })
+
+      return sortedVersions[sortedVersions.length - 1] || null
+    }
+    catch (error) {
+      this.logger.warn(`Failed to get latest Composer version for ${packageName}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Generate release notes URL for Composer packages
+   */
+  private getComposerReleaseNotesUrl(packageName: string, metadata?: PackageMetadata): string | undefined {
+    if (!metadata?.repository) {
+      return undefined
+    }
+
+    // Extract GitHub repo URL
+    const repoMatch = metadata.repository.match(/github\.com[/:]([^/]+\/[^/]+)/)
+    if (repoMatch) {
+      const repoPath = repoMatch[1].replace('.git', '')
+      return `https://github.com/${repoPath}/releases`
+    }
+
+    return undefined
+  }
+
+  /**
+   * Generate changelog URL for Composer packages
+   */
+  private getComposerChangelogUrl(packageName: string, metadata?: PackageMetadata): string | undefined {
+    if (!metadata?.repository) {
+      return undefined
+    }
+
+    // Extract GitHub repo URL
+    const repoMatch = metadata.repository.match(/github\.com[/:]([^/]+\/[^/]+)/)
+    if (repoMatch) {
+      const repoPath = repoMatch[1].replace('.git', '')
+      return `https://github.com/${repoPath}/blob/main/CHANGELOG.md`
+    }
+
+    return undefined
   }
 }

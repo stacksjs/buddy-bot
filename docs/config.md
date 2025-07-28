@@ -329,13 +329,18 @@ buddy-bot update
 
 ## Supported Dependency Types
 
-Buddy provides comprehensive dependency management across three categories:
+Buddy provides comprehensive dependency management across four categories:
 
 ### Package Dependencies
 
 #### npm Ecosystem
 - **package.json** - Traditional npm, Bun, yarn, pnpm dependencies
 - Managed via `bun outdated` for accurate version detection
+
+#### PHP/Composer Ecosystem
+- **composer.json** - PHP dependencies from Packagist
+- **composer.lock** - Lock file with exact versions
+- Managed via `composer outdated` and Packagist API integration
 
 #### pkgx/Launchpad Ecosystem
 - **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
@@ -370,11 +375,20 @@ steps:
 
 ### Configuration Examples
 
-#### Ignore Specific Actions
+#### Ignore Specific Packages
 ```typescript
 const config: BuddyBotConfig = {
   packages: {
     ignore: [
+      // npm packages
+      'react', // Keep React version stable
+      '@types/node', // Manual Node.js type updates
+
+      // Composer packages
+      'laravel/framework', // Skip Laravel updates
+      'php', // Platform requirement (auto-skipped)
+
+      // GitHub Actions
       'actions/checkout', // Skip action updates
       'oven-sh/setup-bun', // Keep specific version
     ],

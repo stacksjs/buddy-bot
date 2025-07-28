@@ -52,6 +52,15 @@ export class PackageScanner {
         }
       }
 
+      // Look for Composer files
+      const composerFiles = await this.findComposerFiles()
+      for (const filePath of composerFiles) {
+        const packageFile = await this.parseComposerFile(filePath)
+        if (packageFile) {
+          packageFiles.push(packageFile)
+        }
+      }
+
       // Look for GitHub Actions workflows
       const githubActionsFiles = await this.findGitHubActionsFiles()
       for (const filePath of githubActionsFiles) {
@@ -228,6 +237,45 @@ export class PackageScanner {
     }
     catch (_error) {
       this.logger.warn(`Failed to parse GitHub Actions file ${filePath}:`, _error)
+      return null
+    }
+  }
+
+  /**
+   * Find Composer files in the project
+   */
+  private async findComposerFiles(): Promise<string[]> {
+    const composerFiles: string[] = []
+
+    try {
+      // Look for composer.json files
+      const composerJsonFiles = await this.findFiles('composer.json')
+      composerFiles.push(...composerJsonFiles)
+
+      // Look for composer.lock files
+      const composerLockFiles = await this.findFiles('composer.lock')
+      composerFiles.push(...composerLockFiles)
+    }
+    catch {
+      // Ignore if composer files don't exist
+    }
+
+    return composerFiles
+  }
+
+  /**
+   * Parse a Composer file (composer.json or composer.lock)
+   */
+  async parseComposerFile(filePath: string): Promise<PackageFile | null> {
+    try {
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
+      const { parseComposerFile } = await import('../utils/composer-parser')
+      const result = await parseComposerFile(filePath, content)
+      return result
+    }
+    catch (_error) {
+      this.logger.warn(`Failed to parse Composer file ${filePath}:`, _error)
       return null
     }
   }

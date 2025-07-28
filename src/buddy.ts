@@ -452,6 +452,17 @@ export class Buddy {
       // Continue with package.json updates even if dependency file updates fail
     }
 
+    // Handle Composer updates
+    try {
+      const { generateComposerUpdates } = await import('./utils/composer-parser')
+      const composerUpdates = await generateComposerUpdates(updates)
+      fileUpdates.push(...composerUpdates)
+    }
+    catch (error) {
+      this.logger.error('Failed to generate Composer updates:', error)
+      // Continue with other updates even if Composer updates fail
+    }
+
     // Handle GitHub Actions updates
     try {
       const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')

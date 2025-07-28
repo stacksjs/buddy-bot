@@ -37,6 +37,8 @@ cli.usage(`[command] [options]
 
 🤖 Buddy Bot - Your companion dependency manager
 
+Supports npm, Bun, yarn, pnpm, Composer, pkgx, Launchpad, and GitHub Actions
+
 DEPENDENCY MANAGEMENT:
   setup         🚀 Interactive setup for automated updates (recommended)
   scan          🔍 Scan for dependency updates
@@ -61,11 +63,12 @@ CONFIGURATION & SETUP:
 
 Examples:
   buddy-bot setup                      # Interactive setup
-  buddy-bot scan --verbose             # Scan for updates
+  buddy-bot scan --verbose             # Scan for updates (npm + Composer)
   buddy-bot dashboard --pin            # Create pinned dashboard
   buddy-bot rebase 17                  # Rebase PR #17
   buddy-bot update-check               # Auto-rebase checked PRs
-  buddy-bot info react                 # Get package info
+  buddy-bot info laravel/framework     # Get Composer package info
+  buddy-bot info react                 # Get npm package info
   buddy-bot versions react --latest 5  # Show recent versions
   buddy-bot search "test framework"    # Search packages
   buddy-bot open-settings              # Open GitHub settings`)
@@ -430,7 +433,7 @@ cli
   .option('--ignore <names>', 'Comma-separated list of packages to ignore')
   .example('buddy-bot scan')
   .example('buddy-bot scan --verbose')
-  .example('buddy-bot scan --packages "react,typescript"')
+  .example('buddy-bot scan --packages "react,typescript,laravel/framework"')
   .example('buddy-bot scan --pattern "@types/*"')
   .example('buddy-bot scan --strategy minor')
   .action(async (options: CLIOptions) => {

@@ -56,11 +56,38 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+
       - name: Install dependencies
         run: bun install
 
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist --optimize-autoloader
+
       - name: Build buddy-bot
         run: bun run build
+
+      - name: Verify Composer setup
+        run: |
+          echo "🔍 Verifying Composer and PHP setup..."
+          php --version
+          composer --version
+          echo ""
+          echo "📦 Checking composer.json..."
+          if [ -f "composer.json" ]; then
+            echo "✅ composer.json found"
+            composer validate --no-check-all --strict
+            echo ""
+            echo "📋 Composer packages in composer.json:"
+            cat composer.json | jq -r '.require, ."require-dev" | to_entries[] | "\(.key): \(.value)"' 2>/dev/null || echo "Unable to parse with jq, showing raw content:"
+          else
+            echo "❌ composer.json not found"
+          fi
 
       - name: Display test configuration
         run: |

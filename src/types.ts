@@ -149,7 +149,7 @@ export interface PackageFile {
   /** File path relative to repository root */
   path: string
   /** Type of package file */
-  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml' | 'github-actions'
+  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml' | 'composer.json' | 'composer.lock' | 'github-actions'
   /** Raw file content */
   content: string
   /** Parsed dependencies */
@@ -162,7 +162,7 @@ export interface Dependency {
   /** Current version or range */
   currentVersion: string
   /** Dependency type */
-  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'github-actions'
+  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions'
   /** File where dependency is defined */
   file: string
   /** Line number in file */
@@ -179,7 +179,7 @@ export interface PackageUpdate {
   /** Update type */
   updateType: 'major' | 'minor' | 'patch'
   /** Dependency type */
-  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'github-actions'
+  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions'
   /** Source file */
   file: string
   /** Package metadata from registry */

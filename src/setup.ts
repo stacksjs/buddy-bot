@@ -50,7 +50,7 @@ export interface ValidationResult {
 
 export interface ProjectAnalysis {
   type: 'library' | 'application' | 'monorepo' | 'unknown'
-  packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun' | 'unknown'
+  packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun' | 'composer' | 'unknown'
   hasLockFile: boolean
   hasDependencyFiles: boolean
   hasGitHubActions: boolean
@@ -836,6 +836,10 @@ export async function analyzeProject(): Promise<ProjectAnalysis> {
     analysis.packageManager = 'npm'
     analysis.hasLockFile = true
   }
+  else if (fs.existsSync('composer.json')) {
+    analysis.packageManager = 'composer'
+    analysis.hasLockFile = fs.existsSync('composer.lock')
+  }
 
   // Check for dependency files (pkgx, Launchpad)
   const dependencyFiles = ['deps.yaml', 'deps.yml', 'dependencies.yaml', 'dependencies.yml', 'pkgx.yaml', 'pkgx.yml']
@@ -843,6 +847,17 @@ export async function analyzeProject(): Promise<ProjectAnalysis> {
 
   if (analysis.hasDependencyFiles) {
     analysis.recommendations.push('Dependency files detected. Multi-format support enabled.')
+  }
+
+  // Check for Composer files
+  const hasComposerJson = fs.existsSync('composer.json')
+  const hasComposerLock = fs.existsSync('composer.lock')
+
+  if (hasComposerJson) {
+    analysis.recommendations.push('Composer detected. PHP package updates will be included.')
+    if (!hasComposerLock) {
+      analysis.recommendations.push('Consider running "composer install" to generate composer.lock for better dependency tracking.')
+    }
   }
 
   // Check for existing GitHub Actions

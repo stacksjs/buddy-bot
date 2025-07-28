@@ -71,7 +71,10 @@ export class PullRequestGenerator {
 
     // Separate updates by type
     const packageJsonUpdates = group.updates.filter(update =>
-      update.file === 'package.json' || (!update.file.includes('.yaml') && !update.file.includes('.yml') && !update.file.includes('.github/workflows/')),
+      update.file === 'package.json',
+    )
+    const composerUpdates = group.updates.filter(update =>
+      update.file.endsWith('composer.json') || update.file.endsWith('composer.lock'),
     )
     const dependencyFileUpdates = group.updates.filter(update =>
       update.file.includes('.yaml') || update.file.includes('.yml'),
@@ -160,6 +163,32 @@ export class PullRequestGenerator {
         )
 
         body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
+      }
+
+      body += `\n`
+    }
+
+    // Composer packages table (simplified, without badges)
+    if (composerUpdates.length > 0) {
+      body += `### PHP/Composer Dependencies\n\n`
+      body += `| Package | Change | File | Status |\n`
+      body += `|---|---|---|---|\n`
+
+      for (const update of composerUpdates) {
+        // Generate package link to Packagist
+        const packageUrl = `https://packagist.org/packages/${encodeURIComponent(update.name)}`
+        const packageCell = `[${update.name}](${packageUrl})`
+
+        // Simple version change display
+        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+
+        // File reference
+        const fileName = update.file.split('/').pop() || update.file
+
+        // Status (simple)
+        const status = '✅ Available'
+
+        body += `| ${packageCell} | ${change} | ${fileName} | ${status} |\n`
       }
 
       body += `\n`
@@ -329,6 +358,15 @@ export class PullRequestGenerator {
       body += `</details>\n\n`
     }
 
+    // Process Composer updates with simple release notes
+    for (const update of composerUpdates) {
+      body += `<details>\n`
+      body += `<summary>${update.name}</summary>\n\n`
+      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+      body += `Visit [${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)}) on Packagist for more information.\n\n`
+      body += `</details>\n\n`
+    }
+
     // Process GitHub Actions updates with simple release notes (no duplicates)
     for (const update of uniqueGithubActionsUpdates) {
       body += `<details>\n`
@@ -341,7 +379,7 @@ export class PullRequestGenerator {
     body += `---\n\n`
 
     // Package statistics section (deduplicated)
-    if (packageInfos.size > 0 || dependencyOnlyUpdates.length > 0 || uniqueGithubActionsUpdates.length > 0) {
+    if (packageInfos.size > 0 || composerUpdates.length > 0 || dependencyOnlyUpdates.length > 0 || uniqueGithubActionsUpdates.length > 0) {
       body += `### 📊 Package Statistics\n\n`
 
       // Stats for package.json updates
@@ -351,6 +389,11 @@ export class PullRequestGenerator {
         if (info?.weeklyDownloads) {
           body += `- **${update.name}**: ${info.weeklyDownloads.toLocaleString()} weekly downloads\n`
         }
+      }
+
+      // Stats for Composer updates (simplified)
+      for (const update of composerUpdates) {
+        body += `- **${update.name}**: PHP package available on Packagist\n`
       }
 
       // Stats for dependency file updates (simplified, only for those not in package.json)

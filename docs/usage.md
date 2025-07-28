@@ -106,10 +106,12 @@ buddy-bot --version
 
 ## Supported File Types
 
-Buddy automatically detects and updates dependencies across three categories:
+Buddy automatically detects and updates dependencies across four categories:
 
 ### Package Dependencies
 - **package.json** - npm, Bun, yarn, pnpm dependencies
+- **composer.json** - PHP dependencies from Packagist
+- **composer.lock** - PHP lock file with exact versions
 - **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
 - **dependencies.yaml** / **dependencies.yml** - Alternative dependency format
 - **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
@@ -131,6 +133,7 @@ steps:
 
 ### Update Sources
 - **npm packages**: Uses `bun outdated` for accurate detection
+- **Composer packages**: Uses `composer outdated` and Packagist API
 - **pkgx/Launchpad packages**: Uses `ts-pkgx` library integration
 - **GitHub Actions**: Fetches latest releases via GitHub API
 
