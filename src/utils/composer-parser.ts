@@ -208,10 +208,10 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
       let composerContent = fs.readFileSync(filePath, 'utf-8')
 
       console.log(`🔍 [DEBUG] Reading ${filePath} for updates:`, fileUpdates_.map(u => u.name).join(', '))
-      
+
       // Parse to understand structure
       const composerData: ComposerPackage = JSON.parse(composerContent)
-      
+
       console.log(`📋 [DEBUG] Current versions in ${filePath}:`)
       if (composerData.require) {
         for (const [pkg, version] of Object.entries(composerData.require)) {
