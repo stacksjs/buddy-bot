@@ -1,0 +1,164 @@
+import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import { PullRequestGenerator } from '../src/pr/pr-generator'
+import type { UpdateGroup } from '../src/types'
+
+describe('Composer Non-Major PR', () => {
+  let prGenerator: PullRequestGenerator
+  
+  beforeEach(() => {
+    const mockConfig = {
+      repository: {
+        owner: 'test-owner',
+        name: 'test-repo',
+        baseBranch: 'main'
+      }
+    }
+    prGenerator = new PullRequestGenerator(mockConfig)
+  })
+
+  it('should include Composer updates in non-major grouped PR', async () => {
+    // Create a mixed non-major update group that includes Composer packages
+    const nonMajorGroup: UpdateGroup = {
+      name: 'Non-Major Updates',
+      updates: [
+        // npm packages
+        {
+          name: '@types/bun',
+          currentVersion: '1.2.17',
+          newVersion: '1.2.19',
+          updateType: 'patch',
+          dependencyType: 'devDependencies',
+          file: 'package.json'
+        },
+        {
+          name: 'cac',
+          currentVersion: '6.7.13', 
+          newVersion: '6.7.14',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'package.json'
+        },
+        // Composer packages (non-major)
+        {
+          name: 'monolog/monolog',
+          currentVersion: '3.7.0',
+          newVersion: '3.8.0',
+          updateType: 'minor',
+          dependencyType: 'require',
+          file: 'composer.json'
+        },
+        {
+          name: 'phpunit/phpunit',
+          currentVersion: '10.5.0',
+          newVersion: '10.5.2',
+          updateType: 'patch',
+          dependencyType: 'require-dev',
+          file: 'composer.json'
+        },
+        // GitHub Actions
+        {
+          name: 'actions/checkout',
+          currentVersion: 'v4',
+          newVersion: 'v4.2.2',
+          updateType: 'patch',
+          dependencyType: 'github-actions',
+          file: '.github/workflows/ci.yml'
+        }
+      ],
+      updateType: 'minor',
+      title: 'chore(deps): update all non-major dependencies',
+      body: ''
+    }
+
+    const prBody = await prGenerator.generateBody(nonMajorGroup)
+    
+    // Should include npm dependencies section
+    expect(prBody).toContain('### npm Dependencies')
+    expect(prBody).toContain('@types/bun')
+    expect(prBody).toContain('cac')
+    
+    // Should include Composer dependencies section
+    expect(prBody).toContain('### PHP/Composer Dependencies')
+    expect(prBody).toContain('monolog/monolog')
+    expect(prBody).toContain('phpunit/phpunit')
+    
+    // Should include GitHub Actions section
+    expect(prBody).toContain('### GitHub Actions')
+    expect(prBody).toContain('actions/checkout')
+    
+    // Verify Composer package links
+    expect(prBody).toContain('https://packagist.org/packages/monolog%2Fmonolog')
+    expect(prBody).toContain('https://packagist.org/packages/phpunit%2Fphpunit')
+    
+    // Verify version changes in Composer section
+    expect(prBody).toContain('`3.7.0` -> `3.8.0`')
+    expect(prBody).toContain('`10.5.0` -> `10.5.2`')
+  })
+
+  it('should handle non-major PR with only Composer updates', async () => {
+    // Test a non-major group with only Composer packages
+    const composerOnlyGroup: UpdateGroup = {
+      name: 'Non-Major Updates',
+      updates: [
+        {
+          name: 'psr/log',
+          currentVersion: '3.0.0',
+          newVersion: '3.0.2',
+          updateType: 'patch',
+          dependencyType: 'require',
+          file: 'composer.json'
+        }
+      ],
+      updateType: 'patch',
+      title: 'chore(deps): update all non-major dependencies',
+      body: ''
+    }
+
+    const prBody = await prGenerator.generateBody(composerOnlyGroup)
+    
+    // Should only have Composer section
+    expect(prBody).toContain('### PHP/Composer Dependencies')
+    expect(prBody).toContain('psr/log')
+    
+    // Should NOT have npm or GitHub Actions sections
+    expect(prBody).not.toContain('### npm Dependencies')
+    expect(prBody).not.toContain('### GitHub Actions')
+  })
+
+  it('should show correct status for require vs require-dev packages', async () => {
+    const mixedComposerGroup: UpdateGroup = {
+      name: 'Non-Major Updates', 
+      updates: [
+        {
+          name: 'symfony/http-foundation',
+          currentVersion: '6.4.0',
+          newVersion: '6.4.12',
+          updateType: 'patch',
+          dependencyType: 'require',
+          file: 'composer.json'
+        },
+        {
+          name: 'phpstan/phpstan',
+          currentVersion: '1.10.0',
+          newVersion: '1.12.0',
+          updateType: 'minor',
+          dependencyType: 'require-dev',
+          file: 'composer.json'
+        }
+      ],
+      updateType: 'minor',
+      title: 'chore(deps): update all non-major dependencies',
+      body: ''
+    }
+
+    const prBody = await prGenerator.generateBody(mixedComposerGroup)
+    
+    // Both should appear in Composer section
+    expect(prBody).toContain('symfony/http-foundation')
+    expect(prBody).toContain('phpstan/phpstan')
+    expect(prBody).toContain('### PHP/Composer Dependencies')
+    
+    // Should show file references
+    expect(prBody).toContain('composer.json')
+  })
+}) 

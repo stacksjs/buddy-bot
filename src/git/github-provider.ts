@@ -79,8 +79,10 @@ export class GitHubProvider implements GitProvider {
       // This prevents merge conflicts by starting with a clean slate
       console.log(`🔄 Resetting ${branchName} to main for clean rebase...`)
 
-      // Checkout main first
+      // Checkout main first and reset working directory to clean state
       await this.runCommand('git', ['checkout', 'main'])
+      await this.runCommand('git', ['reset', '--hard', 'HEAD'])
+      await this.runCommand('git', ['clean', '-fd'])
 
       // Reset the branch to main (delete and recreate)
       try {

@@ -191,11 +191,7 @@ export class Buddy {
           // Create branch
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
 
-          // Debug: Log what updates are being processed for this group
-          this.logger.info(`🔍 Processing group "${group.name}" with ${group.updates.length} updates:`)
-          group.updates.forEach((update, i) => {
-            this.logger.info(`  ${i + 1}. ${update.name} (${update.file}) ${update.currentVersion} -> ${update.newVersion}`)
-          })
+
 
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
