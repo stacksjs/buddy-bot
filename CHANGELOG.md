@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.2.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.2.0...main)
+
+### 🏡 Chore
+
+- Delete unused test file ([5376ec8](https://github.com/stacksjs/buddy-bot/commit/5376ec8))
+- Minor setup improvements ([30e05eb](https://github.com/stacksjs/buddy-bot/commit/30e05eb))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.1.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.1.0...main)
