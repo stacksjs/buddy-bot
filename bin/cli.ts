@@ -230,47 +230,13 @@ cli
       displayProgress(progress)
 
       console.log('\n🔑 GitHub Token Setup')
-      console.log('For full functionality, Buddy Bot needs a Personal Access Token (PAT).')
+      console.log('For full functionality, Buddy Bot needs appropriate GitHub permissions.')
       console.log('This enables workflow file updates and advanced GitHub Actions features.\n')
 
-      const tokenResponse = await prompts([
-        {
-          type: 'select',
-          name: 'tokenSetup',
-          message: 'Do you have a GitHub Personal Access Token with \'repo\' and \'workflow\' scopes?',
-          choices: [
-            {
-              title: 'Yes, I have a token ready',
-              description: 'I\'ll provide the token or set it up as a repository secret',
-              value: 'have-token',
-            },
-            {
-              title: 'No, guide me through creating one',
-              description: 'Show me how to create a Personal Access Token',
-              value: 'create-token',
-            },
-            {
-              title: 'Skip for now, use limited permissions',
-              description: 'Use GITHUB_TOKEN only (workflow updates won\'t work)',
-              value: 'skip-token',
-            },
-          ],
-        },
-      ])
+      const tokenSetup = await confirmTokenSetup()
 
-      if (!tokenResponse.tokenSetup) {
-        console.log('Setup cancelled.')
-        return
-      }
-
-      let hasCustomToken = false
-
-      if (tokenResponse.tokenSetup === 'create-token') {
+      if (tokenSetup.needsGuide) {
         await guideTokenCreation(repoInfo)
-        hasCustomToken = await confirmTokenSetup()
-      }
-      else if (tokenResponse.tokenSetup === 'have-token') {
-        hasCustomToken = await confirmTokenSetup()
       }
 
       // Step 3: Repository Settings
@@ -335,7 +301,7 @@ cli
       displayProgress(progress)
 
       console.log('\n📝 Configuration File')
-      await generateConfigFile(repoInfo, hasCustomToken)
+      await generateConfigFile(repoInfo, tokenSetup.hasCustomToken)
 
       // Step 6: Generate Workflows
       updateProgress(progress, 'Workflow Generation', true)
@@ -353,7 +319,7 @@ cli
       }
 
       // Generate the core workflows based on the provided templates
-      await generateCoreWorkflows(preset, repoInfo, hasCustomToken, logger)
+      await generateCoreWorkflows(preset, repoInfo, tokenSetup.hasCustomToken, logger)
 
       // Step 7: Workflow Validation
       updateProgress(progress, 'Workflow Validation', true)
@@ -400,7 +366,7 @@ cli
       displayProgress(progress)
 
       console.log('\n🎉 Setup Complete!')
-      await showFinalInstructions(repoInfo, hasCustomToken)
+      await showFinalInstructions(repoInfo, tokenSetup.hasCustomToken)
 
       // Execute plugin hooks for setup completion
       if (availablePlugins.length > 0) {

@@ -895,7 +895,7 @@ export function createProgressTracker(totalSteps: number): SetupProgress {
 }
 
 export function updateProgress(progress: SetupProgress, stepName: string, completed?: boolean): SetupProgress {
-  if (completed && !progress.completed.includes(progress.stepName)) {
+  if (completed && progress.stepName && !progress.completed.includes(progress.stepName)) {
     progress.completed.push(progress.stepName)
   }
 
@@ -908,11 +908,16 @@ export function updateProgress(progress: SetupProgress, stepName: string, comple
 }
 
 export function displayProgress(progress: SetupProgress): void {
-  const percentage = Math.round((progress.currentStep / progress.totalSteps) * 100)
-  const progressBar = '█'.repeat(Math.floor(percentage / 5)) + '░'.repeat(20 - Math.floor(percentage / 5))
+  // Ensure currentStep doesn't exceed totalSteps to prevent negative percentages
+  const currentStep = Math.min(progress.currentStep, progress.totalSteps)
+  const percentage = Math.round((currentStep / progress.totalSteps) * 100)
+
+  // Ensure the progress bar calculation is valid (0-20 range)
+  const progressBlocks = Math.max(0, Math.min(20, Math.floor(percentage / 5)))
+  const progressBar = '█'.repeat(progressBlocks) + '░'.repeat(20 - progressBlocks)
 
   console.log(`\n📊 Setup Progress: ${percentage}% [${progressBar}]`)
-  console.log(`🔄 Current Step: ${progress.stepName} (${progress.currentStep}/${progress.totalSteps})`)
+  console.log(`🔄 Current Step: ${progress.stepName} (${currentStep}/${progress.totalSteps})`)
 
   if (progress.completed.length > 0) {
     console.log(`✅ Completed: ${progress.completed.join(', ')}`)
@@ -937,30 +942,84 @@ export async function detectRepository(): Promise<RepositoryInfo | null> {
 }
 
 export async function guideTokenCreation(repoInfo: RepositoryInfo): Promise<void> {
-  console.log(`\n🔑 To create a Personal Access Token (PAT):`)
+  console.log(`\n🔑 Personal Access Token Setup Guide:`)
+  console.log(`\n📋 Step 1: Create the Token`)
   console.log(`1. Go to https://github.com/settings/tokens`)
-  console.log(`2. Click "Generate new token"`)
-  console.log(`3. Give it a name (e.g., "buddy-bot-token")`)
-  console.log(`4. Select scopes:`)
-  console.log(`   - ` + 'repo' + ` (Full control of private repositories)`)
-  console.log(`   - ` + 'workflow' + ` (Read and write permissions for GitHub Actions)`)
-  console.log(`5. Click "Generate token"`)
-  console.log(`6. Copy the token and set it as a repository secret:`)
-  console.log(`   - Go to your repository settings (https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/secrets/actions)`)
+  console.log(`2. Click "Generate new token (classic)"`)
+  console.log(`3. Give it a descriptive name (e.g., "buddy-bot-${repoInfo.name}")`)
+  console.log(`4. Set expiration (recommended: 90 days or custom)`)
+  console.log(`5. Select required scopes:`)
+  console.log(`   ✅ repo (Full control of private repositories)`)
+  console.log(`   ✅ workflow (Update GitHub Action workflows)`)
+  console.log(`6. Click "Generate token"`)
+  console.log(`7. ⚠️  Copy the token immediately (you won't see it again!)`)
+
+  console.log(`\n📋 Step 2: Configure the Secret`)
+  console.log(`Choose one of these options:`)
+  console.log(`\n🏢 Option A: Organization Secret (Recommended for multiple repos)`)
+  console.log(`   - Go to: https://github.com/organizations/${repoInfo.owner}/settings/secrets/actions`)
+  console.log(`   - Click "New organization secret"`)
+  console.log(`   - Name: BUDDY_BOT_TOKEN`)
+  console.log(`   - Value: your_generated_token`)
+  console.log(`   - Repository access: Selected repositories or All repositories`)
+
+  console.log(`\n📦 Option B: Repository Secret (For this repository only)`)
+  console.log(`   - Go to: https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/secrets/actions`)
   console.log(`   - Click "New repository secret"`)
-  console.log(`   - Name: ` + 'BUDDY_BOT_TOKEN' + `, Value: your_generated_token`)
+  console.log(`   - Name: BUDDY_BOT_TOKEN`)
+  console.log(`   - Value: your_generated_token`)
   console.log(`   - Click "Add secret"`)
-  console.log(`7. After adding the secret, Buddy Bot will use it for workflow updates.\n`)
+
+  console.log(`\n💡 The workflows will automatically use BUDDY_BOT_TOKEN if available, otherwise fall back to GITHUB_TOKEN`)
 }
 
-export async function confirmTokenSetup(): Promise<boolean> {
+export async function confirmTokenSetup(): Promise<{ hasCustomToken: boolean, needsGuide: boolean }> {
+  console.log('\n🔑 GitHub Token Configuration:')
+  console.log('Buddy Bot can work with:')
+  console.log('  • Organization secrets (GITHUB_TOKEN or custom PAT)')
+  console.log('  • Repository secrets (custom PAT)')
+  console.log('  • Default GITHUB_TOKEN (limited permissions)')
+  console.log('')
+
   const response = await prompts({
-    type: 'confirm',
-    name: 'useCustomToken',
-    message: 'Do you want to use a custom GitHub Personal Access Token (PAT) for workflow updates?',
-    initial: false,
+    type: 'select',
+    name: 'tokenChoice',
+    message: 'How would you like to configure GitHub authentication?',
+    choices: [
+      {
+        title: 'Use organization/repository secrets',
+        description: 'I have already configured PAT as an organization or repository secret',
+        value: 'existing-secret',
+      },
+      {
+        title: 'Set up a new Personal Access Token',
+        description: 'Guide me through creating and configuring a new PAT',
+        value: 'new-pat',
+      },
+      {
+        title: 'Use default GITHUB_TOKEN only',
+        description: 'Limited functionality - workflow updates won\'t work',
+        value: 'default-token',
+      },
+    ],
+    initial: 0,
   })
-  return response.useCustomToken
+
+  // Handle user cancellation
+  if (!response.tokenChoice) {
+    console.log('Using default GITHUB_TOKEN (limited functionality)')
+    return { hasCustomToken: false, needsGuide: false }
+  }
+
+  switch (response.tokenChoice) {
+    case 'existing-secret':
+      return { hasCustomToken: true, needsGuide: false }
+    case 'new-pat':
+      return { hasCustomToken: true, needsGuide: true }
+    case 'default-token':
+    default:
+      return { hasCustomToken: false, needsGuide: false }
+  }
 }
 
 export async function guideRepositorySettings(repoInfo: RepositoryInfo): Promise<void> {
@@ -974,40 +1033,48 @@ export async function guideRepositorySettings(repoInfo: RepositoryInfo): Promise
 }
 
 export async function generateConfigFile(repoInfo: RepositoryInfo, hasCustomToken: boolean): Promise<void> {
-  const configContent = JSON.stringify({
-    repository: {
-      owner: repoInfo.owner,
-      name: repoInfo.name,
-      provider: 'github' as const,
-      token: hasCustomToken ? undefined : process.env.GITHUB_TOKEN,
-    },
-    dashboard: {
-      enabled: true,
-      pin: false,
-      title: 'Dependency Updates Dashboard',
-      issueNumber: undefined,
-    },
-    workflows: {
-      enabled: true,
-      outputDir: '.github/workflows',
-      templates: {
-        daily: true,
-        weekly: true,
-        monthly: true,
-      },
-      custom: [],
-    },
-    packages: {
-      strategy: 'all',
-      ignore: [],
-    },
-    verbose: false,
-  }, null, 2)
+  const configContent = `import type { BuddyBotConfig } from 'buddy-bot'
 
-  const configPath = 'buddy-bot.config.json'
+const config: BuddyBotConfig = {
+  repository: {
+    owner: '${repoInfo.owner}',
+    name: '${repoInfo.name}',
+    provider: 'github',
+    ${hasCustomToken ? '// token: process.env.BUDDY_BOT_TOKEN,' : '// Uses GITHUB_TOKEN by default'}
+  },
+  dashboard: {
+    enabled: true,
+    title: 'Dependency Updates Dashboard',
+    // issueNumber: undefined, // Auto-generated
+  },
+  workflows: {
+    enabled: true,
+    outputDir: '.github/workflows',
+    templates: {
+      daily: true,
+      weekly: true,
+      monthly: true,
+    },
+    custom: [],
+  },
+  packages: {
+    strategy: 'all',
+    ignore: [
+      // Add packages to ignore here
+      // Example: '@types/node', 'eslint'
+    ],
+  },
+  verbose: false,
+}
+
+export default config
+`
+
+  const configPath = 'buddy-bot.config.ts'
   fs.writeFileSync(configPath, configContent)
   console.log(`✅ Created ${configPath} with your repository settings.`)
-  console.log(`💡 You can edit this file to customize Buddy Bot's behavior.\n`)
+  console.log(`💡 You can edit this file to customize Buddy Bot's behavior.`)
+  console.log(`🔧 The TypeScript config provides better IntelliSense and type safety.\n`)
 }
 
 /**
@@ -1770,26 +1837,27 @@ export async function showFinalInstructions(repoInfo: RepositoryInfo, hasCustomT
   console.log(`   - buddy-dashboard.yml (Dependency Dashboard Management)`)
   console.log(`   - buddy-update-check.yml (Auto-rebase PR checker)`)
   console.log(`   - buddy-update.yml (Scheduled dependency updates)`)
-  console.log(`📁 Configuration file: buddy-bot.config.json`)
+  console.log(`📁 Configuration file: buddy-bot.config.ts`)
 
   console.log(`\n🚀 Next Steps:`)
   console.log(`1. Review and commit the generated workflow files`)
-  console.log(`   git add .github/workflows/ buddy-bot.config.json`)
+  console.log(`   git add .github/workflows/ buddy-bot.config.ts`)
   console.log(`   git commit -m "Add Buddy Bot dependency management workflows"`)
   console.log(`   git push`)
 
   if (hasCustomToken) {
-    console.log(`\n2. 🔑 Set up your Personal Access Token:`)
-    console.log(`   - Go to: https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/secrets/actions`)
-    console.log(`   - Click "New repository secret"`)
-    console.log(`   - Name: BUDDY_BOT_TOKEN`)
-    console.log(`   - Value: your_personal_access_token`)
-    console.log(`   - Click "Add secret"`)
+    console.log(`\n2. 🔑 Complete your token setup:`)
+    console.log(`   ✅ Your Personal Access Token should be configured as:`)
+    console.log(`      • Organization secret: BUDDY_BOT_TOKEN (recommended), or`)
+    console.log(`      • Repository secret: BUDDY_BOT_TOKEN`)
+    console.log(`   💡 The workflows will automatically detect and use your token`)
   }
   else {
-    console.log(`\n2. ✅ Using default GITHUB_TOKEN (limited functionality)`)
-    console.log(`   - Workflow file updates won't work`)
-    console.log(`   - Consider upgrading to a Personal Access Token later`)
+    console.log(`\n2. ⚠️  Using default GITHUB_TOKEN (limited functionality):`)
+    console.log(`   • Dependency updates: ✅ Will work`)
+    console.log(`   • Dashboard creation: ✅ Will work`)
+    console.log(`   • Workflow file updates: ❌ Won't work`)
+    console.log(`   💡 Consider setting up a Personal Access Token later for full functionality`)
   }
 
   console.log(`\n3. 🔧 Configure repository permissions:`)
@@ -1799,6 +1867,8 @@ export async function showFinalInstructions(repoInfo: RepositoryInfo, hasCustomT
   console.log(`     ✅ Check "Allow GitHub Actions to create and approve pull requests"`)
   console.log(`   - Click "Save"`)
 
-  console.log(`\n💡 Your workflows will now run automatically!`)
+  console.log(`\n🎉 Setup Complete!`)
+  console.log(`💡 Your workflows will now run automatically on schedule!`)
+  console.log(`📊 First dashboard update will appear within 24 hours`)
   console.log(`🔗 Learn more: https://docs.github.com/en/actions`)
 }
