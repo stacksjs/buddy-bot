@@ -111,6 +111,9 @@ export class PullRequestGenerator {
     // Fetch package information for package.json updates only
     const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
 
+    // Fetch Composer package information
+    const composerPackageInfos = new Map<string, PackageInfo>()
+
     // Package.json updates table (with full badges)
     if (packageJsonUpdates.length > 0) {
       body += `### npm Dependencies\n\n`
@@ -177,33 +180,49 @@ export class PullRequestGenerator {
       body += `\n`
     }
 
-    // Composer dependencies table (simplified, without badges)
+    // Composer dependencies table (with full badges like npm)
     if (uniqueComposerUpdates.length > 0) {
+      // Fetch Composer package information first
+      for (const update of uniqueComposerUpdates) {
+        try {
+          const packageInfo = await this.releaseNotesFetcher.fetchComposerPackageInfo(update.name)
+          composerPackageInfos.set(update.name, packageInfo)
+        }
+        catch (error) {
+          console.warn(`Failed to fetch Composer info for ${update.name}:`, error)
+        }
+      }
+
       body += `### PHP/Composer Dependencies\n\n`
-      body += `| Package | Change | File | Status |\n`
-      body += `|---|---|---|---|\n`
+      body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
+      body += `|---|---|---|---|---|---|\n`
 
       for (const update of uniqueComposerUpdates) {
-        // Generate enhanced package link with source repository (like npm packages)
+        const packageInfo = composerPackageInfos.get(update.name) || { name: update.name }
+
+        // Generate enhanced package link to match npm format exactly
         let packageCell: string
-        if (update.metadata?.repository) {
-          const sourceUrl = this.getComposerSourceUrl(update.metadata.repository, update.name)
-          packageCell = `[${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)}) ([source](${sourceUrl}))`
+        if (packageInfo.repository?.url) {
+          const sourceUrl = this.getComposerSourceUrl(packageInfo.repository.url, update.name)
+          // Format: [packageName](repoUrl) ([source](sourceUrl)) - matching npm format
+          packageCell = `[${update.name}](${sourceUrl}) ([source](${sourceUrl}))`
         } else {
           // Fallback to Packagist page only
           packageCell = `[${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)})`
         }
 
-        // Simple version change display
-        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+        // Generate version change with diff link (Renovate style, similar to npm)
+        const diffUrl = `https://renovatebot.com/diffs/packagist/${encodeURIComponent(update.name)}/${update.currentVersion}/${update.newVersion}`
+        const change = `[\`${update.currentVersion}\` -> \`${update.newVersion}\`](${diffUrl})`
 
-        // File reference
-        const fileName = update.file.split('/').pop() || update.file
+        // Generate Composer confidence badges
+        const badges = this.releaseNotesFetcher.generateComposerBadges(
+          packageInfo,
+          update.currentVersion,
+          update.newVersion,
+        )
 
-        // Status (simple)
-        const status = '✅ Available'
-
-        body += `| ${packageCell} | ${change} | ${fileName} | ${status} |\n`
+        body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
       }
 
       body += `\n`

@@ -158,8 +158,8 @@ describe('Composer Non-Major PR', () => {
     expect(prBody).toContain('phpstan/phpstan')
     expect(prBody).toContain('### PHP/Composer Dependencies')
 
-    // Should show file references
-    expect(prBody).toContain('composer.json')
+    // Should have the same format as npm dependencies (no file column)
+    expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
   })
 
   it('should deduplicate composer packages and show enhanced links', async () => {
@@ -221,5 +221,44 @@ describe('Composer Non-Major PR', () => {
 
     // Should still show phpunit
     expect(prBody).toContain('phpunit/phpunit')
+  })
+
+  it('should format links exactly like npm packages', async () => {
+    const testGroup: UpdateGroup = {
+      name: 'Non-Major Updates',
+      updates: [
+        {
+          name: 'monolog/monolog',
+          currentVersion: '3.7.0',
+          newVersion: '3.8.0',
+          updateType: 'minor',
+          dependencyType: 'require',
+          file: 'composer.json',
+          metadata: {
+            name: 'monolog/monolog',
+            repository: 'https://github.com/Seldaek/monolog',
+            description: 'Sends your logs to files, sockets, inboxes, databases and various web services'
+          }
+        },
+      ],
+      updateType: 'minor',
+      title: 'chore(deps): update all non-major dependencies',
+      body: '',
+    }
+
+    const prBody = await prGenerator.generateBody(testGroup)
+
+    // Should format like npm: [packageName](repoUrl) ([source](sourceUrl))
+    expect(prBody).toContain('[monolog/monolog](https://github.com/Seldaek/monolog/tree/master) ([source](https://github.com/Seldaek/monolog/tree/master))')
+    
+    // Should have the same columns as npm dependencies
+    expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
+    expect(prBody).toContain('|---|---|---|---|---|---|')
+    
+    // Should have confidence badges
+    expect(prBody).toContain('[![age](https://developer.mend.io/api/mc/badges/age/packagist/')
+    expect(prBody).toContain('[![adoption](https://developer.mend.io/api/mc/badges/adoption/packagist/')
+    expect(prBody).toContain('[![passing](https://developer.mend.io/api/mc/badges/compatibility/packagist/')
+    expect(prBody).toContain('[![confidence](https://developer.mend.io/api/mc/badges/confidence/packagist/')
   })
 })
