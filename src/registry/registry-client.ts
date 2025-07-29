@@ -557,53 +557,78 @@ export class RegistryClient {
    * Get outdated Composer packages
    */
   async getComposerOutdatedPackages(): Promise<PackageUpdate[]> {
-    try {
-      // Check if composer is available
-      await this.runCommand('composer', ['--version'])
-    }
-    catch {
-      this.logger.warn('Composer not found, skipping Composer package updates')
-      return []
-    }
+    this.logger.info('Checking for outdated Composer packages...')
+    const updates: PackageUpdate[] = []
 
     try {
-      // Use composer outdated to get all available updates, then filter based on version constraints
-      const output = await this.runCommand('composer', ['outdated', '--format=json', '--direct'])
-      const composerData = JSON.parse(output)
-
-      const updates: PackageUpdate[] = []
-
-      // Read composer.json to determine dependency types
-      let composerJsonData: { 'require'?: Record<string, string>, 'require-dev'?: Record<string, string> } = {}
+      // First check if composer is available
+      console.log('🔍 Checking Composer availability...')
       try {
-        const fs = await import('node:fs')
-        const path = await import('node:path')
-        const composerJsonPath = path.join(this.projectPath, 'composer.json')
-        if (fs.existsSync(composerJsonPath)) {
-          const composerContent = fs.readFileSync(composerJsonPath, 'utf-8')
-          composerJsonData = JSON.parse(composerContent)
-        }
+        const composerVersion = await this.runCommand('composer', ['--version'])
+        console.log('✅ Composer version:', composerVersion.split('\n')[0])
       }
       catch (error) {
-        this.logger.warn('Failed to read composer.json for dependency type detection:', error)
+        console.log('❌ Composer not available:', error)
+        this.logger.warn('Composer not found, skipping Composer package updates')
+        return []
+      }
+
+      // First, let's log what composer.json contains
+      const composerJsonPath = path.join(process.cwd(), 'composer.json')
+      console.log(`🔍 Reading composer.json from: ${composerJsonPath}`)
+      
+      if (!fs.existsSync(composerJsonPath)) {
+        console.log('❌ composer.json not found')
+        return []
+      }
+
+      const composerJsonContent = fs.readFileSync(composerJsonPath, 'utf8')
+      const composerJsonData = JSON.parse(composerJsonContent)
+      
+      console.log('📦 composer.json require packages:', Object.keys(composerJsonData.require || {}))
+      console.log('📦 composer.json require-dev packages:', Object.keys(composerJsonData['require-dev'] || {}))
+
+      // Run composer outdated to get available updates
+      console.log('🔍 Running composer outdated...')
+      const composerOutput = await this.runCommand('composer', ['outdated', '--format=json'])
+      console.log('📊 Raw composer outdated output length:', composerOutput.length)
+      
+      let composerData: any
+      try {
+        composerData = JSON.parse(composerOutput)
+        console.log(`📋 Composer outdated found ${composerData.installed?.length || 0} packages`)
+      }
+      catch (parseError) {
+        console.log('❌ Failed to parse composer outdated JSON:', parseError)
+        console.log('Raw output:', composerOutput.substring(0, 500))
+        return []
       }
 
       // Parse composer outdated output and find multiple update paths per package
       if (composerData.installed) {
+        console.log('🔄 Processing outdated packages...')
         for (const pkg of composerData.installed) {
+          console.log(`\n📦 Processing package: ${pkg.name}`)
+          console.log(`   Current version: ${pkg.version}`)
+          console.log(`   Latest version: ${pkg.latest}`)
+          
           if (pkg.name && pkg.version && pkg.latest) {
             // Get the version constraint from composer.json
             const requireConstraint = composerJsonData.require?.[pkg.name]
             const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
             const constraint = requireConstraint || requireDevConstraint
 
+            console.log(`   Constraint: ${constraint || 'NOT FOUND'}`)
+
             if (!constraint) {
+              console.log(`   ⚠️  Skipping ${pkg.name} - not found in composer.json`)
               continue // Skip packages not found in composer.json
             }
 
             // Skip ignored packages
             const ignoredPackages = this.config?.packages?.ignore || []
             if (ignoredPackages.includes(pkg.name)) {
+              console.log(`   ⚠️  Skipping ${pkg.name} - in ignore list`)
               continue
             }
 
@@ -612,6 +637,7 @@ export class RegistryClient {
             if (composerJsonData['require-dev'] && composerJsonData['require-dev'][pkg.name]) {
               dependencyType = 'require-dev'
             }
+            console.log(`   Dependency type: ${dependencyType}`)
 
             // Get additional metadata for the package
             const metadata = await this.getComposerPackageMetadata(pkg.name)
@@ -619,43 +645,53 @@ export class RegistryClient {
             // Find multiple update paths: patch, minor, and major
             // Extract the base version from the constraint (e.g., "^3.0" -> "3.0.0")
             const constraintBaseVersion = this.extractConstraintBaseVersion(constraint)
-
+            console.log(`   Constraint base version: ${constraintBaseVersion}`)
+            
             // Always use constraint base version for consistent detection across environments
             // This ensures we detect updates based on composer.json constraints, not installed versions
             if (!constraintBaseVersion) {
-              console.warn(`Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
+              console.warn(`❌ Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
               continue
             }
-
+            
             const currentVersion = constraintBaseVersion
             const latestVersion = pkg.latest
+            console.log(`   Using current version: ${currentVersion} (from constraint)`)
+            console.log(`   Target latest version: ${latestVersion}`)
 
             // Get all available versions by querying composer show
             let availableVersions: string[] = []
             try {
+              console.log(`   🔍 Getting available versions for ${pkg.name}...`)
               const showOutput = await this.runCommand('composer', ['show', pkg.name, '--available', '--format=json'])
               const showData = JSON.parse(showOutput)
               if (showData.versions) {
                 availableVersions = showData.versions // This is already an array of version strings
+                console.log(`   📋 Found ${availableVersions.length} available versions`)
               }
             }
             catch (error) {
-              console.warn(`Failed to get available versions for ${pkg.name}, using latest only:`, error)
+              console.warn(`❌ Failed to get available versions for ${pkg.name}, using latest only:`, error)
               availableVersions = [latestVersion]
             }
 
             // Find the best constraint updates (e.g., ^3.0 -> ^3.9.0)
+            console.log(`   🎯 Finding best constraint updates...`)
             const updateCandidates = await this.findBestConstraintUpdates(constraint, availableVersions, currentVersion)
+            console.log(`   📊 Found ${updateCandidates.length} update candidates`)
 
             for (const candidate of updateCandidates) {
               const updateType = getUpdateType(currentVersion, candidate.version)
+              console.log(`   📈 Update candidate: ${currentVersion} → ${candidate.version} (${updateType})`)
 
               // Check if this update type should be excluded
               const excludeMajor = this.config?.packages?.excludeMajor ?? false
               if (excludeMajor && updateType === 'major') {
+                console.log(`   ⚠️  Skipping major update for ${pkg.name} - excludeMajor is true`)
                 continue
               }
 
+              console.log(`   ✅ Adding update: ${pkg.name} ${currentVersion} → ${candidate.version}`)
               updates.push({
                 name: pkg.name,
                 currentVersion,
@@ -673,6 +709,7 @@ export class RegistryClient {
         }
       }
 
+      console.log(`✅ Final result: Found ${updates.length} Composer package updates`)
       this.logger.success(`Found ${updates.length} Composer package updates`)
       return updates
     }
