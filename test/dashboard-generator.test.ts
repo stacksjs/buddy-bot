@@ -58,6 +58,35 @@ describe('DashboardGenerator', () => {
       expect(result.body).toContain('The following updates have all been created')
     })
 
+    it('should include rebase all open PRs checkbox when PRs exist', () => {
+      const dataWithPRs: DashboardData = {
+        ...mockDashboardData,
+        openPRs: [
+          {
+            number: 123,
+            title: 'chore(deps): update dependency react to v18',
+            body: 'Test PR body',
+            head: 'update-react',
+            base: 'main',
+            state: 'open',
+            url: 'https://github.com/test-owner/test-repo/pull/123',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            author: 'buddy-bot',
+            reviewers: [],
+            assignees: [],
+            labels: ['dependencies'],
+            draft: false,
+          },
+        ],
+      }
+
+      const result = generator.generateDashboard(dataWithPRs)
+
+      expect(result.body).toContain('<!-- rebase-all-open-prs -->')
+      expect(result.body).toContain('**Click on this checkbox to rebase all open PRs at once**')
+    })
+
     it('should skip sections when showOpenPRs or showDetectedDependencies is false', () => {
       const dataWithPRs: DashboardData = {
         ...mockDashboardData,
@@ -612,6 +641,68 @@ Updated several packages including \`@stacksjs/eslint-config\`, \`@types/bun\`, 
         expect(result.body).toContain('`ts-pkgx ^0.4.4`')
       })
     })
+
+    describe('composer dependencies', () => {
+      it('should display composer.json dependencies in dedicated composer section', () => {
+        const composerFile: PackageFile = {
+          path: 'composer.json',
+          type: 'composer.json',
+          content: 'composer content',
+          dependencies: [
+            {
+              name: 'laravel/framework',
+              currentVersion: '^10.0',
+              type: 'require',
+              file: 'composer.json',
+            },
+            {
+              name: 'phpunit/phpunit',
+              currentVersion: '^10.0',
+              type: 'require-dev',
+              file: 'composer.json',
+            },
+          ],
+        }
+
+        const vendorComposerFile: PackageFile = {
+          path: 'vendor/symfony/console/composer.json',
+          type: 'composer.json',
+          content: 'vendor composer content',
+          dependencies: [
+            {
+              name: 'symfony/polyfill-mbstring',
+              currentVersion: '~1.0',
+              type: 'require',
+              file: 'vendor/symfony/console/composer.json',
+            },
+          ],
+        }
+
+        const dashboardData: DashboardData = {
+          repository: { owner: 'test-owner', name: 'test-repo', provider: 'github' },
+          openPRs: [],
+          detectedDependencies: {
+            packageJson: [],
+            dependencyFiles: [composerFile, vendorComposerFile],
+            githubActions: [],
+          },
+          lastUpdated: new Date(),
+        }
+
+        const result = generator.generateDashboard(dashboardData)
+
+        // Should have dedicated composer section for root composer.json
+        expect(result.body).toContain('<details><summary>composer</summary>')
+        expect(result.body).toContain('<details><summary>composer.json</summary>')
+        expect(result.body).toContain('`laravel/framework ^10.0`')
+        expect(result.body).toContain('`phpunit/phpunit ^10.0`')
+
+        // Vendor composer files should still be in dependency-files section
+        expect(result.body).toContain('<details><summary>dependency-files</summary>')
+        expect(result.body).toContain('<details><summary>vendor/symfony/console/composer.json</summary>')
+        expect(result.body).toContain('`symfony/polyfill-mbstring ~1.0`')
+      })
+    })
   })
 
   describe('template application', () => {
@@ -666,5 +757,52 @@ Dependency files: {{detectedDependencies.dependencyFiles.count}}
       expect(result.body).toContain('GitHub Actions files: 0')
       expect(result.body).toContain('Dependency files: 1')
     })
+  })
+
+  it('should extract package names from Renovate PR title formats', () => {
+    const mockPRs: PullRequest[] = [
+      {
+        number: 31,
+        title: 'chore(deps): update require-dev phpunit/phpunit to v12',
+        body: 'Updates phpunit...',
+        head: 'renovate/phpunit-phpunit-12.x',
+        base: 'main',
+        state: 'open',
+        url: 'https://github.com/test/repo/pull/31',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        author: 'renovate[bot]',
+        reviewers: [],
+        assignees: [],
+        labels: ['dependencies'],
+        draft: false,
+      },
+      {
+        number: 28,
+        title: 'chore(deps): update require symfony/console to v7',
+        body: 'Updates symfony/console...',
+        head: 'renovate/symfony-console-7.x',
+        base: 'main',
+        state: 'open',
+        url: 'https://github.com/test/repo/pull/28',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        author: 'renovate[bot]',
+        reviewers: [],
+        assignees: [],
+        labels: ['dependencies'],
+        draft: false,
+      },
+    ]
+
+    const section = generator['generateOpenPRsSection'](mockPRs)
+
+    // Should extract package names from Renovate titles
+    expect(section).toContain('(`phpunit/phpunit`)')
+    expect(section).toContain('(`symfony/console`)')
+
+    // Should include rebase branch comments
+    expect(section).toContain('<!-- rebase-branch=renovate/phpunit-phpunit-12.x -->')
+    expect(section).toContain('<!-- rebase-branch=renovate/symfony-console-7.x -->')
   })
 })

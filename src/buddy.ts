@@ -151,7 +151,11 @@ export class Buddy {
             (pr.title === prTitle
               || pr.head.startsWith(branchPattern)
               || this.isSimilarPRTitle(pr.title, prTitle))
-            && (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/')),
+            && (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/'))
+            && !pr.head.includes('renovate/') // Exclude Renovate PRs
+            && !pr.head.includes('dependabot/') // Exclude Dependabot PRs
+            && !pr.author.toLowerCase().includes('renovate') // Exclude Renovate bot
+            && !pr.author.toLowerCase().includes('dependabot'), // Exclude Dependabot bot
           )
 
           if (existingPR) {
@@ -658,6 +662,18 @@ export class Buddy {
       return true
     }
 
+    // For major updates, be very specific - only match if it's the exact same package and version
+    if (newTitle.toLowerCase().includes('update dependency ')) {
+      // Extract package name from titles like "chore(deps): update dependency package-name to v1.0"
+      const newPackageMatch = newTitle.match(/update dependency ([^\s]+)/i)
+      const existingPackageMatch = existingTitle.match(/update dependency ([^\s]+)/i)
+
+      if (newPackageMatch && existingPackageMatch) {
+        // Only similar if same package name
+        return newPackageMatch[1] === existingPackageMatch[1]
+      }
+    }
+
     // Don't match different update types (major vs non-major, individual vs grouped)
     const existingLower = existingTitle.toLowerCase()
     const newLower = newTitle.toLowerCase()
@@ -871,17 +887,22 @@ export class Buddy {
       gitProvider.getPullRequests('open'),
     ])
 
-    // Filter PRs to only include dependency updates (likely created by buddy-bot)
+    // Filter PRs to include all dependency updates (from any source: buddy-bot, renovate, etc.)
     const dependencyPRs = openPRs.filter(pr =>
-      // Exclude Renovate PRs
-      !pr.author.toLowerCase().includes('renovate')
-      && !pr.head.includes('renovate/')
-      && !pr.title.toLowerCase().includes('renovate')
-      && (
-        pr.labels.includes('dependencies')
-        || pr.title.toLowerCase().includes('update')
-        || pr.title.toLowerCase().includes('chore(deps)')
-      ),
+      // Include any PR that appears to be a dependency update
+      pr.labels.includes('dependencies')
+      || pr.labels.includes('dependency')
+      || pr.labels.includes('deps')
+      || pr.title.toLowerCase().includes('update')
+      || pr.title.toLowerCase().includes('chore(deps)')
+      || pr.title.toLowerCase().includes('bump')
+      || pr.title.toLowerCase().includes('upgrade')
+      || pr.title.toLowerCase().includes('renovate')
+      || pr.head.includes('renovate/')
+      || pr.head.includes('dependabot/')
+      || pr.head.includes('buddy-bot/')
+      || pr.head.includes('update-')
+      || pr.head.includes('bump-')
     )
 
     // Categorize package files
