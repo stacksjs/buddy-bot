@@ -84,15 +84,6 @@ export class Buddy {
         ? this.groupUpdatesByConfig(updates)
         : groupUpdates(updates)
 
-      // Debug logging for group composition
-      console.log(`🐛 DEBUG: Created ${groups.length} update groups:`)
-      groups.forEach(group => {
-        console.log(`🐛   Group: "${group.name}" (${group.updateType}) - ${group.updates.length} updates`)
-        group.updates.forEach(update => {
-          console.log(`🐛     - ${update.name}: ${update.currentVersion} -> ${update.newVersion} (${update.file})`)
-        })
-      })
-
       const scanDuration = Date.now() - startTime
 
       const result: UpdateScanResult = {
@@ -502,14 +493,8 @@ export class Buddy {
     if (composerUpdates.length > 0) {
       try {
         const { generateComposerUpdates } = await import('./utils/composer-parser')
-        // Debug logging to see what composer updates are being passed
-        console.log(`🐛 DEBUG: Passing ${composerUpdates.length} composer updates to parser:`)
-        composerUpdates.forEach(update => {
-          console.log(`🐛   - ${update.name}: ${update.currentVersion} -> ${update.newVersion}`)
-        })
         // Pass only the composer updates for this specific group to prevent cross-contamination
         const compUpdates = await generateComposerUpdates(composerUpdates)
-        console.log(`🐛 DEBUG: Composer parser returned ${compUpdates.length} file updates`)
         fileUpdates.push(...compUpdates)
       }
       catch (error) {
