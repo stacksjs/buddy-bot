@@ -576,7 +576,7 @@ export class RegistryClient {
       // First, let's log what composer.json contains
       const composerJsonPath = path.join(process.cwd(), 'composer.json')
       console.log(`🔍 Reading composer.json from: ${composerJsonPath}`)
-      
+
       if (!fs.existsSync(composerJsonPath)) {
         console.log('❌ composer.json not found')
         return []
@@ -584,15 +584,15 @@ export class RegistryClient {
 
       const composerJsonContent = fs.readFileSync(composerJsonPath, 'utf8')
       const composerJsonData = JSON.parse(composerJsonContent)
-      
+
       console.log('📦 composer.json require packages:', Object.keys(composerJsonData.require || {}))
       console.log('📦 composer.json require-dev packages:', Object.keys(composerJsonData['require-dev'] || {}))
 
-      // Run composer outdated to get available updates
-      console.log('🔍 Running composer outdated...')
+      // Run composer outdated to get available updates (including require-dev packages)
+      console.log('🔍 Running composer outdated (including dev dependencies)...')
       const composerOutput = await this.runCommand('composer', ['outdated', '--format=json'])
       console.log('📊 Raw composer outdated output length:', composerOutput.length)
-      
+
       let composerData: any
       try {
         composerData = JSON.parse(composerOutput)
@@ -611,7 +611,7 @@ export class RegistryClient {
           console.log(`\n📦 Processing package: ${pkg.name}`)
           console.log(`   Current version: ${pkg.version}`)
           console.log(`   Latest version: ${pkg.latest}`)
-          
+
           if (pkg.name && pkg.version && pkg.latest) {
             // Get the version constraint from composer.json
             const requireConstraint = composerJsonData.require?.[pkg.name]
@@ -646,14 +646,14 @@ export class RegistryClient {
             // Extract the base version from the constraint (e.g., "^3.0" -> "3.0.0")
             const constraintBaseVersion = this.extractConstraintBaseVersion(constraint)
             console.log(`   Constraint base version: ${constraintBaseVersion}`)
-            
+
             // Always use constraint base version for consistent detection across environments
             // This ensures we detect updates based on composer.json constraints, not installed versions
             if (!constraintBaseVersion) {
               console.warn(`❌ Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
               continue
             }
-            
+
             const currentVersion = constraintBaseVersion
             const latestVersion = pkg.latest
             console.log(`   Using current version: ${currentVersion} (from constraint)`)

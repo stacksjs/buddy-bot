@@ -69,7 +69,7 @@ jobs:
 
       - name: Install Composer dependencies (if needed)
         if: ${{ hashFiles('composer.json') != '' }}
-        run: composer install --no-dev --prefer-dist --optimize-autoloader
+        run: composer install --prefer-dist --optimize-autoloader
 
       - name: Build buddy-bot
         run: bun run build
