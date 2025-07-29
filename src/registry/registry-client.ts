@@ -619,7 +619,7 @@ export class RegistryClient {
             // Find multiple update paths: patch, minor, and major
             const currentVersion = pkg.version
             const latestVersion = pkg.latest
-            
+
             // Get all available versions by querying composer show
             let availableVersions: string[] = []
             try {
@@ -677,7 +677,7 @@ export class RegistryClient {
   private async findBestUpdates(currentVersion: string, availableVersions: string[], constraint: string): Promise<{ version: string, type: 'patch' | 'minor' | 'major' }[]> {
     const { getUpdateType } = await import('../utils/helpers')
     const candidates: { version: string, type: 'patch' | 'minor' | 'major' }[] = []
-    
+
     // Parse current version
     const currentParts = this.parseVersion(currentVersion)
     if (!currentParts) return []
@@ -733,11 +733,11 @@ export class RegistryClient {
     // Remove 'v' prefix and any pre-release identifiers
     const cleanVersion = version.replace(/^v/, '').split('-')[0].split('+')[0]
     const parts = cleanVersion.split('.').map(p => parseInt(p, 10))
-    
+
     if (parts.length < 2 || parts.some(p => isNaN(p))) {
       return null
     }
-    
+
     return {
       major: parts[0] || 0,
       minor: parts[1] || 0,
@@ -752,9 +752,9 @@ export class RegistryClient {
   private compareVersions(a: string, b: string): number {
     const parseA = this.parseVersion(a)
     const parseB = this.parseVersion(b)
-    
+
     if (!parseA || !parseB) return 0
-    
+
     if (parseA.major !== parseB.major) return parseA.major - parseB.major
     if (parseA.minor !== parseB.minor) return parseA.minor - parseB.minor
     return parseA.patch - parseB.patch
