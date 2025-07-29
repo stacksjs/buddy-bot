@@ -214,7 +214,7 @@ export class Buddy {
                 child.on('error', reject)
               })
             }
-            
+
             // Reset to clean main state before generating file updates
             await runGitCommand('git', ['checkout', 'main'])
             await runGitCommand('git', ['reset', '--hard', 'HEAD'])
