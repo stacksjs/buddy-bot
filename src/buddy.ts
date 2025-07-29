@@ -194,6 +194,16 @@ export class Buddy {
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
 
+          // Debug logging to understand what files are being processed
+          console.log(`🐛 DEBUG: Processing group "${group.name}" with ${group.updates.length} updates:`)
+          group.updates.forEach(update => {
+            console.log(`🐛   - ${update.name}: ${update.currentVersion} -> ${update.newVersion} (${update.file}, ${update.updateType})`)
+          })
+          console.log(`🐛 DEBUG: Generated ${packageJsonUpdates.length} file updates:`)
+          packageJsonUpdates.forEach(fileUpdate => {
+            console.log(`🐛   - File: ${fileUpdate.path}`)
+          })
+
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
 
