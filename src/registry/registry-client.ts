@@ -619,7 +619,15 @@ export class RegistryClient {
             // Find multiple update paths: patch, minor, and major
             // Extract the base version from the constraint (e.g., "^3.0" -> "3.0.0")
             const constraintBaseVersion = this.extractConstraintBaseVersion(constraint)
-            const currentVersion = constraintBaseVersion || pkg.version
+
+            // Always use constraint base version for consistent detection across environments
+            // This ensures we detect updates based on composer.json constraints, not installed versions
+            if (!constraintBaseVersion) {
+              console.warn(`Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
+              continue
+            }
+
+            const currentVersion = constraintBaseVersion
             const latestVersion = pkg.latest
 
             // Get all available versions by querying composer show
