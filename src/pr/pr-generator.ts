@@ -168,14 +168,14 @@ export class PullRequestGenerator {
       body += `\n`
     }
 
-    // Composer packages table (simplified, without badges)
+    // Composer dependencies table (simplified, without badges)
     if (composerUpdates.length > 0) {
       body += `### PHP/Composer Dependencies\n\n`
       body += `| Package | Change | File | Status |\n`
       body += `|---|---|---|---|\n`
 
       for (const update of composerUpdates) {
-        // Generate package link to Packagist
+        // Generate package link
         const packageUrl = `https://packagist.org/packages/${encodeURIComponent(update.name)}`
         const packageCell = `[${update.name}](${packageUrl})`
 
@@ -209,6 +209,32 @@ export class PullRequestGenerator {
           ? 'https://bun.sh'
           : `https://pkgx.com/pkg/${encodeURIComponent(update.name)}`
         const packageCell = `[${displayName}](${packageUrl})`
+
+        // Simple version change display
+        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+
+        // File reference
+        const fileName = update.file.split('/').pop() || update.file
+
+        // Status (simple)
+        const status = '✅ Available'
+
+        body += `| ${packageCell} | ${change} | ${fileName} | ${status} |\n`
+      }
+
+      body += `\n`
+    }
+
+    // Composer dependencies table (simplified, without badges)
+    if (composerUpdates.length > 0) {
+      body += `### PHP/Composer Dependencies\n\n`
+      body += `| Package | Change | File | Status |\n`
+      body += `|---|---|---|---|\n`
+
+      for (const update of composerUpdates) {
+        // Generate package link
+        const packageUrl = `https://packagist.org/packages/${encodeURIComponent(update.name)}`
+        const packageCell = `[${update.name}](${packageUrl})`
 
         // Simple version change display
         const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``

@@ -617,7 +617,9 @@ export class RegistryClient {
             const metadata = await this.getComposerPackageMetadata(pkg.name)
 
             // Find multiple update paths: patch, minor, and major
-            const currentVersion = pkg.version
+            // Extract the base version from the constraint (e.g., "^3.0" -> "3.0.0")
+            const constraintBaseVersion = this.extractConstraintBaseVersion(constraint)
+            const currentVersion = constraintBaseVersion || pkg.version
             const latestVersion = pkg.latest
 
             // Get all available versions by querying composer show
@@ -633,8 +635,8 @@ export class RegistryClient {
               availableVersions = [latestVersion]
             }
 
-            // Find the best update for each type (patch, minor, major)
-            const updateCandidates = await this.findBestUpdates(currentVersion, availableVersions, constraint)
+            // Find the best constraint updates (e.g., ^3.0 -> ^3.9.0)
+            const updateCandidates = await this.findBestConstraintUpdates(constraint, availableVersions, currentVersion)
 
             for (const candidate of updateCandidates) {
               const updateType = getUpdateType(currentVersion, candidate.version)
@@ -916,5 +918,82 @@ export class RegistryClient {
     }
 
     return undefined
+  }
+
+  /**
+   * Extract the base version from a version constraint (e.g., "^3.0" -> "3.0.0")
+   */
+  private extractConstraintBaseVersion(constraint: string): string | null {
+    const match = constraint.match(/^[\^~>=<]*([\d.]+)/)
+    if (match) {
+      return match[1]
+    }
+    return null
+  }
+
+  /**
+   * Find the best constraint updates (e.g., ^3.0 -> ^3.9.0)
+   */
+  private async findBestConstraintUpdates(constraint: string, availableVersions: string[], currentVersion: string): Promise<{ version: string, type: 'patch' | 'minor' | 'major' }[]> {
+    const { getUpdateType } = await import('../utils/helpers')
+    const candidates: { version: string, type: 'patch' | 'minor' | 'major' }[] = []
+
+    // Parse current version
+    const currentParts = this.parseVersion(currentVersion)
+    if (!currentParts) {
+      return []
+    }
+
+    let bestPatch: string | null = null
+    let bestMinor: string | null = null
+    let bestMajor: string | null = null
+
+    for (const version of availableVersions) {
+      // Skip dev/alpha/beta versions for now (could be enhanced later)
+      if (version.includes('dev') || version.includes('alpha') || version.includes('beta') || version.includes('RC')) {
+        continue
+      }
+
+      const versionParts = this.parseVersion(version)
+      if (!versionParts) {
+        continue
+      }
+
+      // Skip versions that are not newer
+      const comparison = this.compareVersions(version, currentVersion)
+      if (comparison <= 0) {
+        continue
+      }
+
+      const updateType = getUpdateType(currentVersion, version)
+
+      // Find best update for each type
+      if (updateType === 'patch' && versionParts.major === currentParts.major && versionParts.minor === currentParts.minor) {
+        if (!bestPatch || this.compareVersions(version, bestPatch) > 0) {
+          bestPatch = version
+        }
+      } else if (updateType === 'minor' && versionParts.major === currentParts.major) {
+        if (!bestMinor || this.compareVersions(version, bestMinor) > 0) {
+          bestMinor = version
+        }
+      } else if (updateType === 'major') {
+        if (!bestMajor || this.compareVersions(version, bestMajor) > 0) {
+          bestMajor = version
+        }
+      }
+    }
+
+    // Add the best candidates
+    if (bestPatch) {
+      candidates.push({ version: bestPatch, type: 'patch' })
+    }
+    if (bestMinor) {
+      candidates.push({ version: bestMinor, type: 'minor' })
+    }
+    if (bestMajor) {
+      candidates.push({ version: bestMajor, type: 'major' })
+    }
+
+    return candidates
   }
 }

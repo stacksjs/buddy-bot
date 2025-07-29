@@ -16,4 +16,5 @@ storage
 qjs*
 bin/buddy
 bin/buddy-*
-
+vendor
+composer.lock
