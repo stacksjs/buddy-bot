@@ -161,4 +161,65 @@ describe('Composer Non-Major PR', () => {
     // Should show file references
     expect(prBody).toContain('composer.json')
   })
+
+  it('should deduplicate composer packages and show enhanced links', async () => {
+    // Create a group with duplicate composer packages
+    const duplicateComposerGroup: UpdateGroup = {
+      name: 'Non-Major Updates',
+      updates: [
+        {
+          name: 'monolog/monolog',
+          currentVersion: '3.7.0',
+          newVersion: '3.8.0',
+          updateType: 'minor',
+          dependencyType: 'require',
+          file: 'composer.json',
+          metadata: {
+            name: 'monolog/monolog',
+            repository: 'https://github.com/Seldaek/monolog',
+            description: 'Sends your logs to files, sockets, inboxes, databases and various web services'
+          }
+        },
+        {
+          name: 'monolog/monolog', // Duplicate package
+          currentVersion: '3.7.0',
+          newVersion: '3.8.0',
+          updateType: 'minor',
+          dependencyType: 'require',
+          file: 'composer.json',
+          metadata: {
+            name: 'monolog/monolog',
+            repository: 'https://github.com/Seldaek/monolog',
+            description: 'Sends your logs to files, sockets, inboxes, databases and various web services'
+          }
+        },
+        {
+          name: 'phpunit/phpunit',
+          currentVersion: '10.5.0',
+          newVersion: '10.5.2',
+          updateType: 'patch',
+          dependencyType: 'require-dev',
+          file: 'composer.json',
+        },
+      ],
+      updateType: 'minor',
+      title: 'chore(deps): update all non-major dependencies',
+      body: '',
+    }
+
+    const prBody = await prGenerator.generateBody(duplicateComposerGroup)
+
+    // Should only show monolog/monolog once (deduplicated)
+    const monologMatches = (prBody.match(/monolog\/monolog/g) || []).length
+    // Should appear: table (1) + release notes (1) + package stats (1) + URLs (~1) = ~4 times total
+    expect(monologMatches).toBeLessThanOrEqual(5) // Allow some flexibility for URLs
+
+    // Should show enhanced link with source repository
+    expect(prBody).toContain('https://packagist.org/packages/monolog%2Fmonolog')
+    expect(prBody).toContain('([source](')
+    expect(prBody).toContain('github.com/Seldaek/monolog')
+
+    // Should still show phpunit
+    expect(prBody).toContain('phpunit/phpunit')
+  })
 })

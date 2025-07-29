@@ -99,6 +99,15 @@ export class PullRequestGenerator {
       return acc
     }, [] as typeof githubActionsUpdates)
 
+    // Deduplicate Composer updates by name and version (similar to GitHub Actions)
+    const uniqueComposerUpdates = composerUpdates.reduce((acc, update) => {
+      const existing = acc.find(u => u.name === update.name && u.currentVersion === update.currentVersion && u.newVersion === update.newVersion)
+      if (!existing) {
+        acc.push(update)
+      }
+      return acc
+    }, [] as typeof composerUpdates)
+
     // Fetch package information for package.json updates only
     const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()
 
@@ -169,15 +178,21 @@ export class PullRequestGenerator {
     }
 
     // Composer dependencies table (simplified, without badges)
-    if (composerUpdates.length > 0) {
+    if (uniqueComposerUpdates.length > 0) {
       body += `### PHP/Composer Dependencies\n\n`
       body += `| Package | Change | File | Status |\n`
       body += `|---|---|---|---|\n`
 
-      for (const update of composerUpdates) {
-        // Generate package link
-        const packageUrl = `https://packagist.org/packages/${encodeURIComponent(update.name)}`
-        const packageCell = `[${update.name}](${packageUrl})`
+      for (const update of uniqueComposerUpdates) {
+        // Generate enhanced package link with source repository (like npm packages)
+        let packageCell: string
+        if (update.metadata?.repository) {
+          const sourceUrl = this.getComposerSourceUrl(update.metadata.repository, update.name)
+          packageCell = `[${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)}) ([source](${sourceUrl}))`
+        } else {
+          // Fallback to Packagist page only
+          packageCell = `[${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)})`
+        }
 
         // Simple version change display
         const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
@@ -225,31 +240,7 @@ export class PullRequestGenerator {
       body += `\n`
     }
 
-    // Composer dependencies table (simplified, without badges)
-    if (composerUpdates.length > 0) {
-      body += `### PHP/Composer Dependencies\n\n`
-      body += `| Package | Change | File | Status |\n`
-      body += `|---|---|---|---|\n`
 
-      for (const update of composerUpdates) {
-        // Generate package link
-        const packageUrl = `https://packagist.org/packages/${encodeURIComponent(update.name)}`
-        const packageCell = `[${update.name}](${packageUrl})`
-
-        // Simple version change display
-        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
-
-        // File reference
-        const fileName = update.file.split('/').pop() || update.file
-
-        // Status (simple)
-        const status = '✅ Available'
-
-        body += `| ${packageCell} | ${change} | ${fileName} | ${status} |\n`
-      }
-
-      body += `\n`
-    }
 
     // GitHub Actions table (simplified, without badges, deduplicated)
     if (uniqueGithubActionsUpdates.length > 0) {
@@ -385,7 +376,7 @@ export class PullRequestGenerator {
     }
 
     // Process Composer updates with simple release notes
-    for (const update of composerUpdates) {
+    for (const update of uniqueComposerUpdates) {
       body += `<details>\n`
       body += `<summary>${update.name}</summary>\n\n`
       body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
@@ -405,7 +396,7 @@ export class PullRequestGenerator {
     body += `---\n\n`
 
     // Package statistics section (deduplicated)
-    if (packageInfos.size > 0 || composerUpdates.length > 0 || dependencyOnlyUpdates.length > 0 || uniqueGithubActionsUpdates.length > 0) {
+    if (packageInfos.size > 0 || uniqueComposerUpdates.length > 0 || dependencyOnlyUpdates.length > 0 || uniqueGithubActionsUpdates.length > 0) {
       body += `### 📊 Package Statistics\n\n`
 
       // Stats for package.json updates
@@ -418,7 +409,7 @@ export class PullRequestGenerator {
       }
 
       // Stats for Composer updates (simplified)
-      for (const update of composerUpdates) {
+      for (const update of uniqueComposerUpdates) {
         body += `- **${update.name}**: PHP package available on Packagist\n`
       }
 
@@ -504,6 +495,39 @@ export class PullRequestGenerator {
       // For regular GitHub repositories
       if (url.hostname === 'github.com') {
         return `${cleanUrl}/tree/${ref}`
+      }
+
+      // Fallback to repository URL
+      return cleanUrl
+    }
+    catch {
+      return repositoryUrl
+    }
+  }
+
+  /**
+   * Generate Composer source URL for packages (like npm)
+   */
+  private getComposerSourceUrl(repositoryUrl: string, packageName: string): string {
+    try {
+      const cleanUrl = repositoryUrl
+        .replace(/^git\+/, '')
+        .replace(/\.git$/, '')
+        .replace(/^git:\/\//, 'https://')
+        .replace(/^ssh:\/\/git@/, 'https://')
+        .replace(/^git@github\.com:/, 'https://github.com/')
+
+      const url = new URL(cleanUrl)
+
+      // For DefinitelyTyped packages, use the types subdirectory
+      if (packageName.startsWith('@types/') && url.pathname.includes('DefinitelyTyped')) {
+        const typeName = packageName.replace('@types/', '')
+        return `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${typeName}`
+      }
+
+      // For regular GitHub repositories
+      if (url.hostname === 'github.com') {
+        return `${cleanUrl}/tree/master` // Assuming master branch for source link
       }
 
       // Fallback to repository URL
