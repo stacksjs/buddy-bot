@@ -1,6 +1,37 @@
 # Changelog
 
 
+## v0.1.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.1.0...main)
+
+### 🚀 Enhancements
+
+- Add dependency file updates ([41380a8](https://github.com/stacksjs/buddy-bot/commit/41380a8))
+- Add rebase check ([9125c6e](https://github.com/stacksjs/buddy-bot/commit/9125c6e))
+- Add github actions support ([f2b97e2](https://github.com/stacksjs/buddy-bot/commit/f2b97e2))
+- Add `Dependency Dashboard` ([7194ba3](https://github.com/stacksjs/buddy-bot/commit/7194ba3))
+- Improve `includePrerelease` and `excludeMajor` ([0c7b00a](https://github.com/stacksjs/buddy-bot/commit/0c7b00a))
+- Add composer support ([334ae34](https://github.com/stacksjs/buddy-bot/commit/334ae34))
+
+### 🏡 Chore
+
+- Wip ([e9c6f31](https://github.com/stacksjs/buddy-bot/commit/e9c6f31))
+- Wip ([bce00bf](https://github.com/stacksjs/buddy-bot/commit/bce00bf))
+- Wip ([dc3f2af](https://github.com/stacksjs/buddy-bot/commit/dc3f2af))
+- Minor updates ([302fb91](https://github.com/stacksjs/buddy-bot/commit/302fb91))
+- Several dashboard improvements ([b65dd17](https://github.com/stacksjs/buddy-bot/commit/b65dd17))
+- Wip ([730aba5](https://github.com/stacksjs/buddy-bot/commit/730aba5))
+- Adjust setup command ([ff79a21](https://github.com/stacksjs/buddy-bot/commit/ff79a21))
+- Adjust titles ([f25d60e](https://github.com/stacksjs/buddy-bot/commit/f25d60e))
+- Several improvements ([5a291c3](https://github.com/stacksjs/buddy-bot/commit/5a291c3))
+- Improve stability ([e89080c](https://github.com/stacksjs/buddy-bot/commit/e89080c))
+- Add `publish-commit` workflow ([4f18365](https://github.com/stacksjs/buddy-bot/commit/4f18365))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.0.3...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.0.3...main)
