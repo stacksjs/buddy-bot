@@ -444,36 +444,55 @@ export class Buddy {
     }
 
     // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
-    try {
-      const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
-      const dependencyFileUpdates = await generateDependencyFileUpdates(updates)
-      fileUpdates.push(...dependencyFileUpdates)
-    }
-    catch (error) {
-      this.logger.error('Failed to generate dependency file updates:', error)
-      // Continue with package.json updates even if dependency file updates fail
+    // Only process if we have dependency file updates to avoid unnecessary processing
+    const dependencyFileUpdates = updates.filter(update =>
+      (update.file.includes('.yaml') || update.file.includes('.yml')) &&
+      !update.file.includes('.github/workflows/')
+    )
+    if (dependencyFileUpdates.length > 0) {
+      try {
+        const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
+        const depFileUpdates = await generateDependencyFileUpdates(dependencyFileUpdates)
+        fileUpdates.push(...depFileUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate dependency file updates:', error)
+        // Continue with other updates even if dependency file updates fail
+      }
     }
 
     // Handle Composer updates
-    try {
-      const { generateComposerUpdates } = await import('./utils/composer-parser')
-      const composerUpdates = await generateComposerUpdates(updates)
-      fileUpdates.push(...composerUpdates)
-    }
-    catch (error) {
-      this.logger.error('Failed to generate Composer updates:', error)
-      // Continue with other updates even if Composer updates fail
+    // Only process if we have composer updates to avoid unnecessary processing
+    const composerUpdates = updates.filter(update =>
+      update.file.endsWith('composer.json') || update.file.endsWith('composer.lock')
+    )
+    if (composerUpdates.length > 0) {
+      try {
+        const { generateComposerUpdates } = await import('./utils/composer-parser')
+        const compUpdates = await generateComposerUpdates(composerUpdates)
+        fileUpdates.push(...compUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate Composer updates:', error)
+        // Continue with other updates even if Composer updates fail
+      }
     }
 
     // Handle GitHub Actions updates
-    try {
-      const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')
-      const githubActionsUpdates = await generateGitHubActionsUpdates(updates)
-      fileUpdates.push(...githubActionsUpdates)
-    }
-    catch (error) {
-      this.logger.error('Failed to generate GitHub Actions updates:', error)
-      // Continue with other updates even if GitHub Actions updates fail
+    // Only process if we have GitHub Actions updates to avoid unnecessary processing
+    const githubActionsUpdates = updates.filter(update =>
+      update.file.includes('.github/workflows/')
+    )
+    if (githubActionsUpdates.length > 0) {
+      try {
+        const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')
+        const ghActionsUpdates = await generateGitHubActionsUpdates(githubActionsUpdates)
+        fileUpdates.push(...ghActionsUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate GitHub Actions updates:', error)
+        // Continue with other updates even if GitHub Actions updates fail
+      }
     }
 
     return fileUpdates
