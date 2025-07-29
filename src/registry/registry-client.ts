@@ -626,7 +626,7 @@ export class RegistryClient {
               const showOutput = await this.runCommand('composer', ['show', pkg.name, '--available', '--format=json'])
               const showData = JSON.parse(showOutput)
               if (showData.versions) {
-                availableVersions = Object.keys(showData.versions)
+                availableVersions = showData.versions // This is already an array of version strings
               }
             } catch (error) {
               console.warn(`Failed to get available versions for ${pkg.name}, using latest only:`, error)
@@ -680,7 +680,9 @@ export class RegistryClient {
 
     // Parse current version
     const currentParts = this.parseVersion(currentVersion)
-    if (!currentParts) return []
+    if (!currentParts) {
+      return []
+    }
 
     let bestPatch: string | null = null
     let bestMinor: string | null = null
@@ -693,10 +695,13 @@ export class RegistryClient {
       }
 
       const versionParts = this.parseVersion(version)
-      if (!versionParts) continue
+      if (!versionParts) {
+        continue
+      }
 
       // Skip versions that are not newer
-      if (this.compareVersions(version, currentVersion) <= 0) {
+      const comparison = this.compareVersions(version, currentVersion)
+      if (comparison <= 0) {
         continue
       }
 
@@ -719,9 +724,15 @@ export class RegistryClient {
     }
 
     // Add the best candidates
-    if (bestPatch) candidates.push({ version: bestPatch, type: 'patch' })
-    if (bestMinor) candidates.push({ version: bestMinor, type: 'minor' })
-    if (bestMajor) candidates.push({ version: bestMajor, type: 'major' })
+    if (bestPatch) {
+      candidates.push({ version: bestPatch, type: 'patch' })
+    }
+    if (bestMinor) {
+      candidates.push({ version: bestMinor, type: 'minor' })
+    }
+    if (bestMajor) {
+      candidates.push({ version: bestMajor, type: 'major' })
+    }
 
     return candidates
   }
