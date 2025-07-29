@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import { generateComposerUpdates } from '../src/utils/composer-parser'
 import fs from 'node:fs'
+import { generateComposerUpdates } from '../src/utils/composer-parser'
 
 describe('Composer Individual Updates', () => {
   const mockComposerJson = {
-    "require": {
-      "php": "^8.1",
-      "laravel/framework": "^10.0",
-      "guzzlehttp/guzzle": "^7.0",
-      "symfony/console": "^6.0",
-      "monolog/monolog": "^3.0",
-      "doctrine/dbal": "^3.0"
+    'require': {
+      'php': '^8.1',
+      'laravel/framework': '^10.0',
+      'guzzlehttp/guzzle': '^7.0',
+      'symfony/console': '^6.0',
+      'monolog/monolog': '^3.0',
+      'doctrine/dbal': '^3.0',
     },
-    "require-dev": {
-      "phpunit/phpunit": "^10.0"
-    }
+    'require-dev': {
+      'phpunit/phpunit': '^10.0',
+    },
   }
 
   const mockComposerJsonString = JSON.stringify(mockComposerJson, null, 2)
@@ -28,7 +28,7 @@ describe('Composer Individual Updates', () => {
   it('should update ONLY the target package for individual major updates', async () => {
     // Test individual symfony/console update (should only change symfony/console)
     const symfonyUpdate = [
-      { name: 'symfony/console', newVersion: 'v7.3.1', file: 'composer.json' }
+      { name: 'symfony/console', newVersion: 'v7.3.1', file: 'composer.json' },
     ]
 
     const result = await generateComposerUpdates(symfonyUpdate)
@@ -52,7 +52,7 @@ describe('Composer Individual Updates', () => {
   it('should update ONLY the target package for individual doctrine/dbal update', async () => {
     // Test individual doctrine/dbal update
     const doctrineUpdate = [
-      { name: 'doctrine/dbal', newVersion: '4.3.1', file: 'composer.json' }
+      { name: 'doctrine/dbal', newVersion: '4.3.1', file: 'composer.json' },
     ]
 
     const result = await generateComposerUpdates(doctrineUpdate)
@@ -73,7 +73,7 @@ describe('Composer Individual Updates', () => {
   it('should update ONLY the target package for individual laravel/framework update', async () => {
     // Test individual laravel/framework update
     const laravelUpdate = [
-      { name: 'laravel/framework', newVersion: 'v12.21.0', file: 'composer.json' }
+      { name: 'laravel/framework', newVersion: 'v12.21.0', file: 'composer.json' },
     ]
 
     const result = await generateComposerUpdates(laravelUpdate)
@@ -96,7 +96,7 @@ describe('Composer Individual Updates', () => {
     const multipleUpdates = [
       { name: 'symfony/console', newVersion: 'v7.3.1', file: 'composer.json' },
       { name: 'doctrine/dbal', newVersion: '4.3.1', file: 'composer.json' },
-      { name: 'monolog/monolog', newVersion: '3.8.0', file: 'composer.json' }
+      { name: 'monolog/monolog', newVersion: '3.8.0', file: 'composer.json' },
     ]
 
     const result = await generateComposerUpdates(multipleUpdates)
@@ -117,7 +117,7 @@ describe('Composer Individual Updates', () => {
 
   it('should preserve formatting and structure', async () => {
     const singleUpdate = [
-      { name: 'symfony/console', newVersion: 'v7.3.1', file: 'composer.json' }
+      { name: 'symfony/console', newVersion: 'v7.3.1', file: 'composer.json' },
     ]
 
     const result = await generateComposerUpdates(singleUpdate)

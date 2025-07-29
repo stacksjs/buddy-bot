@@ -191,8 +191,6 @@ export class Buddy {
           // Create branch
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
 
-
-
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
 
@@ -446,8 +444,8 @@ export class Buddy {
     // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
     // Only process if we have dependency file updates to avoid unnecessary processing
     const dependencyFileUpdates = updates.filter(update =>
-      (update.file.includes('.yaml') || update.file.includes('.yml')) &&
-      !update.file.includes('.github/workflows/')
+      (update.file.includes('.yaml') || update.file.includes('.yml'))
+      && !update.file.includes('.github/workflows/'),
     )
     if (dependencyFileUpdates.length > 0) {
       try {
@@ -464,7 +462,7 @@ export class Buddy {
     // Handle Composer updates
     // Only process if we have composer updates to avoid unnecessary processing
     const composerUpdates = updates.filter(update =>
-      update.file.endsWith('composer.json') || update.file.endsWith('composer.lock')
+      update.file.endsWith('composer.json') || update.file.endsWith('composer.lock'),
     )
     if (composerUpdates.length > 0) {
       try {
@@ -481,7 +479,7 @@ export class Buddy {
     // Handle GitHub Actions updates
     // Only process if we have GitHub Actions updates to avoid unnecessary processing
     const githubActionsUpdates = updates.filter(update =>
-      update.file.includes('.github/workflows/')
+      update.file.includes('.github/workflows/'),
     )
     if (githubActionsUpdates.length > 0) {
       try {
@@ -624,7 +622,7 @@ export class Buddy {
   /**
    * Check if two PR titles are similar (for dependency updates)
    */
-    private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
+  private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
     // Exact match is always similar
     if (existingTitle.toLowerCase() === newTitle.toLowerCase()) {
       return true
@@ -635,8 +633,8 @@ export class Buddy {
     const newLower = newTitle.toLowerCase()
 
     // If one is for "all non-major" and other is for specific dependency, they're different
-    if ((existingLower.includes('all non-major') && newLower.includes('dependency ')) ||
-        (newLower.includes('all non-major') && existingLower.includes('dependency '))) {
+    if ((existingLower.includes('all non-major') && newLower.includes('dependency '))
+      || (newLower.includes('all non-major') && existingLower.includes('dependency '))) {
       return false
     }
 

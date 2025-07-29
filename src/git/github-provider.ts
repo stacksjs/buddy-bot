@@ -58,7 +58,8 @@ export class GitHubProvider implements GitProvider {
         if (nonWorkflowFiles.length > 0) {
           console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
           files = nonWorkflowFiles
-        } else {
+        }
+        else {
           throw new Error('All files are workflow files but GitHub App lacks workflows permission. Please add "workflows: write" permission to the GitHub App.')
         }
       }
@@ -158,7 +159,8 @@ export class GitHubProvider implements GitProvider {
         if (nonWorkflowFiles.length > 0) {
           console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
           files = nonWorkflowFiles
-        } else {
+        }
+        else {
           throw new Error('All files are workflow files but GitHub App lacks workflows permission. Please add "workflows: write" permission to the GitHub App.')
         }
       }

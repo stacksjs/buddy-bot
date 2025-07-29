@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import { Buddy } from '../src/buddy'
 import fs from 'node:fs'
+import { Buddy } from '../src/buddy'
 
 describe('Composer Individual PR Simulation', () => {
   let buddy: Buddy
 
   const mockComposerJson = {
-    "require": {
-      "php": "^8.1",
-      "laravel/framework": "^10.0",
-      "guzzlehttp/guzzle": "^7.0",
-      "symfony/console": "^6.0",
-      "monolog/monolog": "^3.0",
-      "doctrine/dbal": "^3.0"
+    'require': {
+      'php': '^8.1',
+      'laravel/framework': '^10.0',
+      'guzzlehttp/guzzle': '^7.0',
+      'symfony/console': '^6.0',
+      'monolog/monolog': '^3.0',
+      'doctrine/dbal': '^3.0',
     },
-    "require-dev": {
-      "phpunit/phpunit": "^10.0"
-    }
+    'require-dev': {
+      'phpunit/phpunit': '^10.0',
+    },
   }
 
   const mockComposerJsonString = JSON.stringify(mockComposerJson, null, 2)
@@ -26,14 +26,14 @@ describe('Composer Individual PR Simulation', () => {
       repository: {
         owner: 'test-owner',
         name: 'test-repo',
-        baseBranch: 'main'
+        baseBranch: 'main',
       },
       packages: {
         strategy: 'all' as const,
         ignore: [],
         includePrerelease: false,
-        excludeMajor: false
-      }
+        excludeMajor: false,
+      },
     }
     buddy = new Buddy(mockConfig)
 
@@ -53,8 +53,8 @@ describe('Composer Individual PR Simulation', () => {
         newVersion: 'v7.3.1',
         updateType: 'major' as const,
         dependencyType: 'require' as const,
-        file: 'composer.json'
-      }
+        file: 'composer.json',
+      },
     ]
 
     const fileUpdates = await buddy.generateAllFileUpdates(symfonyGroup)
@@ -85,8 +85,8 @@ describe('Composer Individual PR Simulation', () => {
         newVersion: '4.3.1',
         updateType: 'major' as const,
         dependencyType: 'require' as const,
-        file: 'composer.json'
-      }
+        file: 'composer.json',
+      },
     ]
 
     const fileUpdates = await buddy.generateAllFileUpdates(doctrineGroup)
@@ -115,8 +115,8 @@ describe('Composer Individual PR Simulation', () => {
         newVersion: 'v12.21.0',
         updateType: 'major' as const,
         dependencyType: 'require' as const,
-        file: 'composer.json'
-      }
+        file: 'composer.json',
+      },
     ]
 
     const fileUpdates = await buddy.generateAllFileUpdates(laravelGroup)
@@ -146,7 +146,7 @@ describe('Composer Individual PR Simulation', () => {
       newVersion: 'v7.3.1',
       updateType: 'major' as const,
       dependencyType: 'require' as const,
-      file: 'composer.json'
+      file: 'composer.json',
     }]
 
     const symfonyFiles = await buddy.generateAllFileUpdates(symfonyGroup)
@@ -163,7 +163,7 @@ describe('Composer Individual PR Simulation', () => {
       newVersion: '4.3.1',
       updateType: 'major' as const,
       dependencyType: 'require' as const,
-      file: 'composer.json'
+      file: 'composer.json',
     }]
 
     const doctrineFiles = await buddy.generateAllFileUpdates(doctrineGroup)

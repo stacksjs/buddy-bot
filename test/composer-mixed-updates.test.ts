@@ -1,17 +1,18 @@
+/* eslint-disable no-console */
+
 import { describe, expect, it } from 'bun:test'
 
-// Test that verifies the full flow: some packages should get major PRs, others should go in grouped PR  
+// Test that verifies the full flow: some packages should get major PRs, others should go in grouped PR
 describe('Composer Mixed Updates (Major + Minor)', () => {
-  
   // Simulating the constraint logic from registry-client.ts
   function getMajorVersion(version: string): string {
-    return version.replace(/^[v\^~>=<]+/, '').split('.')[0] || '0'
+    return version.replace(/^[v^~>=<]+/, '').split('.')[0] || '0'
   }
 
   function shouldIncludeUpdate(constraint: string, currentVersion: string, latestVersion: string): boolean {
     const currentMajor = getMajorVersion(currentVersion)
     const latestMajor = getMajorVersion(latestVersion)
-    
+
     // For caret constraints (^), only allow updates within the same major version
     if (constraint.startsWith('^')) {
       if (currentMajor !== latestMajor) {
@@ -19,15 +20,15 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
       }
       return true
     }
-    
+
     // For other constraints, allow all updates
     return true
   }
 
   it('should separate major updates from minor updates correctly', () => {
-    // Real scenario: some packages have minor updates (should be grouped), 
+    // Real scenario: some packages have minor updates (should be grouped),
     // others might have major updates if constraints allow them
-    
+
     const packages = [
       // Minor updates within constraints (should be GROUPED)
       { name: 'laravel/framework', constraint: '^10.0', current: '10.0.0', latest: '10.48.29' },
@@ -35,7 +36,7 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
       { name: 'monolog/monolog', constraint: '^3.0', current: '3.0.0', latest: '3.9.0' },
       { name: 'doctrine/dbal', constraint: '^3.0', current: '3.0.0', latest: '3.10.0' },
       { name: 'guzzlehttp/guzzle', constraint: '^7.0', current: '7.0.0', latest: '7.9.3' },
-      
+
       // Hypothetical major updates that would be allowed (should get INDIVIDUAL PRs)
       { name: 'some/package', constraint: '>=1.0', current: '1.0.0', latest: '2.0.0' },
       { name: 'another/package', constraint: '*', current: '1.5.0', latest: '2.1.0' },
@@ -44,31 +45,32 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
     const includedUpdates = []
     const excludedUpdates = []
 
-    packages.forEach(pkg => {
+    packages.forEach((pkg) => {
       const shouldInclude = shouldIncludeUpdate(pkg.constraint, pkg.current, pkg.latest)
-      
+
       if (shouldInclude) {
         const currentMajor = getMajorVersion(pkg.current)
         const latestMajor = getMajorVersion(pkg.latest)
         const updateType = currentMajor !== latestMajor ? 'major' : 'minor'
-        
+
         includedUpdates.push({
           ...pkg,
           updateType,
-          shouldGetIndividualPR: updateType === 'major'
+          shouldGetIndividualPR: updateType === 'major',
         })
-      } else {
+      }
+      else {
         excludedUpdates.push(pkg)
       }
     })
 
     console.log('\n=== INCLUDED UPDATES ===')
-    includedUpdates.forEach(update => {
+    includedUpdates.forEach((update) => {
       console.log(`${update.name}: ${update.current} → ${update.latest} (${update.updateType}) - ${update.shouldGetIndividualPR ? 'INDIVIDUAL PR' : 'GROUPED PR'}`)
     })
 
     console.log('\n=== EXCLUDED UPDATES ===')
-    excludedUpdates.forEach(update => {
+    excludedUpdates.forEach((update) => {
       console.log(`${update.name}: ${update.current} → ${update.latest} (excluded by constraint ${update.constraint})`)
     })
 
@@ -79,8 +81,8 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
     const majorUpdates = includedUpdates.filter(u => u.updateType === 'major')
     const minorUpdates = includedUpdates.filter(u => u.updateType === 'minor')
 
-    expect(majorUpdates).toHaveLength(2)  // some/package and another/package
-    expect(minorUpdates).toHaveLength(5)  // Laravel, Symfony, Monolog, Doctrine, Guzzle
+    expect(majorUpdates).toHaveLength(2) // some/package and another/package
+    expect(minorUpdates).toHaveLength(5) // Laravel, Symfony, Monolog, Doctrine, Guzzle
 
     console.log(`\nResult: ${majorUpdates.length} individual major PRs + 1 grouped PR with ${minorUpdates.length} minor updates`)
   })
@@ -88,7 +90,7 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
   it('should handle the current repo scenario (all minor updates)', () => {
     // Current scenario: ALL packages have minor updates within constraints
     // This means NO major PRs should be created, only 1 grouped PR
-    
+
     const currentRepoPackages = [
       { name: 'laravel/framework', constraint: '^10.0', current: '10.0.0', latest: '10.48.29' },
       { name: 'symfony/console', constraint: '^6.0', current: '6.0.0', latest: '6.4.23' },
@@ -100,16 +102,16 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
       { name: 'fakerphp/faker', constraint: '^1.20', current: '1.20.0', latest: '1.24.1' },
     ]
 
-    const results = currentRepoPackages.map(pkg => {
+    const results = currentRepoPackages.map((pkg) => {
       const shouldInclude = shouldIncludeUpdate(pkg.constraint, pkg.current, pkg.latest)
       const currentMajor = getMajorVersion(pkg.current)
       const latestMajor = getMajorVersion(pkg.latest)
       const updateType = currentMajor !== latestMajor ? 'major' : 'minor'
-      
+
       return {
         ...pkg,
         shouldInclude,
-        updateType
+        updateType,
       }
     })
 
@@ -124,10 +126,10 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
 
     // In current scenario, all should be minor updates
     expect(included).toHaveLength(8)
-    expect(majorUpdates).toHaveLength(0)  // No major updates
-    expect(minorUpdates).toHaveLength(8)  // All are minor/patch
+    expect(majorUpdates).toHaveLength(0) // No major updates
+    expect(minorUpdates).toHaveLength(8) // All are minor/patch
 
     console.log(`\nExpected result: 0 individual major PRs + 1 grouped PR with 8 minor/patch updates`)
     console.log(`This means the user should see 1 PR containing all Composer updates, no individual major PRs.`)
   })
-}) 
+})

@@ -542,14 +542,14 @@ export class RegistryClient {
    * Extract major version number from a version string
    */
   private getMajorVersion(version: string): string {
-    return version.replace(/^[v\^~>=<]+/, '').split('.')[0] || '0'
+    return version.replace(/^[v^~>=<]+/, '').split('.')[0] || '0'
   }
 
   /**
    * Extract minor version number from a version string
    */
   private getMinorVersion(version: string): string {
-    const parts = version.replace(/^[v\^~>=<]+/, '').split('.')
+    const parts = version.replace(/^[v^~>=<]+/, '').split('.')
     return parts[1] || '0'
   }
 
@@ -588,7 +588,7 @@ export class RegistryClient {
         this.logger.warn('Failed to read composer.json for dependency type detection:', error)
       }
 
-                  // Parse composer outdated output and filter based on version constraints
+      // Parse composer outdated output and filter based on version constraints
       if (composerData.installed) {
         for (const pkg of composerData.installed) {
           if (pkg.name && pkg.version && pkg.latest) {
@@ -596,13 +596,13 @@ export class RegistryClient {
             const requireConstraint = composerJsonData.require?.[pkg.name]
             const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
             const constraint = requireConstraint || requireDevConstraint
-            
+
             if (!constraint) {
               continue // Skip packages not found in composer.json
             }
 
-                        // Include all available updates - let grouping and strategy handle filtering
-            let newVersion = pkg.latest
+            // Include all available updates - let grouping and strategy handle filtering
+            const newVersion = pkg.latest
 
             const updateType = getUpdateType(pkg.version, newVersion)
 

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import { PullRequestGenerator } from '../src/pr/pr-generator'
 import type { UpdateGroup } from '../src/types'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { PullRequestGenerator } from '../src/pr/pr-generator'
 
 describe('Composer Non-Major PR', () => {
   let prGenerator: PullRequestGenerator
@@ -10,8 +10,8 @@ describe('Composer Non-Major PR', () => {
       repository: {
         owner: 'test-owner',
         name: 'test-repo',
-        baseBranch: 'main'
-      }
+        baseBranch: 'main',
+      },
     }
     prGenerator = new PullRequestGenerator(mockConfig)
   })
@@ -28,7 +28,7 @@ describe('Composer Non-Major PR', () => {
           newVersion: '1.2.19',
           updateType: 'patch',
           dependencyType: 'devDependencies',
-          file: 'package.json'
+          file: 'package.json',
         },
         {
           name: 'cac',
@@ -36,7 +36,7 @@ describe('Composer Non-Major PR', () => {
           newVersion: '6.7.14',
           updateType: 'patch',
           dependencyType: 'dependencies',
-          file: 'package.json'
+          file: 'package.json',
         },
         // Composer packages (non-major)
         {
@@ -45,7 +45,7 @@ describe('Composer Non-Major PR', () => {
           newVersion: '3.8.0',
           updateType: 'minor',
           dependencyType: 'require',
-          file: 'composer.json'
+          file: 'composer.json',
         },
         {
           name: 'phpunit/phpunit',
@@ -53,7 +53,7 @@ describe('Composer Non-Major PR', () => {
           newVersion: '10.5.2',
           updateType: 'patch',
           dependencyType: 'require-dev',
-          file: 'composer.json'
+          file: 'composer.json',
         },
         // GitHub Actions
         {
@@ -62,12 +62,12 @@ describe('Composer Non-Major PR', () => {
           newVersion: 'v4.2.2',
           updateType: 'patch',
           dependencyType: 'github-actions',
-          file: '.github/workflows/ci.yml'
-        }
+          file: '.github/workflows/ci.yml',
+        },
       ],
       updateType: 'minor',
       title: 'chore(deps): update all non-major dependencies',
-      body: ''
+      body: '',
     }
 
     const prBody = await prGenerator.generateBody(nonMajorGroup)
@@ -106,12 +106,12 @@ describe('Composer Non-Major PR', () => {
           newVersion: '3.0.2',
           updateType: 'patch',
           dependencyType: 'require',
-          file: 'composer.json'
-        }
+          file: 'composer.json',
+        },
       ],
       updateType: 'patch',
       title: 'chore(deps): update all non-major dependencies',
-      body: ''
+      body: '',
     }
 
     const prBody = await prGenerator.generateBody(composerOnlyGroup)
@@ -135,7 +135,7 @@ describe('Composer Non-Major PR', () => {
           newVersion: '6.4.12',
           updateType: 'patch',
           dependencyType: 'require',
-          file: 'composer.json'
+          file: 'composer.json',
         },
         {
           name: 'phpstan/phpstan',
@@ -143,12 +143,12 @@ describe('Composer Non-Major PR', () => {
           newVersion: '1.12.0',
           updateType: 'minor',
           dependencyType: 'require-dev',
-          file: 'composer.json'
-        }
+          file: 'composer.json',
+        },
       ],
       updateType: 'minor',
       title: 'chore(deps): update all non-major dependencies',
-      body: ''
+      body: '',
     }
 
     const prBody = await prGenerator.generateBody(mixedComposerGroup)

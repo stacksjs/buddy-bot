@@ -207,7 +207,7 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
       const fs = await import('node:fs')
       let composerContent = fs.readFileSync(filePath, 'utf-8')
 
-            // Parse to understand structure
+      // Parse to understand structure
       const composerData: ComposerPackage = JSON.parse(composerContent)
 
       // Apply updates using string replacement to preserve formatting

@@ -220,7 +220,7 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
     })
   }
 
-    if (minorUpdates.length > 0 || patchUpdates.length > 0) {
+  if (minorUpdates.length > 0 || patchUpdates.length > 0) {
     const nonMajorUpdates = [...minorUpdates, ...patchUpdates]
     groups.push({
       name: 'Non-Major Updates',
