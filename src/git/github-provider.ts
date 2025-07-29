@@ -46,21 +46,23 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithGit(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
-      // Filter out workflow files if we detect permission issues
+      // Filter out workflow files since they require special permissions
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
 
       if (workflowFiles.length > 0) {
-        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require 'workflows' permission.`)
+        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
 
-        // If we have non-workflow files, try to commit just those
+        // If we have non-workflow files, commit just those
         if (nonWorkflowFiles.length > 0) {
-          console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
+          console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
           files = nonWorkflowFiles
-        }
-        else {
-          throw new Error('All files are workflow files but GitHub App lacks workflows permission. Please add "workflows: write" permission to the GitHub App.')
+        } else {
+          console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
+          console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
+          return // Exit early if no non-workflow files to commit
         }
       }
 
@@ -147,21 +149,23 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
-      // Filter out workflow files if we detect permission issues
+      // Filter out workflow files since they require special permissions
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
 
       if (workflowFiles.length > 0) {
-        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require 'workflows' permission.`)
+        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
 
-        // If we have non-workflow files, try to commit just those
+        // If we have non-workflow files, commit just those
         if (nonWorkflowFiles.length > 0) {
-          console.log(`📝 Attempting to commit ${nonWorkflowFiles.length} non-workflow files only...`)
+          console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
           files = nonWorkflowFiles
-        }
-        else {
-          throw new Error('All files are workflow files but GitHub App lacks workflows permission. Please add "workflows: write" permission to the GitHub App.')
+        } else {
+          console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
+          console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
+          return // Exit early if no non-workflow files to commit
         }
       }
 

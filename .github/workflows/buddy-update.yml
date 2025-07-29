@@ -40,7 +40,6 @@ permissions:
   actions: read
   checks: read
   statuses: read
-  workflows: write
 
 jobs:
   test-dependency-updates:
