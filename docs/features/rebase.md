@@ -25,7 +25,7 @@ Every Buddy Bot pull request includes an interactive checkbox:
 
 ### 2. Automatic Detection
 
-A GitHub Actions workflow (`.github/workflows/buddy-update-check.yml`) runs every minute and:
+A GitHub Actions workflow (`.github/workflows/buddy-check.yml`) runs every minute and:
 
 1. Scans all open pull requests
 2. Identifies Buddy Bot PRs with checked rebase boxes

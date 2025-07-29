@@ -79,7 +79,7 @@ Choose from carefully crafted presets:
 **🔄 Step 6: Workflow Generation**
 Generates three core GitHub Actions workflows:
 - `buddy-dashboard.yml` - Dependency Dashboard Management
-- `buddy-update-check.yml` - Auto-rebase PR checker
+- `buddy-check.yml` - Auto-rebase PR checker
 - `buddy-update.yml` - Scheduled dependency updates
 
 **🎯 Step 7: Final Instructions**

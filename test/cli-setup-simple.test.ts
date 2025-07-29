@@ -9,7 +9,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       expect(workflow).toContain('name: Buddy Dashboard')
       expect(workflow).toContain('cron: \'0 9 * * 1,3,5\'')
       expect(workflow).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
-      expect(workflow).toContain('bun buddy dashboard')
+      expect(workflow).toContain('bunx buddy-bot dashboard')
       expect(workflow).toContain('workflow_dispatch')
     })
 
@@ -29,7 +29,7 @@ describe('CLI Setup - Enhanced Functions', () => {
 
       expect(workflow).toContain('name: Buddy Check')
       expect(workflow).toContain('cron: \'*/15 * * * *\'')
-      expect(workflow).toContain('bun buddy update-check')
+      expect(workflow).toContain('bunx buddy-bot update-check')
       expect(workflow).toContain('dry_run:')
     })
   })

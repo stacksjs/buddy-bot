@@ -330,7 +330,7 @@ cli
       // Validate each generated workflow
       const workflowFiles = [
         { name: 'buddy-dashboard.yml', content: '' },
-        { name: 'buddy-update-check.yml', content: '' },
+        { name: 'buddy-check.yml', content: '' },
         { name: 'buddy-update.yml', content: '' },
       ]
 

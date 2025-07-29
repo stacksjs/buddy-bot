@@ -1177,7 +1177,7 @@ ${generateComposerSetupSteps()}
           echo "📊 Updating dependency dashboard..."
           set -e
 
-          COMMAND="bun buddy dashboard"
+          COMMAND="bunx buddy-bot dashboard"
 
           if [ "$PIN" = "true" ]; then
             COMMAND="$COMMAND --pin"
@@ -1198,7 +1198,7 @@ ${generateComposerSetupSteps()}
           if [ "$DRY_RUN" = "true" ]; then
             echo "📋 DRY RUN MODE - Command preview:"
             echo "$COMMAND"
-            bun buddy scan --verbose
+            bunx buddy-bot scan --verbose
           else
             echo "🚀 Executing: $COMMAND"
             eval "$COMMAND"
@@ -1272,10 +1272,10 @@ ${generateComposerSetupSteps()}
 
           if [ "\${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "📋 Running in DRY RUN mode..."
-            bun buddy update-check --dry-run --verbose
+            bunx buddy-bot update-check --dry-run --verbose
           else
             echo "🔄 Running in LIVE mode..."
-            bun buddy update-check --verbose
+            bunx buddy-bot update-check --verbose
           fi
 
         env:
@@ -1393,15 +1393,15 @@ ${generateComposerSetupSteps()}
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              bun buddy scan --packages "$PACKAGES" --verbose
+              bunx buddy-bot scan --packages "$PACKAGES" --verbose
             else
-              bun buddy scan --packages "$PACKAGES"
+              bunx buddy-bot scan --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              bun buddy scan --strategy "$STRATEGY" --verbose
+              bunx buddy-bot scan --strategy "$STRATEGY" --verbose
             else
-              bun buddy scan --strategy "$STRATEGY"
+              bunx buddy-bot scan --strategy "$STRATEGY"
             fi
           fi
 
@@ -1409,15 +1409,15 @@ ${generateComposerSetupSteps()}
             echo "🚀 Running dependency updates..."
             if [ "$PACKAGES" != "" ]; then
               if [ "$VERBOSE" = "true" ]; then
-                bun buddy update --packages "$PACKAGES" --verbose
+                bunx buddy-bot update --packages "$PACKAGES" --verbose
               else
-                bun buddy update --packages "$PACKAGES"
+                bunx buddy-bot update --packages "$PACKAGES"
               fi
             else
               if [ "$VERBOSE" = "true" ]; then
-                bun buddy update --strategy "$STRATEGY" --verbose
+                bunx buddy-bot update --strategy "$STRATEGY" --verbose
               else
-                bun buddy update --strategy "$STRATEGY"
+                bunx buddy-bot update --strategy "$STRATEGY"
             fi
           else
             echo "📋 DRY RUN MODE - No changes made"
@@ -1447,7 +1447,7 @@ export async function generateCoreWorkflows(preset: WorkflowPreset, repoInfo: Re
 
   // 2. Update check workflow
   const updateCheckWorkflow = generateUpdateCheckWorkflow(hasCustomToken)
-  fs.writeFileSync(path.join(outputDir, 'buddy-update-check.yml'), updateCheckWorkflow)
+  fs.writeFileSync(path.join(outputDir, 'buddy-check.yml'), updateCheckWorkflow)
   logger.info('Generated update check workflow (for PR rebase automation)')
   generated++
 
@@ -1632,7 +1632,7 @@ export async function validateWorkflowGeneration(workflowContent: string): Promi
   }
 
   // Check for required buddy-bot steps
-  if (!workflowContent.includes('bun buddy')) {
+  if (!workflowContent.includes('bunx buddy-bot')) {
     result.errors.push('Workflow missing buddy-bot execution commands')
     result.success = false
   }
@@ -1835,7 +1835,7 @@ export async function setupCustomWorkflow(preset: WorkflowPreset, _logger: Logge
 export async function showFinalInstructions(repoInfo: RepositoryInfo, hasCustomToken: boolean): Promise<void> {
   console.log('✅ Generated 3 core workflows in .github/workflows/:')
   console.log(`   - buddy-dashboard.yml (Dependency Dashboard Management)`)
-  console.log(`   - buddy-update-check.yml (Auto-rebase PR checker)`)
+  console.log(`   - buddy-check.yml (Auto-rebase PR checker)`)
   console.log(`   - buddy-update.yml (Scheduled dependency updates)`)
   console.log(`📁 Configuration file: buddy-bot.config.ts`)
 

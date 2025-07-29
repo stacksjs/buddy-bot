@@ -481,7 +481,7 @@ permissions:
   statuses: read
 
 jobs:
-  test-dependency-updates:
+  dependency-update:
     runs-on: ubuntu-latest
 
     steps:

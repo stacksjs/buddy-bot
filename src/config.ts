@@ -1,6 +1,6 @@
 import type { BuddyBotConfig } from './types'
-import { loadConfig } from 'bunfig'
 import process from 'node:process'
+import { loadConfig } from 'bunfig'
 
 export const defaultConfig: BuddyBotConfig = {
   verbose: true,

@@ -104,7 +104,7 @@ jobs:
           set -e  # Exit on any error
 
           # Build the command
-          COMMAND="bun buddy dashboard"
+          COMMAND="bunx buddy-bot dashboard"
 
           if [ "$PIN" = "true" ]; then
             COMMAND="$COMMAND --pin"
@@ -131,9 +131,9 @@ jobs:
             # Run scan to show what would be included
             echo "🔍 Scanning for dependencies that would be included:"
             if [ "$VERBOSE" = "true" ]; then
-              bun buddy scan --verbose
+              bunx buddy-bot scan --verbose
             else
-              bun buddy scan
+              bunx buddy-bot scan
             fi
           else
             echo "🚀 Executing dashboard update:"

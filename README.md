@@ -127,7 +127,7 @@ Choose from several carefully crafted presets with smart recommendations:
 **🔄 Step 8: Workflow Generation & Validation**
 - Generates three core GitHub Actions workflows:
   - `buddy-dashboard.yml` - Dependency Dashboard Management
-  - `buddy-update-check.yml` - Auto-rebase PR checker
+  - `buddy-check.yml` - Auto-rebase PR checker
   - `buddy-update.yml` - Scheduled dependency updates
 - **YAML validation** - Ensures generated workflows are syntactically correct
 - **Security best practices** - Validates token usage and permissions
@@ -455,7 +455,7 @@ buddy-bot update-check --verbose
 
 ### Automated Rebase Workflow
 
-Buddy Bot includes a pre-built GitHub Actions workflow (`.github/workflows/buddy-update-check.yml`) that:
+Buddy Bot includes a pre-built GitHub Actions workflow (`.github/workflows/buddy-check.yml`) that:
 
 - **🕐 Runs every minute**: Automatically checks for rebase requests
 - **🔍 Scans all PRs**: Finds Buddy Bot PRs with checked rebase boxes

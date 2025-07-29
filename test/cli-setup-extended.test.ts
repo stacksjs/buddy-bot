@@ -16,7 +16,7 @@ describe('CLI Setup - Extended Tests', () => {
         custom: [],
       }
       const standardWorkflow = generateUpdateWorkflow(standardPreset, false)
-      expect(standardWorkflow).toContain('name: Standard Dependency Updates')
+      expect(standardWorkflow).toContain('name: Buddy Update')
       expect(standardWorkflow).toContain('cron: \'0 9 * * 1,3,5\'')
       // eslint-disable-next-line no-template-curly-in-string
       expect(standardWorkflow).toContain('${{ secrets.GITHUB_TOKEN }}')
@@ -83,8 +83,8 @@ describe('CLI Setup - Extended Tests', () => {
       expect(workflow).toContain('dry_run:')
       expect(workflow).toContain('packages:')
       expect(workflow).toContain('verbose:')
-      expect(workflow).toContain('bun buddy scan')
-      expect(workflow).toContain('bun buddy update')
+      expect(workflow).toContain('bunx buddy-bot scan')
+      expect(workflow).toContain('bunx buddy-bot update')
       expect(workflow).toContain('permissions:')
       expect(workflow).toContain('contents: write')
       expect(workflow).toContain('pull-requests: write')

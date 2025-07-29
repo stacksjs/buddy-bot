@@ -237,7 +237,7 @@ Generates three core workflows:
 - **Purpose**: Manages dependency dashboard issue
 - **Features**: Manual triggers, dry-run mode, verbose logging
 
-#### 2. Update Check Workflow (`buddy-update-check.yml`)
+#### 2. Update Check Workflow (`buddy-check.yml`)
 - **Schedule**: Every 15 minutes
 - **Purpose**: Auto-rebase PRs with checked rebase boxes
 - **Features**: Automatic PR updates, conflict resolution
@@ -251,7 +251,7 @@ Generates three core workflows:
 ```
 🔍 Validating Generated Workflows
 ✅ buddy-dashboard.yml validated successfully
-✅ buddy-update-check.yml validated successfully
+✅ buddy-check.yml validated successfully
 ✅ buddy-update.yml validated successfully
 ```
 
@@ -273,7 +273,7 @@ Generates three core workflows:
 🎉 Setup Complete!
 ✅ Generated 3 core workflows in .github/workflows/:
    - buddy-dashboard.yml (Dependency Dashboard Management)
-   - buddy-update-check.yml (Auto-rebase PR checker)
+   - buddy-check.yml (Auto-rebase PR checker)
    - buddy-update.yml (Scheduled dependency updates)
 📁 Configuration file: buddy-bot.config.json
 ```
@@ -354,7 +354,7 @@ on:
 
 #### Update Workflow
 ```yaml
-name: Standard Dependency Updates
+name: Buddy Update
 
 on:
   schedule:

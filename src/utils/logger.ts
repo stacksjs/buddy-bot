@@ -6,7 +6,7 @@ export class Logger {
    * Log info message in blue
    */
   info(message: string, ...args: any[]): void {
-    console.log(`\x1B[34mℹ\x1B[0m ${message}`, ...args)
+    console.log(message, ...args)
   }
 
   /**

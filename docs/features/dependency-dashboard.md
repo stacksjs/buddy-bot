@@ -158,7 +158,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - name: Update Dashboard
-        run: bun buddy-bot dashboard --pin
+        run: bunx buddy-bot dashboard --pin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
