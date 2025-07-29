@@ -183,6 +183,11 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
   const fileUpdates: Array<{ path: string, content: string, type: 'update' }> = []
   const composerUpdates = updates.filter(update => update.file.endsWith('composer.json'))
 
+  console.log(`🐛 COMPOSER PARSER DEBUG: Received ${updates.length} total updates, ${composerUpdates.length} composer updates`)
+  composerUpdates.forEach(update => {
+    console.log(`🐛   - Processing: ${update.name} -> ${update.newVersion}`)
+  })
+
   if (composerUpdates.length === 0) {
     return fileUpdates
   }
@@ -200,23 +205,31 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
     })
   }
 
+  console.log(`🐛 COMPOSER PARSER DEBUG: Processing ${updatesByFile.size} file(s)`)
+
   // Process each composer.json file
   for (const [filePath, fileUpdates_] of updatesByFile) {
     try {
+      console.log(`🐛 COMPOSER PARSER DEBUG: Processing file ${filePath} with ${fileUpdates_.length} updates`)
+      
       // Read current composer.json content
       const fs = await import('node:fs')
       let composerContent = fs.readFileSync(filePath, 'utf-8')
+
+      console.log(`🐛 COMPOSER PARSER DEBUG: Original composer.json content length: ${composerContent.length}`)
 
       // Parse to understand structure
       const composerData: ComposerPackage = JSON.parse(composerContent)
 
       // Apply updates using string replacement to preserve formatting
       for (const update of fileUpdates_) {
+        console.log(`🐛 COMPOSER PARSER DEBUG: Applying update for ${update.name} -> ${update.newVersion}`)
         let packageFound = false
 
         // Check in require section
         if (composerData.require && composerData.require[update.name]) {
           const currentVersionInFile = composerData.require[update.name]
+          console.log(`🐛   Found ${update.name} in require: ${currentVersionInFile}`)
 
           // For complex constraints like ">=6.0,<7.0", preserve the constraint format
           // and just update the version numbers
@@ -234,6 +247,8 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
             const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
             newVersion = `${originalPrefix}${update.newVersion}`
           }
+
+          console.log(`🐛   Updating ${update.name}: ${currentVersionInFile} -> ${newVersion}`)
 
           // Create regex to find the exact line with this package and version
           const packageRegex = new RegExp(
@@ -248,6 +263,7 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
         // Check in require-dev section
         if (!packageFound && composerData['require-dev'] && composerData['require-dev'][update.name]) {
           const currentVersionInFile = composerData['require-dev'][update.name]
+          console.log(`🐛   Found ${update.name} in require-dev: ${currentVersionInFile}`)
 
           // For complex constraints like ">=6.0,<7.0", preserve the constraint format
           // and just update the version numbers
@@ -265,6 +281,8 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
             const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
             newVersion = `${originalPrefix}${update.newVersion}`
           }
+
+          console.log(`🐛   Updating ${update.name}: ${currentVersionInFile} -> ${newVersion}`)
 
           const packageRegex = new RegExp(
             `("${update.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
@@ -280,6 +298,8 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
         }
       }
 
+      console.log(`🐛 COMPOSER PARSER DEBUG: Final composer.json content length: ${composerContent.length}`)
+
       fileUpdates.push({
         path: filePath,
         content: composerContent,
@@ -291,5 +311,6 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
     }
   }
 
+  console.log(`🐛 COMPOSER PARSER DEBUG: Returning ${fileUpdates.length} file updates`)
   return fileUpdates
 }
