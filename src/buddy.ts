@@ -84,7 +84,16 @@ export class Buddy {
         ? this.groupUpdatesByConfig(updates)
         : groupUpdates(updates)
 
-      const duration = Date.now() - startTime
+      // Debug logging for group composition
+      console.log(`🐛 DEBUG: Created ${groups.length} update groups:`)
+      groups.forEach(group => {
+        console.log(`🐛   Group: "${group.name}" (${group.updateType}) - ${group.updates.length} updates`)
+        group.updates.forEach(update => {
+          console.log(`🐛     - ${update.name}: ${update.currentVersion} -> ${update.newVersion} (${update.file})`)
+        })
+      })
+
+      const scanDuration = Date.now() - startTime
 
       const result: UpdateScanResult = {
         totalPackages,
@@ -193,16 +202,6 @@ export class Buddy {
 
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
-
-          // Debug logging to understand what files are being processed
-          console.log(`🐛 DEBUG: Processing group "${group.name}" with ${group.updates.length} updates:`)
-          group.updates.forEach(update => {
-            console.log(`🐛   - ${update.name}: ${update.currentVersion} -> ${update.newVersion} (${update.file}, ${update.updateType})`)
-          })
-          console.log(`🐛 DEBUG: Generated ${packageJsonUpdates.length} file updates:`)
-          packageJsonUpdates.forEach(fileUpdate => {
-            console.log(`🐛   - File: ${fileUpdate.path}`)
-          })
 
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
@@ -460,6 +459,7 @@ export class Buddy {
     if (dependencyFileUpdates.length > 0) {
       try {
         const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
+        // Pass only the dependency file updates to avoid cross-contamination
         const depFileUpdates = await generateDependencyFileUpdates(dependencyFileUpdates)
         fileUpdates.push(...depFileUpdates)
       }
@@ -477,6 +477,7 @@ export class Buddy {
     if (composerUpdates.length > 0) {
       try {
         const { generateComposerUpdates } = await import('./utils/composer-parser')
+        // Pass only the composer updates for this specific group to prevent cross-contamination
         const compUpdates = await generateComposerUpdates(composerUpdates)
         fileUpdates.push(...compUpdates)
       }
@@ -494,6 +495,7 @@ export class Buddy {
     if (githubActionsUpdates.length > 0) {
       try {
         const { generateGitHubActionsUpdates } = await import('./utils/github-actions-parser')
+        // Pass only the GitHub Actions updates for this specific group
         const ghActionsUpdates = await generateGitHubActionsUpdates(githubActionsUpdates)
         fileUpdates.push(...ghActionsUpdates)
       }
