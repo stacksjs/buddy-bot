@@ -348,8 +348,13 @@ export class ReleaseNotesFetcher {
     confidence: string
   } {
     const packageName = encodeURIComponent(packageInfo.name)
-    const encodedCurrent = encodeURIComponent(currentVersion)
-    const encodedNew = encodeURIComponent(newVersion)
+
+    // Normalize versions: remove v prefix and ensure proper semver format
+    const normalizedCurrent = this.normalizeVersionForBadges(currentVersion)
+    const normalizedNew = this.normalizeVersionForBadges(newVersion)
+
+    const encodedCurrent = encodeURIComponent(normalizedCurrent)
+    const encodedNew = encodeURIComponent(normalizedNew)
 
     return {
       age: `[![age](https://developer.mend.io/api/mc/badges/age/npm/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
@@ -412,8 +417,13 @@ export class ReleaseNotesFetcher {
     confidence: string
   } {
     const packageName = encodeURIComponent(packageInfo.name)
-    const encodedCurrent = encodeURIComponent(currentVersion)
-    const encodedNew = encodeURIComponent(newVersion)
+
+    // Normalize versions: remove v prefix and ensure proper semver format
+    const normalizedCurrent = this.normalizeVersionForBadges(currentVersion)
+    const normalizedNew = this.normalizeVersionForBadges(newVersion)
+
+    const encodedCurrent = encodeURIComponent(normalizedCurrent)
+    const encodedNew = encodeURIComponent(normalizedNew)
 
     return {
       age: `[![age](https://developer.mend.io/api/mc/badges/age/packagist/${packageName}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
@@ -421,5 +431,21 @@ export class ReleaseNotesFetcher {
       passing: `[![passing](https://developer.mend.io/api/mc/badges/compatibility/packagist/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
       confidence: `[![confidence](https://developer.mend.io/api/mc/badges/confidence/packagist/${packageName}/${encodedCurrent}/${encodedNew}?slim=true)](https://docs.renovatebot.com/merge-confidence/)`,
     }
+  }
+
+  /**
+   * Normalize version for badge URLs (remove v prefix, ensure proper format)
+   */
+  private normalizeVersionForBadges(version: string): string {
+    // Remove v prefix
+    let normalized = version.replace(/^v/, '')
+
+    // If version is just major.minor (e.g., "3.0"), add .0 to make it "3.0.0"
+    const parts = normalized.split('.')
+    if (parts.length === 2) {
+      normalized = `${normalized}.0`
+    }
+
+    return normalized
   }
 }

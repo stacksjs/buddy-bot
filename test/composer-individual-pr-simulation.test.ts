@@ -24,6 +24,7 @@ describe('Composer Individual PR Simulation', () => {
   beforeEach(() => {
     const mockConfig = {
       repository: {
+        provider: 'github' as const,
         owner: 'test-owner',
         name: 'test-repo',
         baseBranch: 'main',

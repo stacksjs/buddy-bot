@@ -194,27 +194,29 @@ export class PullRequestGenerator {
       }
 
       body += `### PHP/Composer Dependencies\n\n`
-      body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
-      body += `|---|---|---|---|---|---|\n`
+      body += `| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |\n`
+      body += `|---|---|---|---|---|---|---|---|\n`
 
       for (const update of uniqueComposerUpdates) {
         const packageInfo = composerPackageInfos.get(update.name) || { name: update.name }
 
-        // Generate enhanced package link to match npm format exactly
+        // Generate package link: homepage first, then source
         let packageCell: string
-        if (packageInfo.repository?.url) {
-          const sourceUrl = this.getComposerSourceUrl(packageInfo.repository.url, update.name)
-          // Format: [packageName](repoUrl) ([source](sourceUrl)) - matching npm format
-          packageCell = `[${update.name}](${sourceUrl}) ([source](${sourceUrl}))`
-        }
-        else {
-          // Fallback to Packagist page only
+        if (packageInfo.homepage && packageInfo.repository?.url) {
+          const sourceUrl = this.getComposerRedirectSourceUrl(packageInfo.repository.url, update.name)
+          packageCell = `[${update.name}](${packageInfo.homepage}) ([source](${sourceUrl}))`
+        } else if (packageInfo.repository?.url) {
+          const sourceUrl = this.getComposerRedirectSourceUrl(packageInfo.repository.url, update.name)
+          packageCell = `[${update.name}](${sourceUrl})`
+        } else {
+          // Fallback to Packagist page
           packageCell = `[${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)})`
         }
 
-        // Generate version change with diff link (Renovate style, similar to npm)
+        // Generate constraint-style version change (e.g., ^3.0 -> ^3.10.0)
+        const constraintChange = this.getConstraintStyleChange(update.currentVersion, update.newVersion)
         const diffUrl = `https://renovatebot.com/diffs/packagist/${encodeURIComponent(update.name)}/${update.currentVersion}/${update.newVersion}`
-        const change = `[\`${update.currentVersion}\` -> \`${update.newVersion}\`](${diffUrl})`
+        const change = `[\`${constraintChange}\`](${diffUrl})`
 
         // Generate Composer confidence badges
         const badges = this.releaseNotesFetcher.generateComposerBadges(
@@ -223,7 +225,11 @@ export class PullRequestGenerator {
           update.newVersion,
         )
 
-        body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} |\n`
+        // Dependency type and update type
+        const dependencyType = update.dependencyType || 'require'
+        const updateType = update.updateType || 'minor'
+
+        body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} | ${dependencyType} | ${updateType} |\n`
       }
 
       body += `\n`
@@ -546,6 +552,60 @@ export class PullRequestGenerator {
       // For regular GitHub repositories
       if (url.hostname === 'github.com') {
         return `${cleanUrl}/tree/master` // Assuming master branch for source link
+      }
+
+      // Fallback to repository URL
+      return cleanUrl
+    }
+    catch {
+      return repositoryUrl
+    }
+  }
+
+  /**
+   * Generate a constraint-style version change (e.g., ^3.0 -> ^3.10.0)
+   */
+  private getConstraintStyleChange(currentVersion: string, newVersion: string): string {
+    // Extract base versions (remove any v prefix)
+    const cleanCurrent = currentVersion.replace(/^v/, '')
+    const cleanNew = newVersion.replace(/^v/, '')
+
+    // For constraint updates, we want to show the constraint form
+    // e.g., 3.0 -> 3.10.0 becomes ^3.0 -> ^3.10.0
+    const currentConstraint = `^${cleanCurrent}`
+    const newConstraint = `^${cleanNew}`
+
+    return `${currentConstraint} -> ${newConstraint}`
+  }
+
+  /**
+   * Generate a redirect source URL for Composer packages (like npm)
+   */
+  private getComposerRedirectSourceUrl(repositoryUrl: string, packageName: string): string {
+    try {
+      const cleanUrl = repositoryUrl
+        .replace(/^git\+/, '')
+        .replace(/\.git$/, '')
+        .replace(/^git:\/\//, 'https://')
+        .replace(/^ssh:\/\/git@/, 'https://')
+        .replace(/^git@github\.com:/, 'https://github.com/')
+
+      const url = new URL(cleanUrl)
+
+      // For DefinitelyTyped packages, use the types subdirectory
+      if (packageName.startsWith('@types/') && url.pathname.includes('DefinitelyTyped')) {
+        const typeName = packageName.replace('@types/', '')
+        return `https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${typeName}`
+      }
+
+      // For regular GitHub repositories, use redirect.github.com
+      if (url.hostname === 'github.com') {
+        const pathParts = url.pathname.split('/').filter(p => p)
+        if (pathParts.length >= 2) {
+          const owner = pathParts[0]
+          const repo = pathParts[1]
+          return `https://redirect.github.com/${owner}/${repo}`
+        }
       }
 
       // Fallback to repository URL

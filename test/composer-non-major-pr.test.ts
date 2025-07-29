@@ -13,7 +13,7 @@ describe('Composer Non-Major PR', () => {
         baseBranch: 'main',
       },
     }
-    prGenerator = new PullRequestGenerator(mockConfig)
+    prGenerator = new PullRequestGenerator()
   })
 
   it('should include Composer updates in non-major grouped PR', async () => {
@@ -86,13 +86,13 @@ describe('Composer Non-Major PR', () => {
     expect(prBody).toContain('### GitHub Actions')
     expect(prBody).toContain('actions/checkout')
 
-    // Verify Composer package links
-    expect(prBody).toContain('https://packagist.org/packages/monolog%2Fmonolog')
-    expect(prBody).toContain('https://packagist.org/packages/phpunit%2Fphpunit')
+    // Verify Composer package links - they now go to homepage/source, not packagist
+    expect(prBody).toContain('([source](https://redirect.github.com/Seldaek/monolog))')
+    expect(prBody).toContain('([source](https://redirect.github.com/sebastianbergmann/phpunit))')
 
-    // Verify version changes in Composer section
-    expect(prBody).toContain('`3.7.0` -> `3.8.0`')
-    expect(prBody).toContain('`10.5.0` -> `10.5.2`')
+    // Verify constraint-style version changes in Composer section
+    expect(prBody).toContain('`^3.7.0 -> ^3.8.0`')
+    expect(prBody).toContain('`^10.5.0 -> ^10.5.2`')
   })
 
   it('should handle non-major PR with only Composer updates', async () => {
@@ -160,6 +160,28 @@ describe('Composer Non-Major PR', () => {
 
     // Should have the same format as npm dependencies (no file column)
     expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
+
+    // Should have the same columns as npm dependencies
+    expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
+    expect(prBody).toContain('|---|---|---|---|---|---|')
+
+    // Should have the new table format with dependency and update type columns
+    expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |')
+    expect(prBody).toContain('|---|---|---|---|---|---|---|---|')
+
+    // Should show constraint-style changes for actual test packages
+    expect(prBody).toContain('^6.4.0 -> ^6.4.12')
+    expect(prBody).toContain('^1.10.0 -> ^1.12.0')
+
+    // Should have confidence badges
+    expect(prBody).toContain('[![age](https://developer.mend.io/api/mc/badges/age/packagist/')
+    expect(prBody).toContain('[![adoption](https://developer.mend.io/api/mc/badges/adoption/packagist/')
+    expect(prBody).toContain('[![passing](https://developer.mend.io/api/mc/badges/compatibility/packagist/')
+    expect(prBody).toContain('[![confidence](https://developer.mend.io/api/mc/badges/confidence/packagist/')
+
+    // Should show dependency types
+    expect(prBody).toContain('require')
+    expect(prBody).toContain('require-dev')
   })
 
   it('should deduplicate composer packages and show enhanced links', async () => {
@@ -178,6 +200,8 @@ describe('Composer Non-Major PR', () => {
             name: 'monolog/monolog',
             repository: 'https://github.com/Seldaek/monolog',
             description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+            latestVersion: '3.8.0',
+            versions: ['3.7.0', '3.8.0'],
           },
         },
         {
@@ -191,6 +215,8 @@ describe('Composer Non-Major PR', () => {
             name: 'monolog/monolog',
             repository: 'https://github.com/Seldaek/monolog',
             description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+            latestVersion: '3.8.0',
+            versions: ['3.7.0', '3.8.0'],
           },
         },
         {
@@ -238,6 +264,8 @@ describe('Composer Non-Major PR', () => {
             name: 'monolog/monolog',
             repository: 'https://github.com/Seldaek/monolog',
             description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+            latestVersion: '3.8.0',
+            versions: ['3.7.0', '3.8.0'],
           },
         },
       ],
@@ -248,17 +276,23 @@ describe('Composer Non-Major PR', () => {
 
     const prBody = await prGenerator.generateBody(testGroup)
 
-    // Should format like npm: [packageName](repoUrl) ([source](sourceUrl))
-    expect(prBody).toContain('[monolog/monolog](https://github.com/Seldaek/monolog/tree/master) ([source](https://github.com/Seldaek/monolog/tree/master))')
+    // Should format like Renovate: [packageName](homepage) ([source](redirect.github.com))
+    expect(prBody).toContain('[monolog/monolog](https://github.com/Seldaek/monolog) ([source](https://redirect.github.com/Seldaek/monolog))')
 
-    // Should have the same columns as npm dependencies
-    expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
-    expect(prBody).toContain('|---|---|---|---|---|---|')
+    // Should have the new table format with dependency and update type columns
+    expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |')
+    expect(prBody).toContain('|---|---|---|---|---|---|---|---|')
 
-    // Should have confidence badges
+    // Should show constraint-style changes
+    expect(prBody).toContain('^3.7.0 -> ^3.8.0')
+
+    // Should have confidence badges with normalized versions
     expect(prBody).toContain('[![age](https://developer.mend.io/api/mc/badges/age/packagist/')
     expect(prBody).toContain('[![adoption](https://developer.mend.io/api/mc/badges/adoption/packagist/')
     expect(prBody).toContain('[![passing](https://developer.mend.io/api/mc/badges/compatibility/packagist/')
     expect(prBody).toContain('[![confidence](https://developer.mend.io/api/mc/badges/confidence/packagist/')
+
+    // Should show dependency type
+    expect(prBody).toContain('| require | minor |')
   })
 })

@@ -42,8 +42,8 @@ describe('Composer Mixed Updates (Major + Minor)', () => {
       { name: 'another/package', constraint: '*', current: '1.5.0', latest: '2.1.0' },
     ]
 
-    const includedUpdates = []
-    const excludedUpdates = []
+    const includedUpdates: Array<{ name: string; constraint: string; current: string; latest: string; updateType: string; shouldGetIndividualPR: boolean }> = []
+    const excludedUpdates: Array<{ name: string; constraint: string; current: string; latest: string }> = []
 
     packages.forEach((pkg) => {
       const shouldInclude = shouldIncludeUpdate(pkg.constraint, pkg.current, pkg.latest)
