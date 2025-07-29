@@ -211,7 +211,7 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
   for (const [filePath, fileUpdates_] of updatesByFile) {
     try {
       console.log(`🐛 COMPOSER PARSER DEBUG: Processing file ${filePath} with ${fileUpdates_.length} updates`)
-      
+
       // Read current composer.json content
       const fs = await import('node:fs')
       let composerContent = fs.readFileSync(filePath, 'utf-8')

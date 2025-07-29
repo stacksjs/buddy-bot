@@ -200,6 +200,31 @@ export class Buddy {
           // Create branch
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
 
+          // Ensure we're on a clean main branch before generating updates
+          // This prevents reading modified files from previous PR generations
+          try {
+            const { spawn } = await import('node:child_process')
+            const runGitCommand = (command: string, args: string[]): Promise<void> => {
+              return new Promise((resolve, reject) => {
+                const child = spawn(command, args, { stdio: 'pipe' })
+                child.on('close', (code) => {
+                  if (code === 0) resolve()
+                  else reject(new Error(`Git command failed with code ${code}`))
+                })
+                child.on('error', reject)
+              })
+            }
+            
+            // Reset to clean main state before generating file updates
+            await runGitCommand('git', ['checkout', 'main'])
+            await runGitCommand('git', ['reset', '--hard', 'HEAD'])
+            await runGitCommand('git', ['clean', '-fd'])
+            console.log(`🧹 Reset to clean main state before generating updates for ${group.name}`)
+          }
+          catch (error) {
+            console.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
+          }
+
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
 
