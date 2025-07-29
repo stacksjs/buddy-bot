@@ -59,7 +59,8 @@ export class GitHubProvider implements GitProvider {
         if (nonWorkflowFiles.length > 0) {
           console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
           files = nonWorkflowFiles
-        } else {
+        }
+        else {
           console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
           console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
           return // Exit early if no non-workflow files to commit
@@ -162,7 +163,8 @@ export class GitHubProvider implements GitProvider {
         if (nonWorkflowFiles.length > 0) {
           console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
           files = nonWorkflowFiles
-        } else {
+        }
+        else {
           console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
           console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
           return // Exit early if no non-workflow files to commit

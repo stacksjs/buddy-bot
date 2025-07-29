@@ -206,7 +206,8 @@ export class PullRequestGenerator {
           const sourceUrl = this.getComposerSourceUrl(packageInfo.repository.url, update.name)
           // Format: [packageName](repoUrl) ([source](sourceUrl)) - matching npm format
           packageCell = `[${update.name}](${sourceUrl}) ([source](${sourceUrl}))`
-        } else {
+        }
+        else {
           // Fallback to Packagist page only
           packageCell = `[${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)})`
         }
@@ -258,8 +259,6 @@ export class PullRequestGenerator {
 
       body += `\n`
     }
-
-
 
     // GitHub Actions table (simplified, without badges, deduplicated)
     if (uniqueGithubActionsUpdates.length > 0) {

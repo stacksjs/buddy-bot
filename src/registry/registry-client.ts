@@ -630,7 +630,8 @@ export class RegistryClient {
               if (showData.versions) {
                 availableVersions = showData.versions // This is already an array of version strings
               }
-            } catch (error) {
+            }
+            catch (error) {
               console.warn(`Failed to get available versions for ${pkg.name}, using latest only:`, error)
               availableVersions = [latestVersion]
             }
@@ -676,7 +677,7 @@ export class RegistryClient {
   /**
    * Find the best patch, minor, and major updates for a package
    */
-  private async findBestUpdates(currentVersion: string, availableVersions: string[], constraint: string): Promise<{ version: string, type: 'patch' | 'minor' | 'major' }[]> {
+  private async findBestUpdates(currentVersion: string, availableVersions: string[], _constraint: string): Promise<{ version: string, type: 'patch' | 'minor' | 'major' }[]> {
     const { getUpdateType } = await import('../utils/helpers')
     const candidates: { version: string, type: 'patch' | 'minor' | 'major' }[] = []
 
@@ -714,11 +715,13 @@ export class RegistryClient {
         if (!bestPatch || this.compareVersions(version, bestPatch) > 0) {
           bestPatch = version
         }
-      } else if (updateType === 'minor' && versionParts.major === currentParts.major) {
+      }
+      else if (updateType === 'minor' && versionParts.major === currentParts.major) {
         if (!bestMinor || this.compareVersions(version, bestMinor) > 0) {
           bestMinor = version
         }
-      } else if (updateType === 'major') {
+      }
+      else if (updateType === 'major') {
         if (!bestMajor || this.compareVersions(version, bestMajor) > 0) {
           bestMajor = version
         }
@@ -745,16 +748,16 @@ export class RegistryClient {
   private parseVersion(version: string): { major: number, minor: number, patch: number } | null {
     // Remove 'v' prefix and any pre-release identifiers
     const cleanVersion = version.replace(/^v/, '').split('-')[0].split('+')[0]
-    const parts = cleanVersion.split('.').map(p => parseInt(p, 10))
+    const parts = cleanVersion.split('.').map(p => Number.parseInt(p, 10))
 
-    if (parts.length < 2 || parts.some(p => isNaN(p))) {
+    if (parts.length < 2 || parts.some(p => Number.isNaN(p))) {
       return null
     }
 
     return {
       major: parts[0] || 0,
       minor: parts[1] || 0,
-      patch: parts[2] || 0
+      patch: parts[2] || 0,
     }
   }
 
@@ -766,10 +769,13 @@ export class RegistryClient {
     const parseA = this.parseVersion(a)
     const parseB = this.parseVersion(b)
 
-    if (!parseA || !parseB) return 0
+    if (!parseA || !parseB)
+      return 0
 
-    if (parseA.major !== parseB.major) return parseA.major - parseB.major
-    if (parseA.minor !== parseB.minor) return parseA.minor - parseB.minor
+    if (parseA.major !== parseB.major)
+      return parseA.major - parseB.major
+    if (parseA.minor !== parseB.minor)
+      return parseA.minor - parseB.minor
     return parseA.patch - parseB.patch
   }
 
@@ -972,11 +978,13 @@ export class RegistryClient {
         if (!bestPatch || this.compareVersions(version, bestPatch) > 0) {
           bestPatch = version
         }
-      } else if (updateType === 'minor' && versionParts.major === currentParts.major) {
+      }
+      else if (updateType === 'minor' && versionParts.major === currentParts.major) {
         if (!bestMinor || this.compareVersions(version, bestMinor) > 0) {
           bestMinor = version
         }
-      } else if (updateType === 'major') {
+      }
+      else if (updateType === 'major') {
         if (!bestMajor || this.compareVersions(version, bestMajor) > 0) {
           bestMajor = version
         }

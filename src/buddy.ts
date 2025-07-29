@@ -199,7 +199,8 @@ export class Buddy {
               return new Promise((resolve, reject) => {
                 const child = spawn(command, args, { stdio: 'pipe' })
                 child.on('close', (code) => {
-                  if (code === 0) resolve()
+                  if (code === 0)
+                    resolve()
                   else reject(new Error(`Git command failed with code ${code}`))
                 })
                 child.on('error', reject)
@@ -210,6 +211,7 @@ export class Buddy {
             await runGitCommand('git', ['checkout', 'main'])
             await runGitCommand('git', ['reset', '--hard', 'HEAD'])
             await runGitCommand('git', ['clean', '-fd'])
+            // eslint-disable-next-line no-console
             console.log(`🧹 Reset to clean main state before generating updates for ${group.name}`)
           }
           catch (error) {

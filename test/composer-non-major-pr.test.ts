@@ -177,8 +177,8 @@ describe('Composer Non-Major PR', () => {
           metadata: {
             name: 'monolog/monolog',
             repository: 'https://github.com/Seldaek/monolog',
-            description: 'Sends your logs to files, sockets, inboxes, databases and various web services'
-          }
+            description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+          },
         },
         {
           name: 'monolog/monolog', // Duplicate package
@@ -190,8 +190,8 @@ describe('Composer Non-Major PR', () => {
           metadata: {
             name: 'monolog/monolog',
             repository: 'https://github.com/Seldaek/monolog',
-            description: 'Sends your logs to files, sockets, inboxes, databases and various web services'
-          }
+            description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+          },
         },
         {
           name: 'phpunit/phpunit',
@@ -237,8 +237,8 @@ describe('Composer Non-Major PR', () => {
           metadata: {
             name: 'monolog/monolog',
             repository: 'https://github.com/Seldaek/monolog',
-            description: 'Sends your logs to files, sockets, inboxes, databases and various web services'
-          }
+            description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+          },
         },
       ],
       updateType: 'minor',
@@ -250,11 +250,11 @@ describe('Composer Non-Major PR', () => {
 
     // Should format like npm: [packageName](repoUrl) ([source](sourceUrl))
     expect(prBody).toContain('[monolog/monolog](https://github.com/Seldaek/monolog/tree/master) ([source](https://github.com/Seldaek/monolog/tree/master))')
-    
+
     // Should have the same columns as npm dependencies
     expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
     expect(prBody).toContain('|---|---|---|---|---|---|')
-    
+
     // Should have confidence badges
     expect(prBody).toContain('[![age](https://developer.mend.io/api/mc/badges/age/packagist/')
     expect(prBody).toContain('[![adoption](https://developer.mend.io/api/mc/badges/adoption/packagist/')
