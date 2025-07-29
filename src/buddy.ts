@@ -100,10 +100,10 @@ export class Buddy {
         updates,
         groups,
         scannedAt: new Date(),
-        duration,
+        duration: scanDuration,
       }
 
-      this.logger.success(`Scan completed in ${duration}ms. Found ${updates.length} updates.`)
+      this.logger.success(`Scan completed in ${scanDuration}ms. Found ${updates.length} updates.`)
       return result
     }
     catch (error) {
