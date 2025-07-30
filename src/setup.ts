@@ -1259,16 +1259,6 @@ jobs:
         with:
           bun-version: latest
 ${generateComposerSetupSteps()}
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build buddy-bot
-        run: bun run build
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "buddy-bot[bot]"
-          git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
 
       - name: Check for rebase requests
         run: |
@@ -1379,8 +1369,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name "buddy-bot[bot]"
-          git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Verify Composer setup
         run: |

@@ -180,8 +180,8 @@ During rebase, Buddy Bot updates:
 ```yaml
 - name: Configure Git
   run: |
-    git config --global user.name "buddy-bot[bot]"
-    git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
+    git config --global user.name "github-actions[bot]"
+    git config --global user.email "github-actions[bot]@users.noreply.github.com"
 ```
 
 #### 3. No PRs Found

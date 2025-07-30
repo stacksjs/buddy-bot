@@ -359,6 +359,11 @@ export class RegistryClient {
         // Get the actual version from package.json (strip caret, tilde, etc.)
         const cleanVersion = this.cleanVersionRange(packageJsonVersion)
 
+        // Skip workspace: versions as they're not meant for semver comparison
+        if (!cleanVersion) {
+          continue
+        }
+
         // Get latest version from registry
         const latestVersion = await this.getLatestVersion(packageName)
         if (!latestVersion)
@@ -395,6 +400,11 @@ export class RegistryClient {
    * Clean version range to get the base version (remove ^, ~, etc.)
    */
   private cleanVersionRange(version: string): string {
+    // Handle workspace: protocol - skip these as they're not meant for semver comparison
+    if (version.startsWith('workspace:')) {
+      return null
+    }
+
     // Remove common range indicators
     return version.replace(/^[\^~>=<]/, '').trim()
   }

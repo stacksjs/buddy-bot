@@ -144,11 +144,19 @@ export async function generateDependencyFileUpdates(updates: PackageUpdate[]): P
         const currentContent = fs.readFileSync(filePath, 'utf-8')
         const updatedContent = await updateDependencyFile(filePath, currentContent, packageUpdates)
 
-        fileUpdates.push({
-          path: filePath,
-          content: updatedContent,
-          type: 'update',
-        })
+        // Only add file update if content actually changed
+        if (updatedContent !== currentContent) {
+          fileUpdates.push({
+            path: filePath,
+            content: updatedContent,
+            type: 'update',
+          })
+          console.log(`✅ Generated update for ${filePath} with ${packageUpdates.length} package changes`)
+        } else {
+          console.log(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
+        }
+      } else {
+        console.warn(`⚠️ Dependency file ${filePath} does not exist`)
       }
     }
     catch (error) {

@@ -226,6 +226,14 @@ export class Buddy {
           // Update package.json with new versions
           const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
 
+          // Check if we have any file changes to commit
+          if (packageJsonUpdates.length === 0) {
+            this.logger.warn(`ℹ️ No file changes generated for group ${group.name}, skipping PR creation`)
+            continue
+          }
+
+          this.logger.info(`📝 Generated ${packageJsonUpdates.length} file changes for ${group.name}`)
+
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
 
@@ -754,7 +762,7 @@ export class Buddy {
 
     // Add additional contextual labels
     if (group.updates.length > 5) {
-      labels.add('bulk-update')
+      labels.add('dependencies')  // Use standard dependencies label instead of bulk-update
     }
 
     // Add security label if any package might be security related

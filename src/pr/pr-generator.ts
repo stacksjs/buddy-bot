@@ -26,7 +26,7 @@ export class PullRequestGenerator {
         url: '',
         createdAt: new Date(),
         updatedAt: new Date(),
-        author: 'buddy-bot',
+        author: 'github-actions[bot]',
         reviewers: [],
         assignees: [],
         labels: ['dependencies', 'automated'],

@@ -3,6 +3,7 @@ name: Buddy Update
 on:
   schedule:
     - cron: '0 */2 * * *' # Every 2 hours for testing (more reasonable for testing)
+
   workflow_dispatch: # Manual triggering for development
     inputs:
       strategy:
@@ -77,13 +78,10 @@ jobs:
         if: ${{ hashFiles('composer.json') != '' }}
         run: composer install --prefer-dist --optimize-autoloader
 
-      - name: Build buddy-bot
-        run: bun run build
-
       - name: Configure Git
         run: |
-          git config --global user.name "buddy-bot[bot]"
-          git config --global user.email "buddy-bot[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Verify Composer setup
         run: |

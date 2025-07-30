@@ -199,15 +199,54 @@ export function generateBranchName(updates: PackageUpdate[], prefix = 'buddy'): 
 }
 
 /**
+ * Deduplicate updates by package name and version, keeping the most relevant file
+ */
+function deduplicateUpdates(updates: PackageUpdate[]): PackageUpdate[] {
+  const uniqueUpdates = new Map<string, PackageUpdate>()
+
+  for (const update of updates) {
+    const key = `${update.name}:${update.currentVersion}:${update.newVersion}`
+    const existing = uniqueUpdates.get(key)
+
+    if (!existing) {
+      uniqueUpdates.set(key, update)
+    } else {
+      // Keep the update with the most relevant file (prioritize package.json > composer.json > dependency files)
+      const currentPriority = getFilePriority(update.file)
+      const existingPriority = getFilePriority(existing.file)
+
+      if (currentPriority > existingPriority) {
+        uniqueUpdates.set(key, update)
+      }
+    }
+  }
+
+  return Array.from(uniqueUpdates.values())
+}
+
+/**
+ * Get file priority for deduplication (higher is more important)
+ */
+function getFilePriority(filePath: string): number {
+  if (filePath === 'package.json') return 3
+  if (filePath.endsWith('composer.json')) return 2
+  if (filePath.includes('.github/workflows/')) return 1
+  return 0 // dependency files like deps.yaml
+}
+
+/**
  * Group updates based on configuration and type
  */
 export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   const groups: UpdateGroup[] = []
 
+  // Deduplicate updates by package name and version - keep the most relevant file
+  const deduplicatedUpdates = deduplicateUpdates(updates)
+
   // Group by update type
-  const majorUpdates = updates.filter(u => u.updateType === 'major')
-  const minorUpdates = updates.filter(u => u.updateType === 'minor')
-  const patchUpdates = updates.filter(u => u.updateType === 'patch')
+  const majorUpdates = deduplicatedUpdates.filter(u => u.updateType === 'major')
+  const minorUpdates = deduplicatedUpdates.filter(u => u.updateType === 'minor')
+  const patchUpdates = deduplicatedUpdates.filter(u => u.updateType === 'patch')
 
   // Create individual PRs for each major update
   for (const majorUpdate of majorUpdates) {
