@@ -41,12 +41,9 @@
     "lint": "bunx --bun eslint .",
     "lint:fix": "bunx --bun eslint . --fix",
     "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
-    "logsmith": "bun node_modules/@stacksjs/logsmith/dist/bin/cli.js",
-    "changelog": "bun logsmith --output CHANGELOG.md --theme github --exclude-authors \"dependabot[bot],github-actions[bot]\" --exclude-types \"chore\" --max-commits 50",
-    "changelog:generate": "bun node_modules/@stacksjs/logsmith/dist/bin/cli.js --output CHANGELOG.md --theme github --exclude-authors \"dependabot[bot],github-actions[bot]\" --exclude-types \"chore\" --max-commits 50",
-    "bumpx": "bun node_modules/@stacksjs/bumpx/dist/bin/cli.js ",
-    "release": "bun run bumpx prompt --no-push --yes && bun run changelog:generate && git add CHANGELOG.md && git commit --amend --no-edit",
+    "changelog": "bunx changelogen --output CHANGELOG.md",
     "prepublishOnly": "bun run build",
+    "release": "bun run changelog && bunx bumpp package.json --all",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
     "dev:docs": "bun --bun vitepress dev docs",
@@ -61,25 +58,19 @@
     "ts-pkgx": "0.4.4"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.1.2",
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.10.2-beta.3",
-    "@stacksjs/gitlint": "^0.1.5",
-    "@stacksjs/logsmith": "^0.1.2",
     "@types/bun": "^1.2.17",
-    "bun-git-hooks": "^0.2.19",
     "bun-plugin-dtsx": "^0.9.5",
     "typescript": "^5.8.3"
   },
   "overrides": {
     "unconfig": "0.3.10"
   },
-  "git-hooks": {
-    "pre-commit": {
-      "staged-lint": {
-        "*.{js,ts,yaml,yml,md}": "bun lint:fix"
-      }
-    },
-    "commit-msg": "bunx gitlint .git/COMMIT_EDITMSG"
+  "simple-git-hooks": {
+    "pre-commit": "bunx lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,ts}": "bunx eslint . --fix"
   }
 }
