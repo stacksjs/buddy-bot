@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.2.1...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.2.1...main)
+
+### 🚀 Enhancements
+
+- Add non-interactive, preset and token-setup opts ([93675fc](https://github.com/stacksjs/buddy-bot/commit/93675fc))
+
+### 🏡 Chore
+
+- More minor updates ([7657e63](https://github.com/stacksjs/buddy-bot/commit/7657e63))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.2.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.2.0...main)
