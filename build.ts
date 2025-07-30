@@ -8,7 +8,8 @@ await Bun.build({
   format: 'esm',
   target: 'bun',
   minify: false,
-  splitting: true,
+  splitting: false,
+  sourcemap: 'external',
   plugins: [dts()],
 })
 
