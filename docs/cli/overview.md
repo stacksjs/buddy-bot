@@ -29,7 +29,7 @@ buddy-bot <command> [options] [arguments]
 
 | Command | Description |
 |---------|-------------|
-| [`setup`](/cli/setup) | **Interactive setup wizard** - Complete Renovate-like experience |
+| [`setup`](/cli/setup) | **Interactive/Non-interactive setup wizard** - Complete Renovate-like experience |
 | [`open-settings`](/cli/utility#open-settings) | Open GitHub repository and organization settings |
 
 ### 🔍 Scanning & Analysis
@@ -82,6 +82,12 @@ All commands support these global options:
 ```bash
 # Interactive setup (recommended for new projects)
 buddy-bot setup
+
+# Non-interactive setup with defaults
+buddy-bot setup --non-interactive
+
+# Non-interactive setup with specific preset
+buddy-bot setup --non-interactive --preset testing --verbose
 
 # Scan for available updates
 buddy-bot scan --verbose

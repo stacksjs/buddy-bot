@@ -17,7 +17,7 @@ describe('CLI Setup - Extended Tests', () => {
       }
       const standardWorkflow = generateUpdateWorkflow(standardPreset, false)
       expect(standardWorkflow).toContain('name: Buddy Update')
-      expect(standardWorkflow).toContain('cron: \'0 9 * * 1,3,5\'')
+      expect(standardWorkflow).toContain('cron: \'0 */2 * * *\'') // Updated to every 2 hours
       // eslint-disable-next-line no-template-curly-in-string
       expect(standardWorkflow).toContain('${{ secrets.GITHUB_TOKEN }}')
 
@@ -32,8 +32,8 @@ describe('CLI Setup - Extended Tests', () => {
         custom: [],
       }
       const highFreqWorkflow = generateUpdateWorkflow(highFreqPreset, true)
-      expect(highFreqWorkflow).toContain('name: High Frequency Updates')
-      expect(highFreqWorkflow).toContain('cron: \'0 */6 * * *\'')
+      expect(highFreqWorkflow).toContain('name: Buddy Update') // All workflows now use "Buddy Update"
+      expect(highFreqWorkflow).toContain('cron: \'0 */2 * * *\'') // All workflows now use every 2 hours
       expect(highFreqWorkflow).toContain('BUDDY_BOT_TOKEN')
 
       // Test Security preset
@@ -47,8 +47,8 @@ describe('CLI Setup - Extended Tests', () => {
         custom: [],
       }
       const securityWorkflow = generateUpdateWorkflow(securityPreset, true)
-      expect(securityWorkflow).toContain('name: Security-Focused Updates')
-      expect(securityWorkflow).toContain('cron: \'0 */4 * * *\'')
+      expect(securityWorkflow).toContain('name: Buddy Update') // All workflows now use "Buddy Update"
+      expect(securityWorkflow).toContain('cron: \'0 */2 * * *\'') // All workflows now use every 2 hours
 
       // Test Testing preset
       const testingPreset = {
@@ -61,8 +61,8 @@ describe('CLI Setup - Extended Tests', () => {
         custom: [],
       }
       const testingWorkflow = generateUpdateWorkflow(testingPreset, false)
-      expect(testingWorkflow).toContain('name: Testing Updates')
-      expect(testingWorkflow).toContain('cron: \'*/15 * * * *\'')
+      expect(testingWorkflow).toContain('name: Buddy Update') // All workflows now use "Buddy Update"
+      expect(testingWorkflow).toContain('cron: \'0 */2 * * *\'') // All workflows now use every 2 hours
     })
 
     it('should include all required workflow elements', async () => {

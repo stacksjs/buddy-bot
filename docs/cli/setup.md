@@ -13,11 +13,17 @@ buddy-bot setup [options]
 ## Quick Start
 
 ```bash
-# Run interactive setup (recommended)
+# Interactive setup (recommended)
 buddy-bot setup
 
 # Setup with verbose logging
 buddy-bot setup --verbose
+
+# Non-interactive setup with defaults
+buddy-bot setup --non-interactive
+
+# Non-interactive with specific preset and token setup
+buddy-bot setup --non-interactive --preset testing --token-setup new-pat --verbose
 ```
 
 ## Enhanced Features
@@ -295,6 +301,215 @@ Provides clear next steps with:
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--verbose, -v` | Enable verbose logging and detailed output | `false` |
+| `--non-interactive` | Run setup without prompts using defaults | `false` |
+| `--preset <type>` | Workflow preset: `standard`, `high-frequency`, `security`, `minimal`, `testing` | `standard` |
+| `--token-setup <type>` | Token setup mode: `existing-secret`, `new-pat`, `default-token` | `default-token` |
+
+## Non-Interactive Mode
+
+For CI/CD pipelines, automated deployments, or when you want to use defaults, the non-interactive mode allows setup without prompts:
+
+### Basic Non-Interactive Setup
+
+```bash
+# Use all defaults (standard preset with default token)
+buddy-bot setup --non-interactive
+```
+
+This will:
+- ✅ Use the `standard` preset for workflow configuration
+- ✅ Use `default-token` mode (GITHUB_TOKEN with limited functionality)
+- ✅ Skip all interactive prompts and confirmations
+- ✅ Still perform migration detection and integration discovery
+- ✅ Generate all necessary files with sensible defaults
+
+### Advanced Non-Interactive Options
+
+```bash
+# High-frequency testing setup with verbose output
+buddy-bot setup --non-interactive --preset testing --verbose
+
+# Security-focused setup with custom token
+buddy-bot setup --non-interactive --preset security --token-setup new-pat
+
+# Standard setup using existing organization secrets
+buddy-bot setup --non-interactive --preset standard --token-setup existing-secret
+```
+
+### Non-Interactive Behavior
+
+When `--non-interactive` is enabled:
+
+| Component | Interactive Mode | Non-Interactive Mode |
+|-----------|------------------|---------------------|
+| **Configuration Migration** | Shows prompts, asks for confirmation | Detects tools, skips migration, logs findings |
+| **Integration Discovery** | Shows available plugins, asks to load | Detects plugins, skips loading, logs findings |
+| **Repository Detection** | Interactive validation and confirmation | Automatic detection, no user input required |
+| **Token Setup** | Guided token creation with prompts | Uses specified `--token-setup` mode |
+| **Workflow Configuration** | Interactive preset selection | Uses specified `--preset` (default: standard) |
+| **Final Instructions** | Shows detailed next steps | Shows minimal completion message |
+
+### Token Setup Modes
+
+#### `default-token` (Default)
+```bash
+buddy-bot setup --non-interactive --token-setup default-token
+```
+- Uses `GITHUB_TOKEN` provided by GitHub Actions
+- Limited functionality (cannot update workflow files)
+- Suitable for basic dependency updates
+- No additional setup required
+
+#### `existing-secret`
+```bash
+buddy-bot setup --non-interactive --token-setup existing-secret
+```
+- Assumes `BUDDY_BOT_TOKEN` secret already exists
+- Full functionality including workflow file updates
+- Suitable for organizations with pre-configured secrets
+- Best for production environments
+
+#### `new-pat`
+```bash
+buddy-bot setup --non-interactive --token-setup new-pat
+```
+- Configures for custom Personal Access Token
+- Generates workflows that use `BUDDY_BOT_TOKEN`
+- Requires manual token creation and secret setup
+- Provides warnings about manual steps needed
+
+### Preset Options
+
+#### Standard Preset
+```bash
+buddy-bot setup --non-interactive --preset standard
+```
+- Balanced approach for most projects
+- Every 2 hours schedule for testing
+- Dry-run enabled by default
+- Manual triggers available
+
+#### Testing Preset
+```bash
+buddy-bot setup --non-interactive --preset testing
+```
+- Optimized for development and testing
+- Every 2 hours schedule with enhanced logging
+- Dry-run mode by default
+- Verbose output and detailed summaries
+
+#### Security Preset
+```bash
+buddy-bot setup --non-interactive --preset security
+```
+- Security-focused configuration
+- Every 2 hours schedule for rapid security updates
+- Enhanced monitoring and reporting
+- Security-first update strategy
+
+#### High-Frequency Preset
+```bash
+buddy-bot setup --non-interactive --preset high-frequency
+```
+- Multiple updates per day
+- Every 2 hours schedule
+- Aggressive update strategy
+- Suitable for active development
+
+#### Minimal Preset
+```bash
+buddy-bot setup --non-interactive --preset minimal
+```
+- Low-frequency updates
+- Every 2 hours schedule (same as others)
+- Conservative approach
+- Minimal noise and disruption
+
+### CI/CD Integration Examples
+
+#### GitHub Actions Workflow
+```yaml
+name: Setup Buddy Bot
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'Workflow preset'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - high-frequency
+          - security
+          - minimal
+          - testing
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Setup Buddy Bot
+        run: |
+          bunx buddy-bot setup \
+            --non-interactive \
+            --preset ${{ github.event.inputs.preset || 'standard' }} \
+            --token-setup existing-secret \
+            --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### Docker Container Setup
+```dockerfile
+FROM oven/bun:latest
+
+WORKDIR /app
+COPY package.json bun.lockb ./
+RUN bun install
+
+# Non-interactive setup for containerized environments
+RUN bunx buddy-bot setup \
+    --non-interactive \
+    --preset minimal \
+    --token-setup default-token \
+    --verbose
+```
+
+#### Shell Script Automation
+```bash
+#!/bin/bash
+# setup-buddy.sh
+
+set -e
+
+echo "Setting up Buddy Bot for repository..."
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# Determine preset based on environment
+PRESET="standard"
+if [[ "$ENVIRONMENT" == "development" ]]; then
+    PRESET="testing"
+elif [[ "$ENVIRONMENT" == "production" ]]; then
+    PRESET="security"
+fi
+
+# Run non-interactive setup
+bunx buddy-bot setup \
+    --non-interactive \
+    --preset "$PRESET" \
+    --token-setup existing-secret \
+    --verbose
+
+echo "Buddy Bot setup complete!"
+```
 
 ## Generated Files
 
@@ -544,22 +759,37 @@ git remote get-url origin
 
 ## Examples
 
-### Basic Setup
+### Interactive Setup
 ```bash
-# Standard interactive setup
+# Standard interactive setup (recommended for first-time users)
 buddy-bot setup
+
+# Interactive setup with detailed logging
+buddy-bot setup --verbose
 ```
 
-### Verbose Setup
+### Non-Interactive Setup
 ```bash
-# Setup with detailed logging
-buddy-bot setup --verbose
+# Basic non-interactive setup (uses defaults)
+buddy-bot setup --non-interactive
+
+# Non-interactive with specific preset
+buddy-bot setup --non-interactive --preset testing --verbose
+
+# Production setup with existing secrets
+buddy-bot setup --non-interactive --preset security --token-setup existing-secret
+
+# Development setup with new token
+buddy-bot setup --non-interactive --preset testing --token-setup new-pat --verbose
 ```
 
 ### Testing Setup Locally
 ```bash
 # Test repository detection
 buddy-bot setup --verbose
+
+# Test non-interactive flow
+buddy-bot setup --non-interactive --preset testing --verbose
 
 # If setup completes, test scanning
 buddy-bot scan --dry-run

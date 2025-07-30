@@ -27,6 +27,31 @@ The setup wizard will automatically:
 
 **[📖 Complete Setup Guide →](/cli/setup)**
 
+### Option 1a: Non-Interactive Setup
+
+For CI/CD pipelines or automated deployments:
+
+```bash
+# Basic non-interactive setup (uses defaults)
+buddy-bot setup --non-interactive
+
+# Non-interactive with specific preset and token setup
+buddy-bot setup --non-interactive --preset testing --token-setup existing-secret --verbose
+
+# Production setup
+buddy-bot setup --non-interactive --preset security --token-setup existing-secret
+```
+
+Non-interactive mode:
+- ✅ Uses sensible defaults without prompts
+- ✅ Supports all preset configurations
+- ✅ Configurable token setup modes
+- ✅ Perfect for automation and CI/CD
+- ✅ Still performs detection and validation
+
+**Available presets**: `standard`, `high-frequency`, `security`, `minimal`, `testing`
+**Token modes**: `default-token`, `existing-secret`, `new-pat`
+
 ### Option 2: Manual Configuration
 
 If you prefer manual setup:
@@ -287,6 +312,54 @@ jobs:
         run: bunx buddy-bot update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Built-in token
+```
+
+### Automated Setup in CI/CD
+
+```yaml
+name: Setup Buddy Bot
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'Workflow preset'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - high-frequency
+          - security
+          - minimal
+          - testing
+
+jobs:
+  setup-buddy-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Buddy Bot
+        run: |
+          bunx buddy-bot setup \
+            --non-interactive \
+            --preset ${{ github.event.inputs.preset || 'standard' }} \
+            --token-setup existing-secret \
+            --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit generated files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Add Buddy Bot workflows and configuration" || exit 0
+          git push
 ```
 
 ### Security Updates

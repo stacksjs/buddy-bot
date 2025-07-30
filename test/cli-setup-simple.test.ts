@@ -50,5 +50,19 @@ describe('CLI Setup - Enhanced Functions', () => {
       expect(preset.name).toBe('Security Focused')
       expect(preset.description).toContain('security-first')
     })
+
+    it('should generate update workflow with correct new format', async () => {
+      const { generateUpdateWorkflow, getWorkflowPreset } = await import('../src/setup')
+      const preset = getWorkflowPreset('standard')
+
+      const workflow = generateUpdateWorkflow(preset, false)
+
+      expect(workflow).toContain('name: Buddy Update')
+      expect(workflow).toContain('cron: \'0 */2 * * *\'')
+      expect(workflow).toContain('default: true') // dry_run default
+      expect(workflow).toContain('dependency-update:') // job name
+      expect(workflow).toContain('Verify Composer setup')
+      expect(workflow).toContain('Display test configuration')
+    })
   })
 })

@@ -87,9 +87,14 @@ interface CLIOptions {
 cli
   .command('setup', '🚀 Interactive setup for automated dependency updates (recommended)')
   .option('--verbose, -v', 'Enable verbose logging')
+  .option('--non-interactive', 'Run setup without prompts (use defaults)')
+  .option('--preset <type>', 'Workflow preset: standard|high-frequency|security|minimal|testing', { default: 'standard' })
+  .option('--token-setup <type>', 'Token setup: existing-secret|new-pat|default-token', { default: 'default-token' })
   .example('buddy-bot setup')
   .example('buddy-bot setup --verbose')
-  .action(async (options: CLIOptions) => {
+  .example('buddy-bot setup --non-interactive')
+  .example('buddy-bot setup --non-interactive --preset testing --verbose')
+  .action(async (options: CLIOptions & { nonInteractive?: boolean, preset?: string, tokenSetup?: string }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
@@ -108,7 +113,7 @@ cli
       const existingTools = await migrator.detectExistingTools()
       const migrationResults: any[] = []
 
-      if (existingTools.length > 0) {
+      if (existingTools.length > 0 && !options.nonInteractive) {
         console.log(`\n🔍 Configuration Migration Detection:`)
         console.log(`Found ${existingTools.length} existing dependency management tool(s):`)
         existingTools.forEach(tool => console.log(`   • ${tool.name} (${tool.configFile})`))
@@ -148,6 +153,9 @@ cli
           }
         }
       }
+      else if (existingTools.length > 0 && options.nonInteractive) {
+        console.log(`\n🔍 Found ${existingTools.length} existing tool(s), skipping migration in non-interactive mode`)
+      }
 
       // Plugin Discovery
       updateProgress(progress, 'Discovering integrations', true)
@@ -156,7 +164,7 @@ cli
       const pluginManager = new PluginManager()
       const availablePlugins = await pluginManager.discoverPlugins()
 
-      if (availablePlugins.length > 0) {
+      if (availablePlugins.length > 0 && !options.nonInteractive) {
         console.log(`\n🔌 Integration Discovery:`)
         console.log(`Found ${availablePlugins.length} available integration(s):`)
         availablePlugins.forEach(plugin => console.log(`   • ${plugin.name} v${plugin.version}`))
@@ -173,6 +181,9 @@ cli
             await pluginManager.loadPlugin(plugin)
           }
         }
+      }
+      else if (availablePlugins.length > 0 && options.nonInteractive) {
+        console.log(`\n🔌 Found ${availablePlugins.length} integration(s), skipping in non-interactive mode`)
       }
 
       // Pre-flight checks
@@ -233,10 +244,30 @@ cli
       console.log('For full functionality, Buddy Bot needs appropriate GitHub permissions.')
       console.log('This enables workflow file updates and advanced GitHub Actions features.\n')
 
-      const tokenSetup = await confirmTokenSetup()
-
-      if (tokenSetup.needsGuide) {
-        await guideTokenCreation(repoInfo)
+      let tokenSetup
+      if (options.nonInteractive) {
+        // Use default token setup based on flag
+        switch (options.tokenSetup) {
+          case 'existing-secret':
+            tokenSetup = { hasCustomToken: true, needsGuide: false }
+            console.log('✅ Using existing organization/repository secrets')
+            break
+          case 'new-pat':
+            tokenSetup = { hasCustomToken: true, needsGuide: true }
+            console.log('⚠️  Non-interactive mode: Will use custom token but skip setup guide')
+            break
+          case 'default-token':
+          default:
+            tokenSetup = { hasCustomToken: false, needsGuide: false }
+            console.log('✅ Using default GITHUB_TOKEN (limited functionality)')
+            break
+        }
+      }
+      else {
+        tokenSetup = await confirmTokenSetup()
+        if (tokenSetup.needsGuide) {
+          await guideTokenCreation(repoInfo)
+        }
       }
 
       // Step 3: Repository Settings
@@ -251,49 +282,56 @@ cli
       displayProgress(progress)
 
       console.log('\n⚙️  Workflow Configuration')
-      const workflowResponse = await prompts([
-        {
-          type: 'select',
-          name: 'useCase',
-          message: 'What type of update schedule would you like?',
-          choices: [
-            {
-              title: 'Standard Setup (Recommended)',
-              description: 'Dashboard updates 3x/week, dependency updates on schedule',
-              value: 'standard',
-            },
-            {
-              title: 'High Frequency',
-              description: 'Check for updates multiple times per day',
-              value: 'high-frequency',
-            },
-            {
-              title: 'Security Focused',
-              description: 'Frequent patch updates with security-first approach',
-              value: 'security',
-            },
-            {
-              title: 'Minimal Updates',
-              description: 'Weekly checks, lower frequency',
-              value: 'minimal',
-            },
-            {
-              title: 'Development/Testing',
-              description: 'Manual triggers + frequent checks for testing',
-              value: 'testing',
-            },
-            {
-              title: 'Custom Configuration',
-              description: 'Create your own schedule',
-              value: 'custom',
-            },
-          ],
-        },
-      ])
+      let workflowResponse
+      if (options.nonInteractive) {
+        workflowResponse = { useCase: options.preset }
+        console.log(`✅ Using ${options.preset} preset for workflow configuration`)
+      }
+      else {
+        workflowResponse = await prompts([
+          {
+            type: 'select',
+            name: 'useCase',
+            message: 'What type of update schedule would you like?',
+            choices: [
+              {
+                title: 'Standard Setup (Recommended)',
+                description: 'Dashboard updates 3x/week, dependency updates on schedule',
+                value: 'standard',
+              },
+              {
+                title: 'High Frequency',
+                description: 'Check for updates multiple times per day',
+                value: 'high-frequency',
+              },
+              {
+                title: 'Security Focused',
+                description: 'Frequent patch updates with security-first approach',
+                value: 'security',
+              },
+              {
+                title: 'Minimal Updates',
+                description: 'Weekly checks, lower frequency',
+                value: 'minimal',
+              },
+              {
+                title: 'Development/Testing',
+                description: 'Manual triggers + frequent checks for testing',
+                value: 'testing',
+              },
+              {
+                title: 'Custom Configuration',
+                description: 'Create your own schedule',
+                value: 'custom',
+              },
+            ],
+          },
+        ])
 
-      if (!workflowResponse.useCase) {
-        console.log('Setup cancelled.')
-        return
+        if (!workflowResponse.useCase) {
+          console.log('Setup cancelled.')
+          return
+        }
       }
 
       // Step 5: Generate Configuration File
@@ -310,7 +348,7 @@ cli
       console.log('\n🔄 Workflow Generation')
       const preset = getWorkflowPreset(workflowResponse.useCase)
 
-      if (workflowResponse.useCase === 'custom') {
+      if (workflowResponse.useCase === 'custom' && !options.nonInteractive) {
         await setupCustomWorkflow(preset, logger)
       }
       else {
