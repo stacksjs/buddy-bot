@@ -28,7 +28,7 @@ export class Buddy {
     private readonly projectPath: string = process.cwd(),
   ) {
     this.logger = new Logger(false) // Will be configurable
-    this.scanner = new PackageScanner(this.projectPath, this.logger)
+    this.scanner = new PackageScanner(this.projectPath, this.logger, this.config.packages?.ignorePaths)
     this.registryClient = new RegistryClient(this.projectPath, this.logger, this.config)
     this.dashboardGenerator = new DashboardGenerator()
   }

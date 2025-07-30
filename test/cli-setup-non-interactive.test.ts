@@ -418,4 +418,33 @@ steps:
       expect(() => showFinalInstructions(repoInfo, true)).not.toThrow()
     })
   })
+
+  describe('IgnorePaths Configuration', () => {
+    it('should generate config file with ignorePaths examples', async () => {
+      const { generateConfigFile } = await import('../src/setup')
+
+      const repoInfo = { owner: 'test-org', name: 'test-repo' }
+      await generateConfigFile(repoInfo, false)
+
+      const configContent = await fs.readFile('buddy-bot.config.ts', 'utf-8')
+      expect(configContent).toContain('ignorePaths: [')
+      expect(configContent).toContain('// Add file/directory paths to ignore using glob patterns')
+      expect(configContent).toContain('// Example: \'packages/test-*/**\', \'**/*test-envs/**\', \'apps/legacy/**\'')
+    })
+
+    it('should handle config with ignorePaths in TypeScript format', async () => {
+      const { generateConfigFile } = await import('../src/setup')
+
+      const repoInfo = { owner: 'test-org', name: 'test-repo' }
+      await generateConfigFile(repoInfo, true)
+
+      // Verify the generated config includes ignorePaths
+      const configExists = await fs.access('buddy-bot.config.ts').then(() => true).catch(() => false)
+      expect(configExists).toBe(true)
+
+      const configContent = await fs.readFile('buddy-bot.config.ts', 'utf-8')
+      expect(configContent).toContain('ignorePaths')
+      expect(configContent).toContain('BuddyBotConfig')
+    })
+  })
 })

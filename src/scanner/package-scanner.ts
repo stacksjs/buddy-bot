@@ -3,6 +3,7 @@ import type {
   Logger,
   PackageFile,
 } from '../types'
+import { Glob } from 'bun'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BuddyError } from '../types'
@@ -10,10 +11,19 @@ import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
 
 export class PackageScanner {
+  private ignoreGlobs: Glob[] = []
+
   constructor(
     private readonly projectPath: string,
     private readonly logger: Logger,
-  ) {}
+    ignorePaths?: string[],
+  ) {
+    // Initialize ignore patterns with Bun glob
+    if (ignorePaths && ignorePaths.length > 0) {
+      this.ignoreGlobs = ignorePaths.map(pattern => new Glob(pattern))
+      this.logger.info(`Initialized ${this.ignoreGlobs.length} ignore patterns: ${ignorePaths.join(', ')}`)
+    }
+  }
 
   /**
    * Scan project directory for package files
@@ -28,6 +38,9 @@ export class PackageScanner {
       // Look for package.json files
       const packageJsonFiles = await this.findFiles('package.json')
       for (const filePath of packageJsonFiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
         const packageFile = await this.parsePackageJsonFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
@@ -37,6 +50,9 @@ export class PackageScanner {
       // Look for dependency files (deps.yaml, dependencies.yaml, etc.)
       const dependencyFiles = await this.findDependencyFiles()
       for (const filePath of dependencyFiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
         const packageFile = await this.parseDependencyFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
@@ -46,6 +62,9 @@ export class PackageScanner {
       // Look for lock files
       const lockFiles = await this.findLockFiles()
       for (const filePath of lockFiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
         const packageFile = await this.parseLockFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
@@ -55,6 +74,9 @@ export class PackageScanner {
       // Look for Composer files
       const composerFiles = await this.findComposerFiles()
       for (const filePath of composerFiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
         const packageFile = await this.parseComposerFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
@@ -64,6 +86,9 @@ export class PackageScanner {
       // Look for GitHub Actions workflows
       const githubActionsFiles = await this.findGitHubActionsFiles()
       for (const filePath of githubActionsFiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
         const packageFile = await this.parseGitHubActionsFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
@@ -465,6 +490,32 @@ export class PackageScanner {
     }
 
     return files
+  }
+
+  /**
+   * Check if a path should be ignored based on glob patterns
+   */
+  private shouldIgnorePath(filePath: string): boolean {
+    if (this.ignoreGlobs.length === 0) {
+      return false
+    }
+
+    // If the path is already relative (doesn't start with /), use it as-is
+    // Otherwise, convert to relative path
+    let relativePath = filePath
+    if (filePath.startsWith('/') || filePath.includes(':')) {
+      relativePath = this.getRelativePath(filePath)
+    }
+
+    // Check if any ignore pattern matches this path
+    for (const glob of this.ignoreGlobs) {
+      if (glob.match(relativePath)) {
+        this.logger.debug(`Ignoring path: ${relativePath} (matched pattern)`)
+        return true
+      }
+    }
+
+    return false
   }
 
   /**

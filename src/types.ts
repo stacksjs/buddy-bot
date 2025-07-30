@@ -31,6 +31,8 @@ export interface BuddyBotConfig {
     strategy: 'major' | 'minor' | 'patch' | 'all'
     /** Packages to ignore */
     ignore?: string[]
+    /** File/directory paths to ignore using glob patterns */
+    ignorePaths?: string[]
     /** Packages to pin to specific versions */
     pin?: Record<string, string>
     /** Group related packages together */
