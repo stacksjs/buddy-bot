@@ -18,7 +18,7 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 
 - 🚀 **Lightning Fast**: Built with Bun & performance in mind
 - 🎯 **Smart Updates**: Configurable update strategies _(major, minor, patch, all)_
-- 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, Composer, pkgx, and Launchpad dependency files
+- 📦 **Multi-Package Manager**: Supports Bun, npm, yarn, pnpm, Composer, pkgx & Launchpad dependency files
 - ⚡ **GitHub Actions**: Automatically updates workflow dependencies (`actions/checkout@v4`, etc.)
 - 📊 **Dependency Dashboard**: Single GitHub issue with overview of all dependencies and open PRs
 - 🔄 **Rebase Functionality**: Interactive checkbox to update PRs with latest dependency versions
@@ -30,7 +30,6 @@ A modern, fast alternative to Dependabot and Renovate built for the JavaScript a
 - 🛠️ **Simple Setup Experience**: Renovate-like interactive setup with validation and smart recommendations
 - 🔍 **Pre-flight Validation**: Environment checks, conflict detection, and prerequisite validation
 - 📊 **Smart Project Analysis**: Automatic project type detection with intelligent recommendations
-- 📈 **Progress Tracking**: Visual setup progress with step-by-step guidance and recovery capabilities
 - 📋 **Configuration Migration**: Seamless import from Renovate and Dependabot configurations
 - 🔌 **Integration Ecosystem**: Extensible plugin system with Slack, Discord, and Jira integrations
 
