@@ -1,6 +1,20 @@
 # Changelog
 
 
+## v0.4.1...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.1...main)
+
+### 🏡 Chore
+
+- Adjust readme ([5407cb3](https://github.com/stacksjs/buddy-bot/commit/5407cb3))
+- Rename to `Dependency Dashboard` ([ad9b061](https://github.com/stacksjs/buddy-bot/commit/ad9b061))
+- Minor updates ([bcca7c5](https://github.com/stacksjs/buddy-bot/commit/bcca7c5))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.4.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.0...main)
