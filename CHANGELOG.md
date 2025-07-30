@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.4.3...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.3...main)
+
+### 🏡 Chore
+
+- Adjust setup ([262c876](https://github.com/stacksjs/buddy-bot/commit/262c876))
+- Lint ([ecaeaa1](https://github.com/stacksjs/buddy-bot/commit/ecaeaa1))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.4.2...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.2...main)
