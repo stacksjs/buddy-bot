@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.4.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.0...main)
+
+### 🏡 Chore
+
+- Temporarily use old way ([eaf4bfd](https://github.com/stacksjs/buddy-bot/commit/eaf4bfd))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.2.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.2.1...main)
