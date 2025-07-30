@@ -1,7 +1,7 @@
 {
   "name": "buddy-bot",
   "type": "module",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The Stacks CLI.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
@@ -31,7 +31,11 @@
   "bin": {
     "buddy-bot": "./dist/bin/cli.js"
   },
-  "files": ["README.md", "bin", "dist"],
+  "files": [
+    "README.md",
+    "bin",
+    "dist"
+  ],
   "scripts": {
     "build": "bun build.ts",
     "lint": "bunx --bun eslint .",
