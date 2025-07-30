@@ -1260,6 +1260,11 @@ jobs:
           bun-version: latest
 ${generateComposerSetupSteps()}
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Check for rebase requests
         run: |
           echo "🔍 Checking for PRs with rebase checkbox enabled..."
@@ -1357,15 +1362,9 @@ jobs:
           tools: composer
           coverage: none
 
-      - name: Install dependencies
-        run: bun install
-
       - name: Install Composer dependencies (if needed)
         if: \${{ hashFiles('composer.json') != '' }}
         run: composer install --prefer-dist --optimize-autoloader
-
-      - name: Build buddy-bot
-        run: bun run build
 
       - name: Configure Git
         run: |
