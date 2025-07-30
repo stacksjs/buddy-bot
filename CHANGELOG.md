@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.4.2...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.2...main)
+
+### 🏡 Chore
+
+- Adjust build for logs ([d833da6](https://github.com/stacksjs/buddy-bot/commit/d833da6))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.4.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.1...main)
