@@ -396,10 +396,10 @@ export class RegistryClient {
     }
   }
 
-  /**
+    /**
    * Clean version range to get the base version (remove ^, ~, etc.)
    */
-  private cleanVersionRange(version: string): string {
+  private cleanVersionRange(version: string): string | null {
     // Handle workspace: protocol - skip these as they're not meant for semver comparison
     if (version.startsWith('workspace:')) {
       return null

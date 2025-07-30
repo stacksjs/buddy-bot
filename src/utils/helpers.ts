@@ -210,7 +210,8 @@ function deduplicateUpdates(updates: PackageUpdate[]): PackageUpdate[] {
 
     if (!existing) {
       uniqueUpdates.set(key, update)
-    } else {
+    }
+    else {
       // Keep the update with the most relevant file (prioritize package.json > composer.json > dependency files)
       const currentPriority = getFilePriority(update.file)
       const existingPriority = getFilePriority(existing.file)
@@ -228,9 +229,12 @@ function deduplicateUpdates(updates: PackageUpdate[]): PackageUpdate[] {
  * Get file priority for deduplication (higher is more important)
  */
 function getFilePriority(filePath: string): number {
-  if (filePath === 'package.json') return 3
-  if (filePath.endsWith('composer.json')) return 2
-  if (filePath.includes('.github/workflows/')) return 1
+  if (filePath === 'package.json')
+    return 3
+  if (filePath.endsWith('composer.json'))
+    return 2
+  if (filePath.includes('.github/workflows/'))
+    return 1
   return 0 // dependency files like deps.yaml
 }
 

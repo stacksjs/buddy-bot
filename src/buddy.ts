@@ -762,7 +762,7 @@ export class Buddy {
 
     // Add additional contextual labels
     if (group.updates.length > 5) {
-      labels.add('dependencies')  // Use standard dependencies label instead of bulk-update
+      labels.add('dependencies') // Use standard dependencies label instead of bulk-update
     }
 
     // Add security label if any package might be security related

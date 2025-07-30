@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
 import { resolveDependencyFile } from 'ts-pkgx'
 
@@ -152,10 +153,12 @@ export async function generateDependencyFileUpdates(updates: PackageUpdate[]): P
             type: 'update',
           })
           console.log(`✅ Generated update for ${filePath} with ${packageUpdates.length} package changes`)
-        } else {
+        }
+        else {
           console.log(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
         }
-      } else {
+      }
+      else {
         console.warn(`⚠️ Dependency file ${filePath} does not exist`)
       }
     }
