@@ -219,7 +219,7 @@ describe('CLI Setup - Extended Tests', () => {
         dashboard: {
           enabled: true,
           pin: false,
-          title: 'Dependency Updates Dashboard',
+          title: 'Dependency Dashboard',
           issueNumber: undefined,
         },
         workflows: {

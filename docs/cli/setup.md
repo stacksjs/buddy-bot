@@ -526,7 +526,7 @@ The setup process creates several files:
   "dashboard": {
     "enabled": true,
     "pin": false,
-    "title": "Dependency Updates Dashboard"
+    "title": "Dependency Dashboard"
   },
   "workflows": {
     "enabled": true,
