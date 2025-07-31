@@ -28,29 +28,41 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
       return null
     }
 
-    // Use ts-pkgx to resolve the dependency file
-    const resolvedDeps = await resolveDependencyFile(filePath)
+    let dependencies: Dependency[] = []
 
-    const dependencies: Dependency[] = []
+    try {
+      // Use ts-pkgx to resolve the dependency file
+      const resolvedDeps = await resolveDependencyFile(filePath)
 
-    if (resolvedDeps && typeof resolvedDeps === 'object') {
-      // Parse dependencies from the resolved structure
-      // ts-pkgx returns allDependencies array instead of separate sections
-      if (resolvedDeps.allDependencies && Array.isArray(resolvedDeps.allDependencies)) {
-        for (const dep of resolvedDeps.allDependencies) {
-          if (dep.name && dep.constraint) {
-            dependencies.push({
-              name: dep.name,
-              currentVersion: dep.constraint,
-              type: 'dependencies', // ts-pkgx doesn't distinguish between dep types for this registry
-              file: filePath,
-            })
+      if (resolvedDeps && typeof resolvedDeps === 'object') {
+        // Parse dependencies from the resolved structure
+        // ts-pkgx returns allDependencies array instead of separate sections
+        if (resolvedDeps.allDependencies && Array.isArray(resolvedDeps.allDependencies)) {
+          for (const dep of resolvedDeps.allDependencies) {
+            if (dep.name && dep.constraint) {
+              dependencies.push({
+                name: dep.name,
+                currentVersion: dep.constraint,
+                type: 'dependencies', // ts-pkgx doesn't distinguish between dep types for this registry
+                file: filePath,
+              })
+            }
           }
         }
       }
+    }
+    catch (pkgxError) {
+      console.warn(`ts-pkgx failed to parse ${filePath}, attempting fallback YAML parsing:`, pkgxError)
 
-      // Note: ts-pkgx only provides allDependencies, not separate dependencies/devDependencies
-      // The fallback parsing is no longer needed since ts-pkgx handles all dependencies in allDependencies
+      // Fallback: Simple YAML parsing for basic deps.yaml files
+      try {
+        dependencies = await parseSimpleYamlDependencies(content, filePath)
+      }
+      catch (yamlError) {
+        console.warn(`Fallback YAML parsing also failed for ${filePath}:`, yamlError)
+        // Return empty dependencies rather than null to maintain file structure
+        dependencies = []
+      }
     }
 
     const fileName = filePath.split('/').pop() || ''
@@ -65,6 +77,49 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
     console.warn(`Failed to parse dependency file ${filePath}:`, error)
     return null
   }
+}
+
+/**
+ * Simple YAML parser for basic dependencies structure
+ * Fallback when ts-pkgx fails
+ */
+async function parseSimpleYamlDependencies(content: string, filePath: string): Promise<Dependency[]> {
+  const dependencies: Dependency[] = []
+
+  // Simple line-by-line parsing for basic YAML structure
+  const lines = content.split('\n')
+  let inDependenciesSection = false
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    if (trimmed === 'dependencies:') {
+      inDependenciesSection = true
+      continue
+    }
+
+    if (inDependenciesSection) {
+      // If we hit a non-indented line, we're out of dependencies section
+      if (trimmed && !line.startsWith(' ') && !line.startsWith('\t')) {
+        inDependenciesSection = false
+        continue
+      }
+
+      // Parse dependency line: "  package-name: ^1.0.0"
+      const depMatch = trimmed.match(/^([\w@/-]+):\s*(.+)$/)
+      if (depMatch) {
+        const [, name, version] = depMatch
+        dependencies.push({
+          name: name.trim(),
+          currentVersion: version.trim(),
+          type: 'dependencies',
+          file: filePath,
+        })
+      }
+    }
+  }
+
+  return dependencies
 }
 
 /**

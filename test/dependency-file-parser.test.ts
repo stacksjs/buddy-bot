@@ -179,12 +179,16 @@ devDependencies:
       expect(result).toBeNull()
     })
 
-    it('should handle ts-pkgx resolution errors', async () => {
+    it('should handle ts-pkgx resolution errors with fallback parser', async () => {
       mockResolveDependencyFile.mockRejectedValue(new Error('Failed to resolve'))
 
       const result = await parseDependencyFile('deps.yaml', mockFileContent)
 
-      expect(result).toBeNull()
+      // Should use fallback YAML parser and still return results
+      expect(result).not.toBeNull()
+      expect(result?.path).toBe('deps.yaml')
+      expect(result?.type).toBe('deps.yaml')
+      expect(result?.dependencies.length).toBeGreaterThan(0)
     })
 
     it('should handle invalid dependency data', async () => {
