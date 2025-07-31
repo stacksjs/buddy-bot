@@ -37,7 +37,7 @@ describe('PR Body Generation for Major Updates', () => {
       // | 📦 NPM Packages | 1 |
       // | **Total** | **1** |
 
-      expect(body).toContain('## 📦 Package Updates Summary')
+      expect(body).toContain('## Package Updates Summary')
       expect(body).toContain('| 📦 NPM Packages | 1 |')
       expect(body).toContain('| **Total** | **1** |')
 
@@ -60,7 +60,7 @@ describe('PR Body Generation for Major Updates', () => {
       expect(body).toContain('### Configuration')
 
       // Verify it's not the broken minimal version
-      expect(body).not.toMatch(/^This PR contains the following updates:\s*## 📦 Package Updates Summary\s*\| Type \| Count \|\s*\|------\|-------\|\s*\| \*\*Total\*\* \| \*\*1\*\* \|\s*---\s*### Release Notes\s*---/)
+      expect(body).not.toMatch(/^This PR contains the following updates:\s*## Package Updates Summary\s*\| Type \| Count \|\s*\|------\|-------\|\s*\| \*\*Total\*\* \| \*\*1\*\* \|\s*---\s*### Release Notes\s*---/)
     })
 
     it('should match Renovate-style format for major updates', async () => {

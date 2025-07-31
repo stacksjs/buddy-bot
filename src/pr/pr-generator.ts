@@ -82,7 +82,7 @@ export class PullRequestGenerator {
     let body = `This PR contains the following updates:\n\n`
 
     // Add summary table (always show for clarity)
-    body += `## 📦 Package Updates Summary\n\n`
+    body += `## Package Updates Summary\n\n`
     body += `| Type | Count |\n`
     body += `|------|-------|\n`
     if (packageJsonCount > 0)

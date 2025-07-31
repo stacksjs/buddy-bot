@@ -94,7 +94,7 @@ describe('PullRequestGenerator', () => {
         const body = await generator.generateBody(singleNpmUpdate)
 
         // Should include package summary table
-        expect(body).toContain('## 📦 Package Updates Summary')
+        expect(body).toContain('## Package Updates Summary')
         expect(body).toContain('| Type | Count |')
         expect(body).toContain('| 📦 NPM Packages | 1 |')
         expect(body).toContain('| **Total** | **1** |')
@@ -204,7 +204,7 @@ describe('PullRequestGenerator', () => {
         const body = await generator.generateBody(singleComposerUpdate)
 
         // Should include package summary table
-        expect(body).toContain('## 📦 Package Updates Summary')
+        expect(body).toContain('## Package Updates Summary')
         expect(body).toContain('| 🎼 Composer Packages | 1 |')
 
         // Should include detailed Composer dependencies section
@@ -236,7 +236,7 @@ describe('PullRequestGenerator', () => {
         const body = await generator.generateBody(singleSystemUpdate)
 
         // Should include package summary table
-        expect(body).toContain('## 📦 Package Updates Summary')
+        expect(body).toContain('## Package Updates Summary')
         expect(body).toContain('| 🔧 System Dependencies | 1 |')
 
         // Should include detailed system dependencies section
@@ -267,7 +267,7 @@ describe('PullRequestGenerator', () => {
         const body = await generator.generateBody(singleActionUpdate)
 
         // Should include package summary table
-        expect(body).toContain('## 📦 Package Updates Summary')
+        expect(body).toContain('## Package Updates Summary')
         expect(body).toContain('| 🚀 GitHub Actions | 1 |')
 
         // Should include detailed GitHub Actions section
@@ -312,7 +312,7 @@ describe('PullRequestGenerator', () => {
 
         // Check that key sections exist in the right order
         const introIndex = body.indexOf('This PR contains the following updates:')
-        const summaryIndex = body.indexOf('## 📦 Package Updates Summary')
+        const summaryIndex = body.indexOf('## Package Updates Summary')
         const npmIndex = body.indexOf('## 📦 npm Dependencies')
         const releaseNotesIndex = body.indexOf('### Release Notes')
         const configIndex = body.indexOf('### Configuration')
