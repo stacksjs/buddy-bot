@@ -1,6 +1,10 @@
 # Changelog
 
 
+## v0.5.9...v0.5.9
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.9...v0.5.9)
+
 ## v0.5.8...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.8...main)

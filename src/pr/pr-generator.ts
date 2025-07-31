@@ -393,6 +393,9 @@ export class PullRequestGenerator {
 
       body += `<summary>${summaryTitle}</summary>\n\n`
 
+      // Always show version change information
+      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+
       if (releaseNotes.length > 0) {
         for (const release of releaseNotes.slice(0, 3)) { // Limit to 3 most recent releases
           body += `### [\`${release.version}\`](${release.htmlUrl})\n\n`
@@ -413,14 +416,26 @@ export class PullRequestGenerator {
         }
       }
       else {
-        body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
-
+        // Fallback content when release notes aren't available
         if (compareUrl) {
           body += `[Compare Source](${compareUrl})\n\n`
         }
 
         if (info.description) {
           body += `${info.description}\n\n`
+        }
+
+        // Generate release notes links based on repository
+        if (info.repository?.url) {
+          const repoName = this.getRepositoryName(info.repository.url)
+          if (repoName) {
+            body += `📖 [View Release Notes](https://github.com/${repoName}/releases)\n\n`
+            body += `🔗 [View Changelog](https://github.com/${repoName}/blob/main/CHANGELOG.md)\n\n`
+          }
+        }
+        else {
+          // Fallback to npm page
+          body += `📦 [View on npm](https://www.npmjs.com/package/${encodeURIComponent(cleanPackageName)})\n\n`
         }
 
         if (update.releaseNotesUrl) {
