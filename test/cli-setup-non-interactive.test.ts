@@ -44,7 +44,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
 
   describe('Workflow Generation Functions', () => {
     it('should generate update workflow with correct schedule for every 2 hours', async () => {
-      const { generateUpdateWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
       const preset = {
         name: 'Standard Project',
@@ -59,7 +59,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
         custom: [],
       }
 
-      const workflow = generateUpdateWorkflow(preset, false)
+      const workflow = generateUnifiedWorkflow(false)
 
       expect(workflow).toContain('name: Buddy Update')
       expect(workflow).toContain('cron: \'0 */2 * * *\'')
@@ -78,7 +78,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
     })
 
     it('should generate update workflow with custom token environment', async () => {
-      const { generateUpdateWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
       const preset = {
         name: 'Standard Project',
@@ -93,7 +93,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
         custom: [],
       }
 
-      const workflow = generateUpdateWorkflow(preset, true)
+      const workflow = generateUnifiedWorkflow(true)
 
       expect(workflow).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
       expect(workflow).toContain('# For workflow file updates, you need a Personal Access Token')
@@ -101,7 +101,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
     })
 
     it('should generate update workflow with default token environment', async () => {
-      const { generateUpdateWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
       const preset = {
         name: 'Standard Project',
@@ -116,7 +116,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
         custom: [],
       }
 
-      const workflow = generateUpdateWorkflow(preset, false)
+      const workflow = generateUnifiedWorkflow(false)
 
       // eslint-disable-next-line no-template-curly-in-string
       expect(workflow).toContain('${{ secrets.GITHUB_TOKEN }}')
@@ -126,9 +126,9 @@ describe('CLI Setup - Non-Interactive Mode', () => {
     })
 
     it('should generate buddy-check workflow with correct name and schedule', async () => {
-      const { generateUpdateCheckWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      const workflow = generateUpdateCheckWorkflow(false)
+      const workflow = generateUnifiedWorkflow(false)
 
       expect(workflow).toContain('name: Buddy Check')
       expect(workflow).toContain('cron: \'*/15 * * * *\'')

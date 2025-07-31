@@ -1,83 +1,42 @@
 import { describe, expect, it } from 'bun:test'
 
 describe('CLI Setup - Extended Tests', () => {
-  describe('Update Workflow Generation', () => {
-    it('should generate update workflow with different preset schedules', async () => {
-      const { generateUpdateWorkflow } = await import('../src/setup')
+  describe('Unified Workflow Generation', () => {
+    it('should generate unified workflow with different token configurations', async () => {
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      // Test Standard preset
-      const standardPreset = {
-        name: 'Standard Project',
-        description: 'test',
-        templates: { daily: true },
-        schedules: { dashboard: '0 9 * * 1,3,5', updates: '0 9 * * 1,3,5' },
-        strategy: 'all',
-        autoMerge: false,
-        custom: [],
-      }
-      const standardWorkflow = generateUpdateWorkflow(standardPreset, false)
-      expect(standardWorkflow).toContain('name: Buddy Update')
-      expect(standardWorkflow).toContain('cron: \'0 */2 * * *\'') // Updated to every 2 hours
+      // Test with custom token
+      const workflowWithCustomToken = generateUnifiedWorkflow(true)
+      expect(workflowWithCustomToken).toContain('name: Buddy Bot')
+      expect(workflowWithCustomToken).toContain('cron: \'*/1 * * * *\'') // Check job
+      expect(workflowWithCustomToken).toContain('cron: \'0 */2 * * *\'') // Update job
+      expect(workflowWithCustomToken).toContain('cron: \'15 */2 * * *\'') // Dashboard job
+      expect(workflowWithCustomToken).toContain('BUDDY_BOT_TOKEN')
+
+      // Test with default token
+      const workflowWithDefaultToken = generateUnifiedWorkflow(false)
+      expect(workflowWithDefaultToken).toContain('name: Buddy Bot')
+      expect(workflowWithDefaultToken).toContain('cron: \'*/1 * * * *\'') // Check job
+      expect(workflowWithDefaultToken).toContain('cron: \'0 */2 * * *\'') // Update job
+      expect(workflowWithDefaultToken).toContain('cron: \'15 */2 * * *\'') // Dashboard job
       // eslint-disable-next-line no-template-curly-in-string
-      expect(standardWorkflow).toContain('${{ secrets.GITHUB_TOKEN }}')
-
-      // Test High Frequency preset
-      const highFreqPreset = {
-        name: 'High Frequency Updates',
-        description: 'test',
-        templates: { comprehensive: true },
-        schedules: { dashboard: '0 9 * * *', updates: '0 */6 * * *' },
-        strategy: 'all',
-        autoMerge: true,
-        custom: [],
-      }
-      const highFreqWorkflow = generateUpdateWorkflow(highFreqPreset, true)
-      expect(highFreqWorkflow).toContain('name: Buddy Update') // All workflows now use "Buddy Update"
-      expect(highFreqWorkflow).toContain('cron: \'0 */2 * * *\'') // All workflows now use every 2 hours
-      expect(highFreqWorkflow).toContain('BUDDY_BOT_TOKEN')
-
-      // Test Security preset
-      const securityPreset = {
-        name: 'Security Focused',
-        description: 'test',
-        templates: { comprehensive: true },
-        schedules: { dashboard: '0 9 * * *', updates: '0 */4 * * *' },
-        strategy: 'all',
-        autoMerge: true,
-        custom: [],
-      }
-      const securityWorkflow = generateUpdateWorkflow(securityPreset, true)
-      expect(securityWorkflow).toContain('name: Buddy Update') // All workflows now use "Buddy Update"
-      expect(securityWorkflow).toContain('cron: \'0 */2 * * *\'') // All workflows now use every 2 hours
-
-      // Test Testing preset
-      const testingPreset = {
-        name: 'Development/Testing',
-        description: 'test',
-        templates: { weekly: true },
-        schedules: { dashboard: 'manual', updates: '*/15 * * * *' },
-        strategy: 'patch',
-        autoMerge: false,
-        custom: [],
-      }
-      const testingWorkflow = generateUpdateWorkflow(testingPreset, false)
-      expect(testingWorkflow).toContain('name: Buddy Update') // All workflows now use "Buddy Update"
-      expect(testingWorkflow).toContain('cron: \'0 */2 * * *\'') // All workflows now use every 2 hours
+      expect(workflowWithDefaultToken).toContain('${{ secrets.GITHUB_TOKEN }}')
+      expect(workflowWithDefaultToken).not.toContain('BUDDY_BOT_TOKEN')
     })
 
-    it('should include all required workflow elements', async () => {
-      const { generateUpdateWorkflow } = await import('../src/setup')
-      const preset = {
-        name: 'Standard Project',
-        description: 'test',
-        templates: { daily: true },
-        schedules: { dashboard: '0 9 * * 1,3,5', updates: '0 9 * * 1,3,5' },
-        strategy: 'all',
-        autoMerge: false,
-        custom: [],
-      }
-      const workflow = generateUpdateWorkflow(preset, true)
+    it('should include all required workflow jobs and elements', async () => {
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
+      const workflow = generateUnifiedWorkflow(true)
+
+      // Check all jobs are present
+      expect(workflow).toContain('determine-jobs:')
+      expect(workflow).toContain('setup:')
+      expect(workflow).toContain('rebase-check:')
+      expect(workflow).toContain('dependency-update:')
+      expect(workflow).toContain('dashboard-update:')
+
+      // Check workflow structure
       expect(workflow).toContain('workflow_dispatch:')
       expect(workflow).toContain('strategy:')
       expect(workflow).toContain('dry_run:')
@@ -85,6 +44,8 @@ describe('CLI Setup - Extended Tests', () => {
       expect(workflow).toContain('verbose:')
       expect(workflow).toContain('bunx buddy-bot scan')
       expect(workflow).toContain('bunx buddy-bot update')
+      expect(workflow).toContain('bunx buddy-bot update-check')
+      expect(workflow).toContain('bunx buddy-bot dashboard')
       expect(workflow).toContain('permissions:')
       expect(workflow).toContain('contents: write')
       expect(workflow).toContain('pull-requests: write')
@@ -137,69 +98,50 @@ describe('CLI Setup - Extended Tests', () => {
   })
 
   describe('Token Environment Variables', () => {
-    it('should generate correct token environment variables in workflows', async () => {
-      const { generateDashboardWorkflow, generateUpdateCheckWorkflow } = await import('../src/setup')
+    it('should generate correct token environment variables in unified workflow', async () => {
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
       // With custom token
-      const dashboardWithCustom = generateDashboardWorkflow(true)
-      expect(dashboardWithCustom).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
-
-      const updateCheckWithCustom = generateUpdateCheckWorkflow(true)
-      expect(updateCheckWithCustom).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
+      const workflowWithCustom = generateUnifiedWorkflow(true)
+      expect(workflowWithCustom).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
 
       // With default token only
-      const dashboardDefault = generateDashboardWorkflow(false)
+      const workflowWithDefault = generateUnifiedWorkflow(false)
       // eslint-disable-next-line no-template-curly-in-string
-      expect(dashboardDefault).toContain('${{ secrets.GITHUB_TOKEN }}')
-      expect(dashboardDefault).not.toContain('BUDDY_BOT_TOKEN')
-
-      const updateCheckDefault = generateUpdateCheckWorkflow(false)
-      // eslint-disable-next-line no-template-curly-in-string
-      expect(updateCheckDefault).toContain('${{ secrets.GITHUB_TOKEN }}')
-      expect(updateCheckDefault).not.toContain('BUDDY_BOT_TOKEN')
+      expect(workflowWithDefault).toContain('${{ secrets.GITHUB_TOKEN }}')
+      expect(workflowWithDefault).not.toContain('BUDDY_BOT_TOKEN')
     })
   })
 
   describe('Workflow Structure Validation', () => {
     it('should generate valid YAML workflow structure', async () => {
-      const { generateDashboardWorkflow, generateUpdateCheckWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      const dashboard = generateDashboardWorkflow(true)
-      expect(dashboard).toContain('name:')
-      expect(dashboard).toContain('on:')
-      expect(dashboard).toContain('schedule:')
-      expect(dashboard).toContain('workflow_dispatch:')
-      expect(dashboard).toContain('env:')
-      expect(dashboard).toContain('permissions:')
-      expect(dashboard).toContain('jobs:')
-      expect(dashboard).toContain('runs-on: ubuntu-latest')
-      expect(dashboard).toContain('steps:')
-
-      const updateCheck = generateUpdateCheckWorkflow(false)
-      expect(updateCheck).toContain('name:')
-      expect(updateCheck).toContain('on:')
-      expect(updateCheck).toContain('schedule:')
-      expect(updateCheck).toContain('workflow_dispatch:')
-      expect(updateCheck).toContain('env:')
-      expect(updateCheck).toContain('permissions:')
-      expect(updateCheck).toContain('jobs:')
+      const workflow = generateUnifiedWorkflow(true)
+      expect(workflow).toContain('name: Buddy Bot')
+      expect(workflow).toContain('on:')
+      expect(workflow).toContain('schedule:')
+      expect(workflow).toContain('workflow_dispatch:')
+      expect(workflow).toContain('env:')
+      expect(workflow).toContain('permissions:')
+      expect(workflow).toContain('jobs:')
+      expect(workflow).toContain('runs-on: ubuntu-latest')
+      expect(workflow).toContain('steps:')
     })
 
     it('should include proper GitHub Actions setup steps', async () => {
-      const { generateDashboardWorkflow, generateUpdateCheckWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      const dashboard = generateDashboardWorkflow(true)
-      expect(dashboard).toContain('uses: actions/checkout@v4')
-      expect(dashboard).toContain('uses: oven-sh/setup-bun@v2')
-      expect(dashboard).toContain('bun install')
-      expect(dashboard).toContain('bun run build')
-
-      const updateCheck = generateUpdateCheckWorkflow(false)
-      expect(updateCheck).toContain('uses: actions/checkout@v4')
-      expect(updateCheck).toContain('uses: oven-sh/setup-bun@v2')
-      expect(updateCheck).toContain('fetch-depth: 0')
-      expect(updateCheck).toContain('persist-credentials: true')
-      expect(updateCheck).toContain('git config --global user.name')
+      const workflow = generateUnifiedWorkflow(true)
+      expect(workflow).toContain('uses: actions/checkout@v4')
+      expect(workflow).toContain('uses: oven-sh/setup-bun@v2')
+      expect(workflow).toContain('bun install')
+      expect(workflow).toContain('bun run build')
+      expect(workflow).toContain('fetch-depth: 0')
+      expect(workflow).toContain('persist-credentials: true')
+      expect(workflow).toContain('git config --global user.name')
+      expect(workflow).toContain('uses: actions/cache/save@v4')
+      expect(workflow).toContain('uses: actions/cache/restore@v4')
     })
   })
 

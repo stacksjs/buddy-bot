@@ -1,35 +1,44 @@
 import { describe, expect, it } from 'bun:test'
 
 describe('CLI Setup - Enhanced Functions', () => {
-  describe('Workflow Generation', () => {
-    it('should generate dashboard workflow with custom token', async () => {
-      const { generateDashboardWorkflow } = await import('../src/setup')
-      const workflow = generateDashboardWorkflow(true)
+  describe('Unified Workflow Generation', () => {
+    it('should generate unified workflow with custom token', async () => {
+      const { generateUnifiedWorkflow } = await import('../src/setup')
+      const workflow = generateUnifiedWorkflow(true)
 
-      expect(workflow).toContain('name: Buddy Dashboard')
-      expect(workflow).toContain('cron: \'0 9 * * 1,3,5\'')
+      expect(workflow).toContain('name: Buddy Bot')
+      expect(workflow).toContain('cron: \'15 */2 * * *\'') // Updated dashboard schedule
       expect(workflow).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
       expect(workflow).toContain('bunx buddy-bot dashboard')
+      expect(workflow).toContain('bunx buddy-bot update-check')
+      expect(workflow).toContain('bunx buddy-bot update')
       expect(workflow).toContain('workflow_dispatch')
     })
 
-    it('should generate dashboard workflow with default token', async () => {
-      const { generateDashboardWorkflow } = await import('../src/setup')
-      const workflow = generateDashboardWorkflow(false)
+    it('should generate unified workflow with default token', async () => {
+      const { generateUnifiedWorkflow } = await import('../src/setup')
+      const workflow = generateUnifiedWorkflow(false)
 
-      expect(workflow).toContain('name: Buddy Dashboard')
+      expect(workflow).toContain('name: Buddy Bot')
       // eslint-disable-next-line no-template-curly-in-string
       expect(workflow).toContain('${{ secrets.GITHUB_TOKEN }}')
-      expect(workflow).not.toContain('BUDDY_BOT_TOKEN')
+      // Should not use BUDDY_BOT_TOKEN in the actual token environment variable
+      expect(workflow).not.toContain('secrets.BUDDY_BOT_TOKEN ||')
     })
 
-    it('should generate update check workflow', async () => {
-      const { generateUpdateCheckWorkflow } = await import('../src/setup')
-      const workflow = generateUpdateCheckWorkflow(true)
+    it('should include all three job types in unified workflow', async () => {
+      const { generateUnifiedWorkflow } = await import('../src/setup')
+      const workflow = generateUnifiedWorkflow(true)
 
-      expect(workflow).toContain('name: Buddy Check')
-      expect(workflow).toContain('cron: \'*/15 * * * *\'')
+      expect(workflow).toContain('rebase-check:')
+      expect(workflow).toContain('dependency-update:')
+      expect(workflow).toContain('dashboard-update:')
+      expect(workflow).toContain('cron: \'*/1 * * * *\'') // Check every minute
+      expect(workflow).toContain('cron: \'0 */2 * * *\'') // Update every 2 hours
+      expect(workflow).toContain('cron: \'15 */2 * * *\'') // Dashboard 15 mins after updates
       expect(workflow).toContain('bunx buddy-bot update-check')
+      expect(workflow).toContain('bunx buddy-bot update')
+      expect(workflow).toContain('bunx buddy-bot dashboard')
       expect(workflow).toContain('dry_run:')
     })
   })
@@ -51,18 +60,18 @@ describe('CLI Setup - Enhanced Functions', () => {
       expect(preset.description).toContain('security-first')
     })
 
-    it('should generate update workflow with correct new format', async () => {
-      const { generateUpdateWorkflow, getWorkflowPreset } = await import('../src/setup')
+    it('should generate unified workflow with correct format', async () => {
+      const { generateUnifiedWorkflow, getWorkflowPreset } = await import('../src/setup')
       const preset = getWorkflowPreset('standard')
 
-      const workflow = generateUpdateWorkflow(preset, false)
+      const workflow = generateUnifiedWorkflow(false)
 
-      expect(workflow).toContain('name: Buddy Update')
+      expect(workflow).toContain('name: Buddy Bot')
       expect(workflow).toContain('cron: \'0 */2 * * *\'')
-      expect(workflow).toContain('default: true') // dry_run default
+      expect(workflow).toContain('default: false') // dry_run default
       expect(workflow).toContain('dependency-update:') // job name
-      expect(workflow).toContain('Verify Composer setup')
-      expect(workflow).toContain('Display test configuration')
+      expect(workflow).toContain('determine-jobs:') // job coordination
+      expect(workflow).toContain('dashboard-update:') // dashboard job
     })
   })
 })

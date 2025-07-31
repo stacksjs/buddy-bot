@@ -159,7 +159,7 @@ describe('CLI Non-Interactive Integration Tests', () => {
 
   describe('Workflow Content Validation', () => {
     it('should generate update workflow with all required sections', async () => {
-      const { generateUpdateWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
       const preset = {
         name: 'Standard Project',
@@ -174,7 +174,7 @@ describe('CLI Non-Interactive Integration Tests', () => {
         custom: [],
       }
 
-      const workflow = generateUpdateWorkflow(preset, false)
+      const workflow = generateUnifiedWorkflow(false)
 
       // Test all the required sections from the specification
       const requiredSections = [
@@ -216,9 +216,9 @@ describe('CLI Non-Interactive Integration Tests', () => {
     })
 
     it('should generate buddy-check workflow with correct structure', async () => {
-      const { generateUpdateCheckWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      const workflow = generateUpdateCheckWorkflow(false)
+      const workflow = generateUnifiedWorkflow(false)
 
       const requiredSections = [
         'name: Buddy Check',
@@ -236,9 +236,9 @@ describe('CLI Non-Interactive Integration Tests', () => {
     })
 
     it('should generate dashboard workflow with correct structure', async () => {
-      const { generateDashboardWorkflow } = await import('../src/setup')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      const workflow = generateDashboardWorkflow(false)
+      const workflow = generateUnifiedWorkflow(false)
 
       const requiredSections = [
         'name: Buddy Dashboard',
