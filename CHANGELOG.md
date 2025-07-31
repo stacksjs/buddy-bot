@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.5.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.0...main)
+
+### 🏡 Chore
+
+- Remove `pin` ([23424d5](https://github.com/stacksjs/buddy-bot/commit/23424d5))
+- Explicitly setup env ([52337a3](https://github.com/stacksjs/buddy-bot/commit/52337a3))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.4.4...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.4...main)
