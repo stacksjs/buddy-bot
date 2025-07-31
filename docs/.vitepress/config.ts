@@ -75,7 +75,14 @@ const sidebar = [
   {
     text: 'Advanced',
     items: [
-      { text: 'Migration Guide', link: '/advanced/migration' },
+      {
+        text: 'Migration Guide',
+        link: '/advanced/migration',
+        items: [
+          { text: 'From Renovate', link: '/advanced/migration/renovate' },
+          { text: 'From Dependabot', link: '/advanced/migration/dependabot' },
+        ],
+      },
       { text: 'Scheduling & Automation', link: '/advanced/scheduling' },
       { text: 'Monorepo Support', link: '/advanced/monorepo' },
       { text: 'Custom Workflows', link: '/advanced/custom-workflows' },

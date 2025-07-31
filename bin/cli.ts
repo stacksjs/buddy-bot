@@ -38,6 +38,7 @@ cli.usage(`[command] [options]
 🤖 Buddy Bot - Your companion dependency manager
 
 Supports npm, Bun, yarn, pnpm, Composer, pkgx, Launchpad, and GitHub Actions
+Automatically migrates from Renovate and Dependabot
 
 DEPENDENCY MANAGEMENT:
   setup         🚀 Interactive setup for automated updates (recommended)
@@ -62,7 +63,8 @@ CONFIGURATION & SETUP:
   open-settings 🔧 Open GitHub repository and organization settings pages
 
 Examples:
-  buddy-bot setup                      # Interactive setup
+  buddy-bot setup                      # Interactive setup with migration
+  buddy-bot setup --non-interactive    # Automated setup for CI/CD
   buddy-bot scan --verbose             # Scan for updates (npm + Composer)
   buddy-bot dashboard --pin            # Create pinned dashboard
   buddy-bot rebase 17                  # Rebase PR #17
@@ -71,7 +73,13 @@ Examples:
   buddy-bot info react                 # Get npm package info
   buddy-bot versions react --latest 5  # Show recent versions
   buddy-bot search "test framework"    # Search packages
-  buddy-bot open-settings              # Open GitHub settings`)
+  buddy-bot open-settings              # Open GitHub settings
+
+Migration:
+  - Automatically detects Renovate and Dependabot configurations
+  - Converts settings to Buddy Bot format with compatibility report
+  - Generates optimized GitHub Actions workflows
+  - Provides migration guidance and best practices`)
 
 // Define CLI options interface to match our core types
 interface CLIOptions {

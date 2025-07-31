@@ -2,7 +2,7 @@
 
 This guide helps you migrate from existing dependency management tools like Renovate and Dependabot to Buddy Bot.
 
-## Automated Migration
+## Quick Migration
 
 Buddy Bot includes automated migration capabilities to ease the transition from other tools.
 
@@ -22,208 +22,58 @@ This will:
 
 ### Supported Migration Sources
 
-| Tool | Config Files | Migration Quality |
-|------|-------------|-------------------|
-| **Renovate** | `renovate.json`, `.renovaterc`, `package.json` | ✅ High |
-| **Dependabot** | `.github/dependabot.yml` | ⚠️ Medium |
+| Tool | Config Files | Migration Quality | Guide |
+|------|-------------|-------------------|-------|
+| **Renovate** | `renovate.json`, `.renovaterc`, `package.json` | ✅ High | [Renovate Migration →](./migration/renovate) |
+| **Dependabot** | `.github/dependabot.yml` | ⚠️ Medium | [Dependabot Migration →](./migration/dependabot) |
 
-## Manual Migration
+## Tool-Specific Guides
 
-### From Renovate
+For detailed migration instructions, see the dedicated guides:
 
-#### Basic Configuration
+- **[📝 Renovate Migration →](./migration/renovate)** - Comprehensive guide for migrating from Renovate
+- **[📝 Dependabot Migration →](./migration/dependabot)** - Complete Dependabot to Buddy Bot migration
 
-**Before (Renovate):**
+## Quick Examples
+
+### Basic Renovate Migration
+
 ```json
+// renovate.json
 {
   "extends": ["config:base"],
   "schedule": ["before 6am"],
   "automerge": true,
-  "ignoreDeps": ["react", "@types/node"]
+  "ignoreDeps": ["react"]
 }
 ```
 
-**After (Buddy Bot):**
 ```typescript
+// buddy-bot.config.ts
 export default {
-  schedule: {
-    cron: '0 4 * * *', // 4 AM daily
-    timezone: 'UTC'
-  },
-  packages: {
-    strategy: 'all',
-    ignore: ['react', '@types/node']
-  },
-  pullRequest: {
-    autoMerge: {
-      enabled: true,
-      strategy: 'squash'
-    }
-  }
+  schedule: { cron: '0 4 * * *', timezone: 'UTC' },
+  packages: { strategy: 'all', ignore: ['react'] },
+  pullRequest: { autoMerge: { enabled: true, strategy: 'squash' } }
 } satisfies BuddyBotConfig
 ```
 
-#### Package Rules & Grouping
+### Basic Dependabot Migration
 
-**Before (Renovate):**
-```json
-{
-  "packageRules": [
-    {
-      "matchPackagePatterns": ["^@types/"],
-      "groupName": "TypeScript definitions"
-    },
-    {
-      "matchPackageNames": ["eslint"],
-      "enabled": false
-    }
-  ]
-}
-```
-
-**After (Buddy Bot):**
-```typescript
-export default {
-  packages: {
-    strategy: 'all',
-    ignore: ['eslint'],
-    groups: [
-      {
-        name: 'TypeScript definitions',
-        patterns: ['^@types/'],
-        updateType: 'minor'
-      }
-    ]
-  }
-} satisfies BuddyBotConfig
-```
-
-#### Advanced Scheduling
-
-**Before (Renovate):**
-```json
-{
-  "schedule": ["every weekend"],
-  "timezone": "America/New_York",
-  "packageRules": [
-    {
-      "matchUpdateTypes": ["major"],
-      "schedule": ["on the first day of the month"]
-    }
-  ]
-}
-```
-
-**After (Buddy Bot):**
-```typescript
-export default {
-  schedule: {
-    cron: '0 2 * * 6', // Saturday 2 AM
-    timezone: 'America/New_York'
-  },
-  packages: {
-    strategy: 'minor', // Default to minor updates
-    groups: [
-      {
-        name: 'Major Updates',
-        patterns: ['*'],
-        updateType: 'major',
-        schedule: {
-          cron: '0 2 1 * *' // First day of month
-        }
-      }
-    ]
-  }
-} satisfies BuddyBotConfig
-```
-
-### From Dependabot
-
-#### Basic Configuration
-
-**Before (Dependabot):**
 ```yaml
+# .github/dependabot.yml
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-    ignore:
-      - dependency-name: "react"
-      - dependency-name: "@types/*"
 ```
 
-**After (Buddy Bot):**
 ```typescript
+// buddy-bot.config.ts
 export default {
-  schedule: {
-    cron: '0 2 * * 1', // Weekly on Monday 2 AM
-    timezone: 'UTC'
-  },
-  packages: {
-    strategy: 'all',
-    ignore: ['react', '@types/*']
-  }
-} satisfies BuddyBotConfig
-```
-
-#### Multiple Ecosystems
-
-**Before (Dependabot):**
-```yaml
-version: 2
-updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "composer"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-```
-
-**After (Buddy Bot):**
-```typescript
-export default {
-  schedule: {
-    cron: '0 2 * * *', // Daily at 2 AM
-    timezone: 'UTC'
-  },
-  packages: {
-    strategy: 'all',
-    groups: [
-      {
-        name: 'npm packages',
-        patterns: ['*'],
-        files: ['package.json'],
-        updateType: 'all'
-      },
-      {
-        name: 'Composer packages',
-        patterns: ['*'],
-        files: ['composer.json'],
-        updateType: 'all',
-        schedule: {
-          cron: '0 2 * * 1' // Weekly
-        }
-      },
-      {
-        name: 'GitHub Actions',
-        patterns: ['*'],
-        files: ['.github/workflows/*.yml'],
-        updateType: 'all',
-        schedule: {
-          cron: '0 2 1 * *' // Monthly
-        }
-      }
-    ]
-  }
+  schedule: { cron: '0 2 * * 1', timezone: 'UTC' },
+  packages: { strategy: 'all' }
 } satisfies BuddyBotConfig
 ```
 
