@@ -13,6 +13,7 @@ export interface BunOutdatedResult {
   current: string
   update: string
   latest: string
+  workspace?: string
 }
 
 export class RegistryClient {
@@ -32,6 +33,9 @@ export class RegistryClient {
       // Get updates from bun outdated (compares installed vs available)
       const bunResults = await this.runBunOutdated(filter)
 
+      // Get updates from workspace packages using bun outdated --filter
+      const workspaceResults = await this.getWorkspaceOutdatedPackages()
+
       // Get updates from package.json comparison (package.json version vs latest available)
       const packageJsonResults = await this.getPackageJsonOutdated(filter)
 
@@ -41,6 +45,13 @@ export class RegistryClient {
       // Add bun outdated results first
       for (const result of bunResults) {
         allResults.set(result.name, result)
+      }
+
+      // Add workspace results (these have priority over package.json fallback)
+      for (const result of workspaceResults) {
+        if (!allResults.has(result.name)) {
+          allResults.set(result.name, result)
+        }
       }
 
       // Add package.json results if not already present or if they show a different issue
@@ -297,21 +308,29 @@ export class RegistryClient {
       if (parts.length >= 4) {
         // For Unicode format, indices are 1,2,3,4 (first is empty)
         // For pipe format, indices are 1,2,3,4 (first is empty)
+        // When using --filter, there's an additional Workspace column at index 5
         let name = parts[1]?.trim() || ''
         const current = parts[2]?.trim() || ''
         const update = parts[3]?.trim() || ''
         const latest = parts[4]?.trim() || ''
+        const workspace = parts.length >= 6 ? parts[5]?.trim() : undefined
 
         // Clean package name - remove dependency type suffixes that bun outdated adds
         name = name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
 
         if (name && current && latest && name !== 'Package') {
-          results.push({
+          const result: BunOutdatedResult = {
             name,
             current,
             update,
             latest,
-          })
+          }
+
+          if (workspace && workspace !== 'Workspace') {
+            result.workspace = workspace
+          }
+
+          results.push(result)
         }
       }
     }
@@ -396,7 +415,7 @@ export class RegistryClient {
     }
   }
 
-    /**
+  /**
    * Clean version range to get the base version (remove ^, ~, etc.)
    */
   private cleanVersionRange(version: string): string | null {
@@ -1060,5 +1079,144 @@ export class RegistryClient {
     }
 
     return candidates
+  }
+
+  /**
+   * Get outdated packages from all workspace packages
+   */
+  private async getWorkspaceOutdatedPackages(): Promise<BunOutdatedResult[]> {
+    try {
+      const workspaceNames = await this.getWorkspaceNames()
+      const allResults: BunOutdatedResult[] = []
+
+      this.logger.info(`Found ${workspaceNames.length} workspace packages to check`)
+
+      for (const workspaceName of workspaceNames) {
+        try {
+          const results = await this.runBunOutdatedForWorkspace(workspaceName)
+          allResults.push(...results)
+        }
+        catch (error) {
+          this.logger.warn(`Failed to check workspace ${workspaceName}:`, error)
+        }
+      }
+
+      this.logger.info(`Found ${allResults.length} outdated packages across workspaces`)
+      return allResults
+    }
+    catch (error) {
+      this.logger.warn('Failed to check workspace packages:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get workspace package names from package.json files
+   */
+  private async getWorkspaceNames(): Promise<string[]> {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const workspaceNames: string[] = []
+
+    // Find all package.json files
+    const packageJsonFiles = await this.findPackageJsonFiles()
+
+    for (const filePath of packageJsonFiles) {
+      try {
+        const fullPath = path.join(this.projectPath, filePath)
+        const content = fs.readFileSync(fullPath, 'utf-8')
+        const packageData = JSON.parse(content)
+
+        // Extract package name if it exists and is not the root package
+        if (packageData.name && filePath !== 'package.json') {
+          workspaceNames.push(packageData.name)
+        }
+      }
+      catch (error) {
+        this.logger.warn(`Failed to parse package.json ${filePath}:`, error)
+      }
+    }
+
+    return workspaceNames
+  }
+
+  /**
+   * Find all package.json files in the project
+   */
+  private async findPackageJsonFiles(): Promise<string[]> {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const files: string[] = []
+
+    const findFiles = async (dir: string, currentPath = ''): Promise<void> => {
+      try {
+        const entries = await fs.promises.readdir(dir)
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry)
+          const relativePath = currentPath ? path.join(currentPath, entry) : entry
+          const stats = await fs.promises.stat(fullPath)
+
+          if (stats.isDirectory()) {
+            // Skip node_modules and other common ignored directories
+            if (!this.shouldSkipDirectory(entry)) {
+              await findFiles(fullPath, relativePath)
+            }
+          }
+          else if (stats.isFile() && entry === 'package.json') {
+            files.push(relativePath)
+          }
+        }
+      }
+      catch {
+        // Ignore permission errors and continue
+      }
+    }
+
+    await findFiles(this.projectPath)
+    return files
+  }
+
+  /**
+   * Check if a directory should be skipped during scanning
+   */
+  private shouldSkipDirectory(dirName: string): boolean {
+    const skipDirs = [
+      'node_modules',
+      '.git',
+      '.next',
+      '.nuxt',
+      'dist',
+      'build',
+      'coverage',
+      '.nyc_output',
+      'tmp',
+      'temp',
+      '.cache',
+      '.vscode',
+      '.idea',
+    ]
+
+    return skipDirs.includes(dirName) || dirName.startsWith('.')
+  }
+
+  /**
+   * Run bun outdated for a specific workspace
+   */
+  private async runBunOutdatedForWorkspace(workspaceName: string): Promise<BunOutdatedResult[]> {
+    try {
+      const output = await this.runCommand('bun', ['outdated', '--filter', workspaceName])
+      const results = this.parseBunOutdatedOutput(output)
+
+      // Add workspace information to results
+      return results.map(result => ({
+        ...result,
+        workspace: workspaceName,
+      }))
+    }
+    catch (error) {
+      this.logger.warn(`Failed to run bun outdated for workspace ${workspaceName}:`, error)
+      return []
+    }
   }
 }
