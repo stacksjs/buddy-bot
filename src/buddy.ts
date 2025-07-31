@@ -131,8 +131,8 @@ export class Buddy {
         this.config.repository.name,
       )
 
-      // Initialize PR generator
-      const prGenerator = new PullRequestGenerator()
+      // Initialize PR generator with config
+      const prGenerator = new PullRequestGenerator(this.config)
 
       // Process each group
       for (const group of scanResult.groups) {
