@@ -31,19 +31,17 @@ describe('PR Body Generation for Major Updates', () => {
       // |------|-------|
       // | **Total** | **1** |
 
-      // Should BE like Renovate's format:
-      // | Type | Count |
-      // |------|-------|
-      // | 📦 NPM Packages | 1 |
-      // | **Total** | **1** |
+      // simplified format for single package updates:
+      // No summary table, no section header, just the npm badge and package table
 
-      expect(body).toContain('## Package Updates Summary')
-      expect(body).toContain('| 📦 NPM Packages | 1 |')
-      expect(body).toContain('| **Total** | **1** |')
+      expect(body).not.toContain('## Package Updates Summary') // Simplified format
+      expect(body).not.toContain('| 📦 NPM Packages | 1 |') // Simplified format
+      expect(body).not.toContain('| **Total** | **1** |') // Simplified format
 
       // Should include the detailed package table (missing in original issue)
-      expect(body).toContain('## 📦 npm Dependencies')
-      expect(body).toContain('*1 package will be updated*')
+      expect(body).not.toContain('## 📦 npm Dependencies') // Simplified format
+      expect(body).not.toContain('*1 package will be updated*') // Simplified format
+      expect(body).toContain('![npm](https://img.shields.io/badge/npm-CB3837') // Should have npm badge
       expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
 
       // Should include package details
@@ -124,9 +122,11 @@ describe('PR Body Generation for Major Updates', () => {
 
       const composerBody = await generator.generateBody(majorComposerUpdate)
 
-      expect(composerBody).toContain('| 🐘 Composer Packages | 1 |')
-      expect(composerBody).toContain('## 🐘 PHP/Composer Dependencies')
-      expect(composerBody).toContain('*1 package will be updated*')
+      // Composer single package updates should also use simplified format
+      expect(composerBody).not.toContain('| 🐘 Composer Packages | 1 |') // No summary table
+      expect(composerBody).not.toContain('## 🐘 PHP/Composer Dependencies') // No section header
+      expect(composerBody).not.toContain('*1 package will be updated*') // No count text
+      expect(composerBody).toContain('![composer](https://img.shields.io/badge/composer-885630') // Should have composer badge
       expect(composerBody).toContain('laravel/framework')
 
       // Test GitHub Action major update
@@ -148,9 +148,11 @@ describe('PR Body Generation for Major Updates', () => {
 
       const actionBody = await generator.generateBody(majorActionUpdate)
 
-      expect(actionBody).toContain('| 🚀 GitHub Actions | 1 |')
-      expect(actionBody).toContain('## 🚀 GitHub Actions')
-      expect(actionBody).toContain('*1 action will be updated*')
+      // GitHub Actions single update should also use simplified format
+      expect(actionBody).not.toContain('| 🚀 GitHub Actions | 1 |') // No summary table
+      expect(actionBody).not.toContain('## 🚀 GitHub Actions') // No section header
+      expect(actionBody).not.toContain('*1 action will be updated*') // No count text
+      expect(actionBody).toContain('![github-actions](https://img.shields.io/badge/GitHub%20Actions-2088FF') // Should have GitHub Actions badge
       expect(actionBody).toContain('actions/checkout')
     })
   })

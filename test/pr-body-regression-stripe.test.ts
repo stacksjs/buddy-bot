@@ -42,16 +42,21 @@ describe('PR Body Regression - Stripe Issue', () => {
 
     // The regression: PR body should NOT be sparse like PR #1453
     // It should include the detailed NPM table with badges and links
+    // NOTE: Single package updates now have a simplified format without summary table
 
-    // 1. Should have package summary table
-    expect(body).toContain('## Package Updates Summary')
-    expect(body).toContain('| 📦 NPM Packages | 1 |')
-    expect(body).toContain('| **Total** | **1** |')
+    // 1. Should NOT have package summary table for single package updates (new simplified format)
+    expect(body).not.toContain('## Package Updates Summary')
+    expect(body).not.toContain('| 📦 NPM Packages | 1 |')
+    expect(body).not.toContain('| **Total** | **1** |')
 
-    // 2. CRITICAL: Should have detailed NPM dependencies section (this was missing in #1453)
-    expect(body).toContain('## 📦 npm Dependencies')
+    // 2. Should NOT have npm section header for single package updates (new simplified format)
+    expect(body).not.toContain('## 📦 npm Dependencies')
+
+    // 3. CRITICAL: Should have npm badge and detailed package table (this was missing in #1453)
     expect(body).toContain('![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)')
-    expect(body).toContain('*1 package will be updated*')
+
+    // Should NOT have package count text for single packages (new simplified format)
+    expect(body).not.toContain('*1 package will be updated*')
 
     // 3. Should have detailed package table with badges (missing in #1453)
     expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
@@ -113,10 +118,11 @@ describe('PR Body Regression - Stripe Issue', () => {
 
     const body = await generator.generateBody(relativePathUpdate)
 
-    // Should work correctly with relative path
-    expect(body).toContain('| 📦 NPM Packages | 1 |')
-    expect(body).toContain('## 📦 npm Dependencies')
-    expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
+    // Should work correctly with relative path (new simplified format)
+    expect(body).not.toContain('| 📦 NPM Packages | 1 |') // No summary table for single packages
+    expect(body).not.toContain('## 📦 npm Dependencies') // No section header for single packages
+    expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence |') // Should have detailed table
+    expect(body).toContain('![npm](https://img.shields.io/badge/npm-CB3837') // Should have npm badge
     expect(body.length).toBeGreaterThan(2000)
 
     // Test absolute path (common in CI environments)
@@ -137,10 +143,11 @@ describe('PR Body Regression - Stripe Issue', () => {
 
     const bodyAbsolute = await generator.generateBody(absolutePathUpdate)
 
-    // Should work correctly with absolute path
-    expect(bodyAbsolute).toContain('| 📦 NPM Packages | 1 |')
-    expect(bodyAbsolute).toContain('## 📦 npm Dependencies')
-    expect(bodyAbsolute).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
+    // Should work correctly with absolute path (new simplified format)
+    expect(bodyAbsolute).not.toContain('| 📦 NPM Packages | 1 |') // No summary table for single packages
+    expect(bodyAbsolute).not.toContain('## 📦 npm Dependencies') // No section header for single packages
+    expect(bodyAbsolute).toContain('| Package | Change | Age | Adoption | Passing | Confidence |') // Should have detailed table
+    expect(bodyAbsolute).toContain('![npm](https://img.shields.io/badge/npm-CB3837') // Should have npm badge
     expect(bodyAbsolute.length).toBeGreaterThan(2000)
   })
 
@@ -193,14 +200,14 @@ describe('PR Body Regression - Stripe Issue', () => {
     // Our output should NOT match this broken minimal pattern
     expect(body).not.toContain(brokenPattern)
 
-    // Specifically check that we have content between summary and release notes
-    const summaryToReleaseNotes = body.substring(
-      body.indexOf('| **Total** | **1** |'),
-      body.indexOf('### Release Notes'),
-    )
+    // For single package updates, we now have a simplified format
+    // Check that we have substantial content before release notes
+    const beforeReleaseNotes = body.substring(0, body.indexOf('### Release Notes'))
 
-    // Should have substantial content (NPM section) between summary and release notes
-    expect(summaryToReleaseNotes).toContain('## 📦 npm Dependencies')
-    expect(summaryToReleaseNotes.length).toBeGreaterThan(500) // Should have substantial content
+    // Should have the npm badge and package table (the key content that was missing in #1453)
+    expect(beforeReleaseNotes).toContain('![npm](https://img.shields.io/badge/npm-CB3837')
+    expect(beforeReleaseNotes).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
+    expect(beforeReleaseNotes).toContain('stripe')
+    expect(beforeReleaseNotes.length).toBeGreaterThan(500) // Should have substantial content
   })
 })

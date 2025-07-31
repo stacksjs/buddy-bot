@@ -47,7 +47,7 @@ export class PullRequestGenerator {
         author: 'github-actions[bot]',
         reviewers: [],
         assignees: [],
-        labels: ['dependencies', 'automated'],
+        labels: this.generateLabels(group),
         draft: false,
       }
 
@@ -55,6 +55,30 @@ export class PullRequestGenerator {
     }
 
     return prs
+  }
+
+  /**
+   * Generate labels for a pull request
+   */
+  generateLabels(group: UpdateGroup): string[] {
+    const labels = ['dependencies', 'automated']
+
+    // Add update type labels
+    if (group.updateType === 'major') {
+      labels.push('major')
+    } else if (group.updateType === 'minor') {
+      labels.push('minor')
+    } else if (group.updateType === 'patch') {
+      labels.push('patch')
+    }
+
+    // For single package updates, add the specific package name as a label
+    if (group.updates.length === 1) {
+      const update = group.updates[0]
+      labels.push(group.title) // This will be like "chore(deps): update dependency stripe to 18.4.0"
+    }
+
+    return labels
   }
 
   /**
@@ -133,19 +157,22 @@ export class PullRequestGenerator {
 
     let body = `This PR contains the following updates:\n\n`
 
-    // Add summary table (always show for clarity)
-    body += `## Package Updates Summary\n\n`
-    body += `| Type | Count |\n`
-    body += `|------|-------|\n`
-    if (packageJsonCount > 0)
-      body += `| 📦 NPM Packages | ${packageJsonCount} |\n`
-    if (dependencyFileCount > 0)
-      body += `| 🔧 System Dependencies | ${dependencyFileCount} |\n`
-    if (githubActionsCount > 0)
-      body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
-    if (composerCount > 0)
-      body += `| 🐘 Composer Packages | ${composerCount} |\n`
-    body += `| **Total** | **${group.updates.length}** |\n\n`
+    // Only show summary table for multi-package updates
+    const isMultiPackageUpdate = group.updates.length > 1
+    if (isMultiPackageUpdate) {
+      body += `## Package Updates Summary\n\n`
+      body += `| Type | Count |\n`
+      body += `|------|-------|\n`
+      if (packageJsonCount > 0)
+        body += `| 📦 NPM Packages | ${packageJsonCount} |\n`
+      if (dependencyFileCount > 0)
+        body += `| 🔧 System Dependencies | ${dependencyFileCount} |\n`
+      if (githubActionsCount > 0)
+        body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
+      if (composerCount > 0)
+        body += `| 🐘 Composer Packages | ${composerCount} |\n`
+      body += `| **Total** | **${group.updates.length}** |\n\n`
+    }
 
     // Separate updates by type
     const packageJsonUpdates = group.updates.filter(update =>
@@ -217,12 +244,16 @@ export class PullRequestGenerator {
         packageCount: packageJsonUpdates.length,
         packages: packageJsonUpdates.map(u => u.name),
       })
-      body += `## 📦 npm Dependencies\n\n`
-      body += `![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)\n\n`
-      if (packageJsonUpdates.length === 1) {
-        body += `*${packageJsonUpdates.length} package will be updated*\n\n`
+
+      // Only show section header for multi-package updates or when there are multiple package types
+      if (isMultiPackageUpdate || packageJsonCount < group.updates.length) {
+        body += `## 📦 npm Dependencies\n\n`
       }
-      else if (packageJsonUpdates.length > 1) {
+
+      body += `![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)\n\n`
+
+      // Only show count text for multi-package updates
+      if (packageJsonUpdates.length > 1) {
         body += `*${packageJsonUpdates.length} packages will be updated*\n\n`
       }
       body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
@@ -301,12 +332,15 @@ export class PullRequestGenerator {
         }
       }
 
-      body += `## 🐘 PHP/Composer Dependencies\n\n`
-      body += `![composer](https://img.shields.io/badge/composer-885630?style=flat&logo=composer&logoColor=white)\n\n`
-      if (uniqueComposerUpdates.length === 1) {
-        body += `*${uniqueComposerUpdates.length} package will be updated*\n\n`
+      // Only show section header for multi-package updates or when there are multiple package types
+      if (isMultiPackageUpdate || composerCount < group.updates.length) {
+        body += `## 🐘 PHP/Composer Dependencies\n\n`
       }
-      else if (uniqueComposerUpdates.length > 1) {
+
+      body += `![composer](https://img.shields.io/badge/composer-885630?style=flat&logo=composer&logoColor=white)\n\n`
+
+      // Only show count text for multi-package updates
+      if (uniqueComposerUpdates.length > 1) {
         body += `*${uniqueComposerUpdates.length} packages will be updated*\n\n`
       }
       body += `| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |\n`
@@ -354,14 +388,16 @@ export class PullRequestGenerator {
 
     // Dependency files table (enhanced with more information)
     if (dependencyFileUpdates.length > 0) {
-      body += `## 🔧 System Dependencies\n\n`
+      // Only show section header for multi-package updates or when there are multiple package types
+      if (isMultiPackageUpdate || dependencyFileCount < group.updates.length) {
+        body += `## 🔧 System Dependencies\n\n`
+      }
+
       body += `![system](https://img.shields.io/badge/system-4CAF50?style=flat&logo=linux&logoColor=white)\n\n`
 
+      // Only show count text for multi-package updates
       const uniqueFiles = [...new Set(dependencyFileUpdates.map(u => u.file))]
-      if (dependencyFileUpdates.length === 1) {
-        body += `*${dependencyFileUpdates.length} package will be updated in \`${uniqueFiles[0].split('/').pop()}\`*\n\n`
-      }
-      else if (dependencyFileUpdates.length > 1) {
+      if (dependencyFileUpdates.length > 1) {
         body += `*${dependencyFileUpdates.length} packages will be updated across ${uniqueFiles.length} file(s): ${uniqueFiles.map(f => `\`${f.split('/').pop()}\``).join(', ')}*\n\n`
       }
 
@@ -397,13 +433,15 @@ export class PullRequestGenerator {
 
     // GitHub Actions table (enhanced with more information)
     if (uniqueGithubActionsUpdates.length > 0) {
-      body += `## 🚀 GitHub Actions\n\n`
+      // Only show section header for multi-package updates or when there are multiple package types
+      if (isMultiPackageUpdate || githubActionsCount < group.updates.length) {
+        body += `## 🚀 GitHub Actions\n\n`
+      }
+
       body += `![github-actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)\n\n`
 
-      if (uniqueGithubActionsUpdates.length === 1) {
-        body += `*${uniqueGithubActionsUpdates.length} action will be updated*\n\n`
-      }
-      else if (uniqueGithubActionsUpdates.length > 1) {
+      // Only show count text for multi-action updates
+      if (uniqueGithubActionsUpdates.length > 1) {
         body += `*${uniqueGithubActionsUpdates.length} actions will be updated*\n\n`
       }
 

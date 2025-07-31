@@ -93,11 +93,11 @@ describe('PullRequestGenerator', () => {
 
         const body = await generator.generateBody(singleNpmUpdate)
 
-        // Should include package summary table
-        expect(body).toContain('## Package Updates Summary')
-        expect(body).toContain('| Type | Count |')
-        expect(body).toContain('| 📦 NPM Packages | 1 |')
-        expect(body).toContain('| **Total** | **1** |')
+        // Single package updates use simplified format - no summary table
+        expect(body).not.toContain('## Package Updates Summary')
+        expect(body).not.toContain('| Type | Count |')
+        expect(body).not.toContain('| 📦 NPM Packages | 1 |')
+        expect(body).not.toContain('| **Total** | **1** |')
       })
 
       it('should include detailed npm dependencies table for single package', async () => {
@@ -119,10 +119,11 @@ describe('PullRequestGenerator', () => {
 
         const body = await generator.generateBody(singleNpmUpdate)
 
-        // Should include detailed NPM dependencies section
-        expect(body).toContain('## 📦 npm Dependencies')
+        // Single package updates use simplified format - no section header
+        expect(body).not.toContain('## 📦 npm Dependencies')
         expect(body).toContain('![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)')
-        expect(body).toContain('*1 package will be updated*')
+        // Single package updates don't show count text
+        expect(body).not.toContain('*1 package will be updated*')
         expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
         expect(body).toContain('stripe')
         expect(body).toContain('17.7.0')
@@ -204,14 +205,15 @@ describe('PullRequestGenerator', () => {
 
         const body = await generator.generateBody(singleComposerUpdate)
 
-        // Should include package summary table
-        expect(body).toContain('## Package Updates Summary')
-        expect(body).toContain('| 🐘 Composer Packages | 1 |')
+        // Single package updates use simplified format - no summary table or section header
+        expect(body).not.toContain('## Package Updates Summary')
+        expect(body).not.toContain('| 🐘 Composer Packages | 1 |')
 
-        // Should include detailed Composer dependencies section
-        expect(body).toContain('## 🐘 PHP/Composer Dependencies')
+        // Single package updates use simplified format - no section header
+        expect(body).not.toContain('## 🐘 PHP/Composer Dependencies')
         expect(body).toContain('![composer](https://img.shields.io/badge/composer-885630?style=flat&logo=composer&logoColor=white)')
-        expect(body).toContain('*1 package will be updated*')
+        // Single package updates don't show count text
+        expect(body).not.toContain('*1 package will be updated*')
         expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |')
         expect(body).toContain('laravel/framework')
       })
@@ -237,14 +239,15 @@ describe('PullRequestGenerator', () => {
 
         const body = await generator.generateBody(singleSystemUpdate)
 
-        // Should include package summary table
-        expect(body).toContain('## Package Updates Summary')
-        expect(body).toContain('| 🔧 System Dependencies | 1 |')
+        // Single package updates use simplified format - no summary table or section header
+        expect(body).not.toContain('## Package Updates Summary')
+        expect(body).not.toContain('| 🔧 System Dependencies | 1 |')
 
-        // Should include detailed system dependencies section
-        expect(body).toContain('## 🔧 System Dependencies')
+        // Single package updates use simplified format - no section header
+        expect(body).not.toContain('## 🔧 System Dependencies')
         expect(body).toContain('![system](https://img.shields.io/badge/system-4CAF50?style=flat&logo=linux&logoColor=white)')
-        expect(body).toContain('*1 package will be updated in `deps.yaml`*')
+        // Single package updates don't show count text
+        expect(body).not.toContain('*1 package will be updated in `deps.yaml`*')
         expect(body).toContain('| Package | Change | Type | File |')
       })
     })
@@ -269,14 +272,15 @@ describe('PullRequestGenerator', () => {
 
         const body = await generator.generateBody(singleActionUpdate)
 
-        // Should include package summary table
-        expect(body).toContain('## Package Updates Summary')
-        expect(body).toContain('| 🚀 GitHub Actions | 1 |')
+        // Single package updates use simplified format - no summary table or section header
+        expect(body).not.toContain('## Package Updates Summary')
+        expect(body).not.toContain('| 🚀 GitHub Actions | 1 |')
 
-        // Should include detailed GitHub Actions section
-        expect(body).toContain('## 🚀 GitHub Actions')
+        // Single package updates use simplified format - no section header
+        expect(body).not.toContain('## 🚀 GitHub Actions')
         expect(body).toContain('![github-actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)')
-        expect(body).toContain('*1 action will be updated*')
+        // Single package updates don't show count text
+        expect(body).not.toContain('*1 action will be updated*')
         expect(body).toContain('| Action | Change | Type | Files |')
         expect(body).toContain('actions/checkout')
       })
@@ -302,8 +306,8 @@ describe('PullRequestGenerator', () => {
 
         const body = await generator.generateBody(npmOnlyUpdate)
 
-        // Should include NPM packages but not other types
-        expect(body).toContain('| 📦 NPM Packages | 1 |')
+        // Single package updates use simplified format - no summary table
+        expect(body).not.toContain('| 📦 NPM Packages | 1 |')
         expect(body).not.toContain('| 🔧 System Dependencies |')
         expect(body).not.toContain('| 🚀 GitHub Actions |')
         expect(body).not.toContain('| 🎼 Composer Packages |')
@@ -314,26 +318,30 @@ describe('PullRequestGenerator', () => {
       it('should have correct overall structure for single package update', async () => {
         const body = await generator.generateBody(mockUpdateGroup)
 
-        // Check that key sections exist in the right order
+        // Check that key sections exist in the right order (simplified format for single packages)
         const introIndex = body.indexOf('This PR contains the following updates:')
-        const summaryIndex = body.indexOf('## Package Updates Summary')
-        const npmIndex = body.indexOf('## 📦 npm Dependencies')
+        const npmBadgeIndex = body.indexOf('![npm](https://img.shields.io/badge/npm-CB3837')
+        const packageTableIndex = body.indexOf('| Package | Change | Age | Adoption | Passing | Confidence |')
         const releaseNotesIndex = body.indexOf('### Release Notes')
         const configIndex = body.indexOf('### Configuration')
         const footerIndex = body.indexOf('This PR was generated by [Buddy](https://github.com/stacksjs/buddy-bot) 🤖')
 
         // Verify all sections exist
         expect(introIndex).toBeGreaterThanOrEqual(0)
-        expect(summaryIndex).toBeGreaterThanOrEqual(0)
-        expect(npmIndex).toBeGreaterThanOrEqual(0)
+        expect(npmBadgeIndex).toBeGreaterThanOrEqual(0)
+        expect(packageTableIndex).toBeGreaterThanOrEqual(0)
         expect(releaseNotesIndex).toBeGreaterThanOrEqual(0)
         expect(configIndex).toBeGreaterThanOrEqual(0)
         expect(footerIndex).toBeGreaterThanOrEqual(0)
 
-        // Verify correct order
-        expect(summaryIndex).toBeGreaterThan(introIndex)
-        expect(npmIndex).toBeGreaterThan(summaryIndex)
-        expect(releaseNotesIndex).toBeGreaterThan(npmIndex)
+        // Verify single packages don't have summary table or section headers
+        expect(body).not.toContain('## Package Updates Summary')
+        expect(body).not.toContain('## 📦 npm Dependencies')
+
+        // Verify correct order for simplified format
+        expect(npmBadgeIndex).toBeGreaterThan(introIndex)
+        expect(packageTableIndex).toBeGreaterThan(npmBadgeIndex)
+        expect(releaseNotesIndex).toBeGreaterThan(packageTableIndex)
         expect(configIndex).toBeGreaterThan(releaseNotesIndex)
         expect(footerIndex).toBeGreaterThan(configIndex)
       })
