@@ -142,7 +142,7 @@ describe('CLI Setup - Extended Tests', () => {
       expect(workflow).toContain('persist-credentials: true')
       expect(workflow).toContain('git config --global user.name')
       expect(workflow).toContain('uses: actions/cache/save@v4')
-      expect(workflow).toContain('uses: actions/cache/restore@v4')
+      // Note: cache/restore was removed from individual jobs to prevent bunx command not found errors
       // Should not contain build step since repos may not have build scripts
       expect(workflow).not.toContain('bun run build')
     })
