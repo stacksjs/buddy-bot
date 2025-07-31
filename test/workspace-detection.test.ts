@@ -219,7 +219,7 @@ describe('RegistryClient - Workspace Detection', () => {
 
     it('should handle workspace scanning failures gracefully', async () => {
       spyOn(registryClient as any, 'getWorkspaceNames').mockResolvedValue(['@stacksjs/ai', '@stacksjs/cloud'])
-      
+
       // Mock findPackageJsonFiles to return empty for the direct scanning part
       spyOn(registryClient as any, 'findPackageJsonFiles').mockResolvedValue([])
 
