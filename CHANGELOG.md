@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.8...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.8...main)
+
+### 🏡 Chore
+
+- Improve pr bodies ([418d7dd](https://github.com/stacksjs/buddy-bot/commit/418d7dd))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.7...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.7...main)
