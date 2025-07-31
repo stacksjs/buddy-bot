@@ -422,63 +422,77 @@ export class Buddy {
 
     // Handle package.json updates - only for actual package.json files, not dependency or GitHub Actions files
     const packageJsonUpdates = updates.filter(update =>
-      update.file === 'package.json'
+      update.file.endsWith('package.json')
       && !update.file.includes('.yaml')
       && !update.file.includes('.yml')
       && !update.file.includes('.github/workflows/'),
     )
-    if (packageJsonUpdates.length > 0) {
-      const packageJsonPath = 'package.json'
 
-      // Read current package.json content as string to preserve formatting
-      let packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
+    // Group package.json updates by file
+    const updatesByPackageFile = new Map<string, PackageUpdate[]>()
+    for (const update of packageJsonUpdates) {
+      if (!updatesByPackageFile.has(update.file)) {
+        updatesByPackageFile.set(update.file, [])
+      }
+      updatesByPackageFile.get(update.file)!.push(update)
+    }
 
-      // Parse to understand structure
-      const packageJson = JSON.parse(packageJsonContent)
+    // Process each package.json file
+    for (const [packageJsonPath, packageUpdates] of updatesByPackageFile) {
+      try {
+        // Read current package.json content as string to preserve formatting
+        let packageJsonContent = fs.readFileSync(packageJsonPath, 'utf-8')
 
-      // Apply updates using string replacement to preserve formatting
-      for (const update of packageJsonUpdates) {
-        let packageFound = false
+        // Parse to understand structure
+        const packageJson = JSON.parse(packageJsonContent)
 
-        // Clean package name (remove dependency type info like "(dev)")
-        const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
+        // Apply updates using string replacement to preserve formatting
+        for (const update of packageUpdates) {
+          let packageFound = false
 
-        // Try to find and update the package in each dependency section
-        const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
+          // Clean package name (remove dependency type info like "(dev)")
+          const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
 
-        for (const section of dependencySections) {
-          if (packageJson[section] && packageJson[section][cleanPackageName]) {
-            const currentVersionInFile = packageJson[section][cleanPackageName]
+          // Try to find and update the package in each dependency section
+          const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
 
-            // Extract the original version prefix (^, ~, >=, etc.) or lack thereof
-            const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
-            const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
+          for (const section of dependencySections) {
+            if (packageJson[section] && packageJson[section][cleanPackageName]) {
+              const currentVersionInFile = packageJson[section][cleanPackageName]
 
-            // Create regex to find the exact line with this package and version
-            // This handles various formatting styles like: "package": "version", "package":"version", etc.
-            const packageRegex = new RegExp(
-              `("${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
-              'g',
-            )
+              // Extract the original version prefix (^, ~, >=, etc.) or lack thereof
+              const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
+              const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
 
-            // Preserve the original prefix when updating to new version
-            const newVersion = `${originalPrefix}${update.newVersion}`
-            packageJsonContent = packageJsonContent.replace(packageRegex, `$1${newVersion}$3`)
-            packageFound = true
-            break
+              // Create regex to find the exact line with this package and version
+              // This handles various formatting styles like: "package": "version", "package":"version", etc.
+              const packageRegex = new RegExp(
+                `("${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
+                'g',
+              )
+
+              // Preserve the original prefix when updating to new version
+              const newVersion = `${originalPrefix}${update.newVersion}`
+              packageJsonContent = packageJsonContent.replace(packageRegex, `$1${newVersion}$3`)
+              packageFound = true
+              break
+            }
+          }
+
+          if (!packageFound) {
+            console.warn(`Package ${cleanPackageName} not found in ${packageJsonPath}`)
           }
         }
 
-        if (!packageFound) {
-          console.warn(`Package ${cleanPackageName} not found in package.json`)
-        }
+        fileUpdates.push({
+          path: packageJsonPath,
+          content: packageJsonContent,
+          type: 'update' as const,
+        })
       }
-
-      fileUpdates.push({
-        path: packageJsonPath,
-        content: packageJsonContent,
-        type: 'update' as const,
-      })
+      catch (error) {
+        console.warn(`Failed to update ${packageJsonPath}:`, error)
+      }
     }
 
     // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
