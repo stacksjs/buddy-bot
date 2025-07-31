@@ -801,7 +801,7 @@ cli
 
       // Generate new PR content
       const { PullRequestGenerator } = await import('../src/pr/pr-generator')
-      const prGenerator = new PullRequestGenerator()
+      const prGenerator = new PullRequestGenerator({ verbose: options.verbose })
       const newBody = await prGenerator.generateBody(group)
 
       // Update the PR with new title/body (and uncheck the rebase box)
@@ -958,7 +958,7 @@ cli
 
               // Generate new PR content
               const { PullRequestGenerator } = await import('../src/pr/pr-generator')
-              const prGenerator = new PullRequestGenerator()
+              const prGenerator = new PullRequestGenerator({ verbose: options.verbose })
               const newBody = await prGenerator.generateBody(group)
 
               // Update the PR with new title/body (and uncheck the rebase box)
