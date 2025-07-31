@@ -232,6 +232,34 @@ export class Buddy {
             continue
           }
 
+          // Validate that file changes actually contain updates
+          let hasActualChanges = false
+          for (const fileUpdate of packageJsonUpdates) {
+            try {
+              const fs = await import('node:fs')
+              if (fs.existsSync(fileUpdate.path)) {
+                const currentContent = fs.readFileSync(fileUpdate.path, 'utf-8')
+                if (currentContent !== fileUpdate.content) {
+                  hasActualChanges = true
+                  break
+                }
+              } else {
+                // New file, counts as a change
+                hasActualChanges = true
+                break
+              }
+            } catch (error) {
+              // If we can't read the file, assume it's a change
+              hasActualChanges = true
+              break
+            }
+          }
+
+          if (!hasActualChanges) {
+            this.logger.warn(`ℹ️ No actual content changes for group ${group.name}, skipping PR creation`)
+            continue
+          }
+
           this.logger.info(`📝 Generated ${packageJsonUpdates.length} file changes for ${group.name}`)
 
           // Commit changes
