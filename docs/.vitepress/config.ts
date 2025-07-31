@@ -75,6 +75,7 @@ const sidebar = [
   {
     text: 'Advanced',
     items: [
+      { text: 'Migration Guide', link: '/advanced/migration' },
       { text: 'Scheduling & Automation', link: '/advanced/scheduling' },
       { text: 'Monorepo Support', link: '/advanced/monorepo' },
       { text: 'Custom Workflows', link: '/advanced/custom-workflows' },

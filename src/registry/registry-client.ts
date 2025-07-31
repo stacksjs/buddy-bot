@@ -86,8 +86,6 @@ export class RegistryClient {
       }
 
       // Also check for Composer packages if composer.json exists
-      const fs = await import('node:fs')
-      const path = await import('node:path')
       const composerJsonPath = path.join(this.projectPath, 'composer.json')
 
       if (fs.existsSync(composerJsonPath)) {
@@ -1114,8 +1112,6 @@ export class RegistryClient {
    * Get workspace package names from package.json files
    */
   private async getWorkspaceNames(): Promise<string[]> {
-    const fs = await import('node:fs')
-    const path = await import('node:path')
     const workspaceNames: string[] = []
 
     // Find all package.json files
@@ -1144,8 +1140,6 @@ export class RegistryClient {
    * Find all package.json files in the project
    */
   private async findPackageJsonFiles(): Promise<string[]> {
-    const fs = await import('node:fs')
-    const path = await import('node:path')
     const files: string[] = []
 
     const findFiles = async (dir: string, currentPath = ''): Promise<void> => {

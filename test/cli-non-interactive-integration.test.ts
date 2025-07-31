@@ -92,22 +92,27 @@ describe('CLI Non-Interactive Integration Tests', () => {
       await generateCoreWorkflows(preset, finalRepoInfo, false, logger)
 
       // Verify all three workflow files were created
-      const workflowFiles = [
+      // Check that the unified workflow file exists
+      const unifiedExists = await fs.access('.github/workflows/buddy-bot.yml').then(() => true).catch(() => false)
+      expect(unifiedExists).toBe(true)
+
+      // Check that old individual workflow files do not exist (they should be cleaned up)
+      const oldFiles = [
         '.github/workflows/buddy-dashboard.yml',
         '.github/workflows/buddy-check.yml',
         '.github/workflows/buddy-update.yml',
       ]
 
-      for (const file of workflowFiles) {
+      for (const file of oldFiles) {
         const exists = await fs.access(file).then(() => true).catch(() => false)
-        expect(exists).toBe(true)
+        expect(exists).toBe(false)
       }
 
-      // Verify the update workflow has the correct content
-      const updateContent = await fs.readFile('.github/workflows/buddy-update.yml', 'utf-8')
-      expect(updateContent).toContain('name: Buddy Update')
-      expect(updateContent).toContain('cron: \'0 */2 * * *\'')
-      expect(updateContent).toContain('default: true') // dry_run default
+      // Verify the unified workflow has the correct content
+      const unifiedContent = await fs.readFile('.github/workflows/buddy-bot.yml', 'utf-8')
+      expect(unifiedContent).toContain('name: Buddy Bot')
+      expect(unifiedContent).toContain('cron: \'0 */2 * * *\'')
+      expect(unifiedContent).toContain('default: true') // dry_run default
     })
 
     it('should simulate testing preset setup', async () => {
@@ -134,8 +139,8 @@ describe('CLI Non-Interactive Integration Tests', () => {
       expect(configContent).toContain('// token: process.env.BUDDY_BOT_TOKEN,')
 
       // Verify workflow has custom token environment
-      const updateContent = await fs.readFile('.github/workflows/buddy-update.yml', 'utf-8')
-      expect(updateContent).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
+      const unifiedContent = await fs.readFile('.github/workflows/buddy-bot.yml', 'utf-8')
+      expect(unifiedContent).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
     })
 
     it('should handle different token setup modes', async () => {
@@ -161,24 +166,11 @@ describe('CLI Non-Interactive Integration Tests', () => {
     it('should generate update workflow with all required sections', async () => {
       const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      const preset = {
-        name: 'Standard Project',
-        description: 'Standard workflow',
-        templates: {},
-        schedules: {
-          dashboard: '0 9 * * 1,3,5',
-          updates: '0 */2 * * *',
-        },
-        strategy: 'all',
-        autoMerge: false,
-        custom: [],
-      }
-
       const workflow = generateUnifiedWorkflow(false)
 
       // Test all the required sections from the specification
       const requiredSections = [
-        'name: Buddy Update',
+        'name: Buddy Bot',
         'cron: \'0 */2 * * *\'',
         'workflow_dispatch:',
         'strategy:',
@@ -192,14 +184,14 @@ describe('CLI Non-Interactive Integration Tests', () => {
         'Setup PHP and Composer',
         'Install dependencies',
         'Install Composer dependencies',
-        'Build buddy-bot',
+        // 'Build buddy-bot', // Removed from unified workflow
         'Configure Git',
-        'Verify Composer setup',
-        'Display test configuration',
+        'Setup PHP and Composer (if needed)',
+        'Display update configuration',
         'Run Buddy dependency scan',
         'Run Buddy dependency updates',
         'Dry run notification',
-        'Create test summary',
+        'Create update summary',
         'fetch-depth: 0',
         'persist-credentials: true',
         'actions: write',
@@ -221,11 +213,11 @@ describe('CLI Non-Interactive Integration Tests', () => {
       const workflow = generateUnifiedWorkflow(false)
 
       const requiredSections = [
-        'name: Buddy Check',
-        'cron: \'*/15 * * * *\'',
+        'name: Buddy Bot',
+        'cron: \'*/1 * * * *\'',
         'workflow_dispatch:',
         'dry_run:',
-        'update-check:', // job name
+        'rebase-check:', // job name
         'bunx buddy-bot update-check',
         'Check for rebase requests',
       ]
@@ -241,11 +233,11 @@ describe('CLI Non-Interactive Integration Tests', () => {
       const workflow = generateUnifiedWorkflow(false)
 
       const requiredSections = [
-        'name: Buddy Dashboard',
-        'cron: \'0 9 * * 1,3,5\'',
+        'name: Buddy Bot',
+        'cron: \'15 */2 * * *\'',
         'workflow_dispatch:',
         'bunx buddy-bot dashboard',
-        'update-dashboard:', // job name
+        'dashboard-update:', // job name
       ]
 
       for (const section of requiredSections) {
@@ -304,12 +296,20 @@ describe('CLI Non-Interactive Integration Tests', () => {
       const preset = getWorkflowPreset('standard')
       const logger = Logger.quiet()
 
-      // Should overwrite existing buddy-bot workflows
+      // Should create unified workflow and clean up old ones
       await generateCoreWorkflows(preset, repoInfo, false, logger)
 
-      const updateContent = await fs.readFile('.github/workflows/buddy-update.yml', 'utf-8')
-      expect(updateContent).toContain('name: Buddy Update')
-      expect(updateContent).not.toContain('name: Old Buddy')
+      // Check that unified workflow was created
+      const unifiedExists = await fs.access('.github/workflows/buddy-bot.yml').then(() => true).catch(() => false)
+      expect(unifiedExists).toBe(true)
+
+      const unifiedContent = await fs.readFile('.github/workflows/buddy-bot.yml', 'utf-8')
+      expect(unifiedContent).toContain('name: Buddy Bot')
+      expect(unifiedContent).not.toContain('name: Old Buddy')
+
+      // Check that old workflow was cleaned up
+      const oldExists = await fs.access('.github/workflows/buddy-update.yml').then(() => true).catch(() => false)
+      expect(oldExists).toBe(false)
     })
 
     it('should handle projects with composer.json', async () => {

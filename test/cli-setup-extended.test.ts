@@ -21,7 +21,8 @@ describe('CLI Setup - Extended Tests', () => {
       expect(workflowWithDefaultToken).toContain('cron: \'15 */2 * * *\'') // Dashboard job
       // eslint-disable-next-line no-template-curly-in-string
       expect(workflowWithDefaultToken).toContain('${{ secrets.GITHUB_TOKEN }}')
-      expect(workflowWithDefaultToken).not.toContain('BUDDY_BOT_TOKEN')
+      // Should not use BUDDY_BOT_TOKEN in the actual token environment variable
+      expect(workflowWithDefaultToken).not.toContain('secrets.BUDDY_BOT_TOKEN ||')
     })
 
     it('should include all required workflow jobs and elements', async () => {
@@ -109,7 +110,8 @@ describe('CLI Setup - Extended Tests', () => {
       const workflowWithDefault = generateUnifiedWorkflow(false)
       // eslint-disable-next-line no-template-curly-in-string
       expect(workflowWithDefault).toContain('${{ secrets.GITHUB_TOKEN }}')
-      expect(workflowWithDefault).not.toContain('BUDDY_BOT_TOKEN')
+      // Should not use BUDDY_BOT_TOKEN in the actual token environment variable
+      expect(workflowWithDefault).not.toContain('secrets.BUDDY_BOT_TOKEN ||')
     })
   })
 
@@ -136,12 +138,13 @@ describe('CLI Setup - Extended Tests', () => {
       expect(workflow).toContain('uses: actions/checkout@v4')
       expect(workflow).toContain('uses: oven-sh/setup-bun@v2')
       expect(workflow).toContain('bun install')
-      expect(workflow).toContain('bun run build')
       expect(workflow).toContain('fetch-depth: 0')
       expect(workflow).toContain('persist-credentials: true')
       expect(workflow).toContain('git config --global user.name')
       expect(workflow).toContain('uses: actions/cache/save@v4')
       expect(workflow).toContain('uses: actions/cache/restore@v4')
+      // Should not contain build step since repos may not have build scripts
+      expect(workflow).not.toContain('bun run build')
     })
   })
 

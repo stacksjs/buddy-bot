@@ -383,21 +383,28 @@ export class PackageScanner {
 
       for (const entry of entries) {
         const fullPath = join(dir, entry)
-        const stats = await stat(fullPath)
 
-        if (stats.isDirectory()) {
-          // Skip node_modules and other common ignored directories
-          if (!this.shouldSkipDirectory(entry)) {
-            const subFiles = await this.findFiles(fileName, fullPath)
-            files.push(...subFiles)
+        try {
+          const stats = await stat(fullPath)
+
+          if (stats.isDirectory()) {
+            // Skip node_modules and other common ignored directories
+            if (!this.shouldSkipDirectory(entry)) {
+              const subFiles = await this.findFiles(fileName, fullPath)
+              files.push(...subFiles)
+            }
+          }
+          else if (stats.isFile() && entry === fileName) {
+            // Convert absolute path to relative path from project root
+            // eslint-disable-next-line ts/no-require-imports
+            const path = require('node:path')
+            const relativePath = path.relative(this.projectPath, fullPath)
+            files.push(relativePath)
           }
         }
-        else if (stats.isFile() && entry === fileName) {
-          // Convert absolute path to relative path from project root
-          // eslint-disable-next-line ts/no-require-imports
-          const path = require('node:path')
-          const relativePath = path.relative(this.projectPath, fullPath)
-          files.push(relativePath)
+        catch {
+          // Skip broken symlinks or permission errors on individual files
+          continue
         }
       }
     }

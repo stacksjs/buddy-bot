@@ -1,6 +1,7 @@
 import type { BuddyBotConfig } from '../src/types'
 import type { Logger } from '../src/utils/logger'
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import fs from 'node:fs'
 import { RegistryClient } from '../src/registry/registry-client'
 
 describe('RegistryClient - Composer Integration', () => {
@@ -348,7 +349,6 @@ describe('RegistryClient - Composer Integration', () => {
   describe('Integration with main getOutdatedPackages', () => {
     it('should include Composer packages when composer.json exists', async () => {
       // Mock file system
-      const fs = await import('node:fs')
       const existsSyncSpy = spyOn(fs, 'existsSync')
       existsSyncSpy.mockImplementation((path) => {
         return String(path).endsWith('composer.json')

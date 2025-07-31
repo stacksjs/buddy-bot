@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import fs from 'node:fs'
+import * as nodeFs from 'node:fs'
 import { Buddy } from '../src/buddy'
 
 describe('Composer Individual PR Simulation', () => {
@@ -26,6 +27,28 @@ describe('Composer Individual PR Simulation', () => {
   const mockComposerJsonString = JSON.stringify(mockComposerJson, null, 2)
 
   beforeEach(() => {
+    // Force clean up any existing mocks before setting up new ones
+    try {
+      if ((fs.readFileSync as any).mockRestore) {
+        (fs.readFileSync as any).mockRestore()
+      }
+      if ((fs.existsSync as any).mockRestore) {
+        (fs.existsSync as any).mockRestore()
+      }
+      if ((fs.writeFileSync as any).mockRestore) {
+        (fs.writeFileSync as any).mockRestore()
+      }
+      if ((fs.mkdirSync as any).mockRestore) {
+        (fs.mkdirSync as any).mockRestore()
+      }
+      if ((nodeFs.readFileSync as any).mockRestore) {
+        (nodeFs.readFileSync as any).mockRestore()
+      }
+    }
+    catch {
+      // Ignore errors if mocks don't exist
+    }
+
     const mockConfig = {
       repository: {
         provider: 'github' as const,
@@ -42,8 +65,32 @@ describe('Composer Individual PR Simulation', () => {
     }
     buddy = new Buddy(mockConfig)
 
-    // Mock filesystem
-    readFileSpy = spyOn(fs, 'readFileSync').mockReturnValue(mockComposerJsonString)
+    // Mock filesystem - ensure we always return the correct composer.json
+    // Mock both default import and named import to cover all cases
+    readFileSpy = spyOn(fs, 'readFileSync')
+    readFileSpy.mockImplementation((filePath: any, _options?: any): any => {
+      // Always return our specific composer.json content
+      if (typeof filePath === 'string' && (filePath === 'composer.json' || filePath.endsWith('composer.json'))) {
+        return mockComposerJsonString
+      }
+      return '{}'
+    })
+
+    // Also mock the named import (nodeFs.readFileSync) which is used by composer-parser
+    const nodeReadFileSpy = spyOn(nodeFs, 'readFileSync')
+    nodeReadFileSpy.mockImplementation((filePath: any, _options?: any): any => {
+      // Always return our specific composer.json content
+      if (typeof filePath === 'string' && (filePath === 'composer.json' || filePath.endsWith('composer.json'))) {
+        return mockComposerJsonString
+      }
+      return '{}'
+    })
+
+    // Also verify our mock content is correct
+    const testContent = JSON.parse(mockComposerJsonString)
+    if (!testContent.require || !testContent.require['symfony/console']) {
+      throw new Error('Mock setup error: composer.json should contain symfony/console')
+    }
     existsSyncSpy = spyOn(fs, 'existsSync').mockReturnValue(true)
     writeFileSpy = spyOn(fs, 'writeFileSync').mockImplementation(() => {})
     mkdirSyncSpy = spyOn(fs, 'mkdirSync').mockImplementation(() => {})
@@ -51,10 +98,18 @@ describe('Composer Individual PR Simulation', () => {
 
   afterEach(() => {
     // Clean up filesystem mocks to prevent contamination of other tests
-    readFileSpy?.mockRestore?.()
-    existsSyncSpy?.mockRestore?.()
-    writeFileSpy?.mockRestore?.()
-    mkdirSyncSpy?.mockRestore?.()
+    if (readFileSpy && typeof readFileSpy.mockRestore === 'function') {
+      readFileSpy.mockRestore()
+    }
+    if (existsSyncSpy && typeof existsSyncSpy.mockRestore === 'function') {
+      existsSyncSpy.mockRestore()
+    }
+    if (writeFileSpy && typeof writeFileSpy.mockRestore === 'function') {
+      writeFileSpy.mockRestore()
+    }
+    if (mkdirSyncSpy && typeof mkdirSyncSpy.mockRestore === 'function') {
+      mkdirSyncSpy.mockRestore()
+    }
   })
 
   it('should generate correct file changes for individual symfony/console major update', async () => {

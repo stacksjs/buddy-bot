@@ -61,8 +61,7 @@ describe('CLI Setup - Enhanced Functions', () => {
     })
 
     it('should generate unified workflow with correct format', async () => {
-      const { generateUnifiedWorkflow, getWorkflowPreset } = await import('../src/setup')
-      const preset = getWorkflowPreset('standard')
+      const { generateUnifiedWorkflow } = await import('../src/setup')
 
       const workflow = generateUnifiedWorkflow(false)
 
