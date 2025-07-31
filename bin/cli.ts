@@ -566,7 +566,6 @@ cli
 cli
   .command('dashboard', 'Create or update dependency dashboard issue')
   .option('--verbose, -v', 'Enable verbose logging')
-  .option('--pin', 'Pin the dashboard issue')
   .option('--title <title>', 'Custom dashboard title')
   .option('--issue-number <number>', 'Update specific issue number')
   .example('buddy-bot dashboard')
@@ -593,7 +592,6 @@ cli
         dashboard: {
           ...config.dashboard,
           enabled: true,
-          pin: options.pin ?? config.dashboard?.pin,
           title: options.title ?? config.dashboard?.title,
           issueNumber: options.issueNumber ? Number.parseInt(options.issueNumber) : config.dashboard?.issueNumber,
         },

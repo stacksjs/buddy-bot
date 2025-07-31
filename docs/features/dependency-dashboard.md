@@ -67,7 +67,6 @@ export default {
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `false` | Enable dependency dashboard |
 | `title` | `string` | `'Dependency Dashboard'` | Custom dashboard title |
-| `pin` | `boolean` | `false` | Pin the dashboard issue |
 | `labels` | `string[]` | `['dependencies', 'dashboard']` | Labels to add to the issue |
 | `assignees` | `string[]` | `[]` | Users to assign to the issue |
 | `showOpenPRs` | `boolean` | `true` | Show open pull requests section |
@@ -207,19 +206,6 @@ Last updated: {{lastUpdated}}
 | `{{detectedDependencies.packageJson.count}}` | Package.json files count |
 | `{{detectedDependencies.githubActions.count}}` | GitHub Actions files count |
 | `{{detectedDependencies.dependencyFiles.count}}` | Other dependency files count |
-
-## Best Practices
-
-### Pin for Visibility
-Pin your dashboard issue to keep it at the top of your issues list:
-
-```typescript
-dashboard: {
-  pin: true,
-}
-```
-
-**Note**: The `--pin` flag will pin the dashboard issue whether it's being created for the first time or updating an existing one. This ensures your dashboard always stays pinned when you want it to be.
 
 ### Regular Updates
 Set up automated dashboard updates in your CI/CD:

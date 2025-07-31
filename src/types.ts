@@ -113,8 +113,6 @@ export interface BuddyBotConfig {
     title?: string
     /** Dashboard body template */
     bodyTemplate?: string
-    /** Pin the dashboard issue */
-    pin?: boolean
     /** Labels to add to dashboard issue */
     labels?: string[]
     /** Assignees to assign to dashboard issue */
@@ -132,7 +130,6 @@ export interface BuddyBotConfig {
     /** Issue number to update (if it exists) */
     issueNumber?: number
   }
-
 }
 
 export type BuddyBotOptions = Partial<BuddyBotConfig>

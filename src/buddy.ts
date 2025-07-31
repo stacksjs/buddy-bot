@@ -851,13 +851,6 @@ export class Buddy {
           labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
           assignees: dashboardConfig.assignees,
         })
-
-        // Note: GitHub REST API does not support pinning issues programmatically
-        // Users need to pin the dashboard issue manually through the GitHub UI
-        if (dashboardConfig.pin) {
-          this.logger.info(`💡 To pin dashboard issue #${issue.number}, please do so manually in the GitHub UI`)
-          this.logger.info(`📌 Go to: ${issue.url} and click "Pin issue" in the right sidebar`)
-        }
       }
       else {
         this.logger.info('Creating new dashboard issue')
@@ -869,13 +862,6 @@ export class Buddy {
           labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
           assignees: dashboardConfig.assignees,
         })
-
-        // Note: GitHub REST API does not support pinning issues programmatically
-        // Users need to pin the dashboard issue manually through the GitHub UI
-        if (dashboardConfig.pin) {
-          this.logger.info(`💡 To pin dashboard issue #${issue.number}, please do so manually in the GitHub UI`)
-          this.logger.info(`📌 Go to: ${issue.url} and click "Pin issue" in the right sidebar`)
-        }
       }
 
       this.logger.success(`✅ Dashboard updated: ${issue.url}`)
