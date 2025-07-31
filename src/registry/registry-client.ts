@@ -71,13 +71,16 @@ export class RegistryClient {
         // Get additional metadata for the package
         const metadata = await this.getPackageMetadata(result.name)
 
+        // Find the actual package.json file that contains this package
+        const packageLocation = await this.findPackageLocation(result.name)
+
         updates.push({
           name: result.name,
           currentVersion: result.current,
           newVersion: result.latest,
           updateType,
           dependencyType: 'dependencies', // Will be refined based on package.json analysis
-          file: 'package.json', // Will be refined based on actual file location
+          file: packageLocation || 'package.json', // Use actual location or fallback
           metadata,
           releaseNotesUrl: this.getReleaseNotesUrl(result.name, metadata),
           changelogUrl: this.getChangelogUrl(result.name, metadata),
@@ -1084,11 +1087,14 @@ export class RegistryClient {
    */
   private async getWorkspaceOutdatedPackages(): Promise<BunOutdatedResult[]> {
     try {
+      // Get both workspace names and direct package.json file scanning
       const workspaceNames = await this.getWorkspaceNames()
+      const packageJsonFiles = await this.findPackageJsonFiles()
       const allResults: BunOutdatedResult[] = []
 
       this.logger.info(`Found ${workspaceNames.length} workspace packages to check`)
 
+      // Check by workspace name (if bun supports it)
       for (const workspaceName of workspaceNames) {
         try {
           const results = await this.runBunOutdatedForWorkspace(workspaceName)
@@ -1096,6 +1102,60 @@ export class RegistryClient {
         }
         catch (error) {
           this.logger.warn(`Failed to check workspace ${workspaceName}:`, error)
+        }
+      }
+
+      // Also directly check packages in each package.json for better coverage
+      this.logger.info(`Checking ${packageJsonFiles.length} package.json files directly`)
+      
+      for (const filePath of packageJsonFiles) {
+        if (filePath === 'package.json') continue // Skip root, already checked
+        
+        try {
+          const fullPath = path.join(this.projectPath, filePath)
+          const content = fs.readFileSync(fullPath, 'utf-8')
+          const packageData = JSON.parse(content)
+          
+          const allDeps = {
+            ...packageData.dependencies,
+            ...packageData.devDependencies,
+            ...packageData.peerDependencies,
+            ...packageData.optionalDependencies,
+          }
+          
+          for (const [packageName, currentVersion] of Object.entries(allDeps)) {
+            // Skip workspace dependencies and invalid versions
+            if (typeof currentVersion !== 'string' || currentVersion.startsWith('workspace:')) {
+              continue
+            }
+            
+            // Check if already found in workspace results
+            if (allResults.some(r => r.name === packageName)) {
+              continue
+            }
+            
+            try {
+              const latestVersion = await this.getLatestVersion(packageName)
+              if (latestVersion) {
+                const cleanCurrentVersion = this.cleanVersionRange(currentVersion)
+                if (cleanCurrentVersion && Bun.semver.order(cleanCurrentVersion, latestVersion) < 0) {
+                  allResults.push({
+                    name: packageName,
+                    current: cleanCurrentVersion,
+                    update: latestVersion,
+                    latest: latestVersion,
+                    file: filePath, // Store which file contains this package
+                  })
+                }
+              }
+            } catch (error) {
+              // Continue if version check fails for this package
+              continue
+            }
+          }
+        }
+        catch (error) {
+          this.logger.warn(`Failed to check packages in ${filePath}:`, error)
         }
       }
 
@@ -1192,6 +1252,39 @@ export class RegistryClient {
     ]
 
     return skipDirs.includes(dirName) || dirName.startsWith('.')
+  }
+
+  /**
+   * Find the actual package.json file that contains a specific package
+   */
+  private async findPackageLocation(packageName: string): Promise<string | null> {
+    const packageJsonFiles = await this.findPackageJsonFiles()
+
+    for (const filePath of packageJsonFiles) {
+      try {
+        const fullPath = path.join(this.projectPath, filePath)
+        const content = fs.readFileSync(fullPath, 'utf-8')
+        const packageData = JSON.parse(content)
+
+        // Check all dependency sections
+        const allDeps = {
+          ...packageData.dependencies,
+          ...packageData.devDependencies,
+          ...packageData.peerDependencies,
+          ...packageData.optionalDependencies,
+        }
+
+        if (allDeps[packageName]) {
+          return filePath
+        }
+      }
+      catch (error) {
+        // Continue searching if this file is malformed
+        continue
+      }
+    }
+
+    return null
   }
 
   /**

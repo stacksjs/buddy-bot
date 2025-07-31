@@ -1,63 +1,39 @@
-import type { BuddyBotConfig } from './src/types'
+import type { BuddyBotConfig } from 'buddy-bot'
 
 const config: BuddyBotConfig = {
-  verbose: true,
-  packages: {
-    strategy: 'all',
-    ignore: ['typescript', 'bun-plugin-dtsx'],
-    includePrerelease: false, // Don't include alpha, beta, rc versions by default
-    excludeMajor: false, // Allow major updates (controlled by ignore list)
-    // No custom groups - use default grouping (major separate, non-major together)
-  },
-
-  // Repository settings for PR creation
   repository: {
-    provider: 'github',
     owner: 'stacksjs',
     name: 'buddy-bot',
-    baseBranch: 'main',
+    provider: 'github',
+    // token: process.env.BUDDY_BOT_TOKEN,
   },
-
-  // Pull request configuration
-  pullRequest: {
-    reviewers: ['chrisbbreuer', 'glennmichael123'],
-    assignees: ['chrisbbreuer', 'glennmichael123'],
-    labels: ['dependencies'],
-    autoMerge: {
-      enabled: true,
-      strategy: 'squash',
-      conditions: ['patch-only'],
-    },
+  dashboard: {
+    enabled: true,
+    title: 'Dependency Dashboard',
+    // issueNumber: undefined, // Auto-generated
   },
-
-  // Workflow generation settings
   workflows: {
     enabled: true,
     outputDir: '.github/workflows',
     templates: {
-      comprehensive: true,
       daily: true,
       weekly: true,
       monthly: true,
-      docker: false, // Disable Docker workflow
-      monorepo: false, // Disable monorepo workflow
     },
-    custom: [
-      {
-        name: 'Security Updates',
-        schedule: '0 6 * * *', // 6 AM daily
-        strategy: 'patch',
-        autoMerge: true,
-        labels: ['security', 'dependencies'],
-      },
+    custom: [],
+  },
+  packages: {
+    strategy: 'all',
+    ignore: [
+      // Add packages to ignore here
+      // Example: '@types/node', 'eslint'
+    ],
+    ignorePaths: [
+      // Add file/directory paths to ignore using glob patterns
+      // Example: 'packages/test-*/**', '**/*test-envs/**', 'apps/legacy/**'
     ],
   },
-
-  // Scheduling (uncomment to enable automated runs)
-  // schedule: {
-  //   cron: '0 2 * * 1', // Monday 2 AM
-  //   timezone: 'America/New_York',
-  // }
+  verbose: false,
 }
 
 export default config
