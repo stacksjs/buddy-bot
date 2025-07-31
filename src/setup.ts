@@ -1100,20 +1100,52 @@ function generateComposerSetupSteps(): string {
 `
 }
 
-export function generateDashboardWorkflow(hasCustomToken: boolean): string {
+export function generateUnifiedWorkflow(hasCustomToken: boolean): string {
   const tokenEnv = hasCustomToken
     // eslint-disable-next-line no-template-curly-in-string
     ? '${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}'
     // eslint-disable-next-line no-template-curly-in-string
     : '${{ secrets.GITHUB_TOKEN }}'
 
-  return `name: Buddy Dashboard
+  return `name: Buddy Bot
 
 on:
   schedule:
-    - cron: '0 9 * * 1,3,5' # Monday, Wednesday, Friday at 9 AM UTC
-  workflow_dispatch: # Manual triggering
+    # Check for rebase requests every minute
+    - cron: '*/1 * * * *'
+    # Update dependencies every 2 hours
+    - cron: '0 */2 * * *'
+    # Update dashboard 15 minutes after dependency updates (ensures updates are reflected)
+    - cron: '15 */2 * * *'
+
+  workflow_dispatch: # Manual trigger
     inputs:
+      job:
+        description: Which job to run
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - check
+          - update
+          - dashboard
+      # Update job inputs
+      strategy:
+        description: Update strategy
+        required: false
+        default: patch
+        type: choice
+        options:
+          - all
+          - major
+          - minor
+          - patch
+      packages:
+        description: Specific packages (comma-separated)
+        required: false
+        type: string
+      # Dashboard job inputs
       pin:
         description: Pin the dashboard issue
         required: false
@@ -1127,195 +1159,12 @@ on:
         description: Specific issue number to update
         required: false
         type: string
-      verbose:
-        description: Enable verbose logging
-        required: false
-        default: true
-        type: boolean
+      # Common inputs
       dry_run:
         description: Dry run (preview only)
         required: false
         default: false
         type: boolean
-
-env:
-  GITHUB_TOKEN: ${tokenEnv}
-
-permissions:
-  contents: read
-  pull-requests: read
-  issues: write
-  actions: read
-  checks: read
-  statuses: read
-
-jobs:
-  update-dashboard:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${tokenEnv}
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-${generateComposerSetupSteps()}
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build buddy-bot
-        run: bun run build
-
-      - name: Update Dependency Dashboard
-        run: |
-          PIN="\${{ github.event.inputs.pin || 'true' }}"
-          TITLE="\${{ github.event.inputs.title }}"
-          ISSUE_NUMBER="\${{ github.event.inputs.issue_number }}"
-          VERBOSE="\${{ github.event.inputs.verbose || 'true' }}"
-          DRY_RUN="\${{ github.event.inputs.dry_run || 'false' }}"
-
-          echo "📊 Updating dependency dashboard..."
-          set -e
-
-          COMMAND="bunx buddy-bot dashboard"
-
-          if [ "$PIN" = "true" ]; then
-            COMMAND="$COMMAND --pin"
-          fi
-
-          if [ "$TITLE" != "" ]; then
-            COMMAND="$COMMAND --title \\"$TITLE\\""
-          fi
-
-          if [ "$ISSUE_NUMBER" != "" ]; then
-            COMMAND="$COMMAND --issue-number \\"$ISSUE_NUMBER\\""
-          fi
-
-          if [ "$VERBOSE" = "true" ]; then
-            COMMAND="$COMMAND --verbose"
-          fi
-
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "📋 DRY RUN MODE - Command preview:"
-            echo "$COMMAND"
-            bunx buddy-bot scan --verbose
-          else
-            echo "🚀 Executing: $COMMAND"
-            eval "$COMMAND"
-          fi
-
-        env:
-          GITHUB_TOKEN: ${tokenEnv}
-`
-}
-
-export function generateUpdateCheckWorkflow(hasCustomToken: boolean): string {
-  const tokenEnv = hasCustomToken
-    // eslint-disable-next-line no-template-curly-in-string
-    ? '${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}'
-    // eslint-disable-next-line no-template-curly-in-string
-    : '${{ secrets.GITHUB_TOKEN }}'
-
-  return `name: Buddy Check
-
-on:
-  schedule:
-    - cron: '*/15 * * * *' # Check every 15 minutes
-  workflow_dispatch: # Manual trigger
-    inputs:
-      dry_run:
-        description: Dry run (preview only)
-        required: false
-        default: false
-        type: boolean
-
-env:
-  GITHUB_TOKEN: ${tokenEnv}
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
-
-jobs:
-  update-check:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${tokenEnv}
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-${generateComposerSetupSteps()}
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Check for rebase requests
-        run: |
-          echo "🔍 Checking for PRs with rebase checkbox enabled..."
-
-          if [ "\${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "📋 Running in DRY RUN mode..."
-            bunx buddy-bot update-check --dry-run --verbose
-          else
-            echo "🔄 Running in LIVE mode..."
-            bunx buddy-bot update-check --verbose
-          fi
-
-        env:
-          GITHUB_TOKEN: ${tokenEnv}
-`
-}
-
-export function generateUpdateWorkflow(preset: WorkflowPreset, hasCustomToken: boolean): string {
-  const tokenEnv = hasCustomToken
-    // eslint-disable-next-line no-template-curly-in-string
-    ? '${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}'
-    // eslint-disable-next-line no-template-curly-in-string
-    : '${{ secrets.GITHUB_TOKEN }}'
-
-  return `name: Buddy Update
-
-on:
-  schedule:
-    - cron: '0 */2 * * *'
-
-  workflow_dispatch:
-    inputs:
-      strategy:
-        description: Update strategy
-        required: false
-        default: patch
-        type: choice
-        options:
-          - all
-          - major
-          - minor
-          - patch
-      dry_run:
-        description: Dry run (preview only)
-        required: false
-        default: true
-        type: boolean
-      packages:
-        description: Specific packages (comma-separated)
-        required: false
-        type: string
       verbose:
         description: Enable verbose logging
         required: false
@@ -1338,9 +1187,49 @@ permissions:
   statuses: read
 
 jobs:
-  dependency-update:
+  # Job to determine which jobs should run based on trigger
+  determine-jobs:
     runs-on: ubuntu-latest
+    outputs:
+      run_check: \${{ steps.determine.outputs.run_check }}
+      run_update: \${{ steps.determine.outputs.run_update }}
+      run_dashboard: \${{ steps.determine.outputs.run_dashboard }}
+    steps:
+      - name: Determine which jobs to run
+        id: determine
+        run: |
+          # Default to not running any jobs
+          echo "run_check=false" >> \$GITHUB_OUTPUT
+          echo "run_update=false" >> \$GITHUB_OUTPUT
+          echo "run_dashboard=false" >> \$GITHUB_OUTPUT
 
+          if [ "\${{ github.event_name }}" = "workflow_dispatch" ]; then
+            JOB="\${{ github.event.inputs.job || 'all' }}"
+            if [ "\$JOB" = "all" ] || [ "\$JOB" = "check" ]; then
+              echo "run_check=true" >> \$GITHUB_OUTPUT
+            fi
+            if [ "\$JOB" = "all" ] || [ "\$JOB" = "update" ]; then
+              echo "run_update=true" >> \$GITHUB_OUTPUT
+            fi
+            if [ "\$JOB" = "all" ] || [ "\$JOB" = "dashboard" ]; then
+              echo "run_dashboard=true" >> \$GITHUB_OUTPUT
+            fi
+          elif [ "\${{ github.event_name }}" = "schedule" ]; then
+            # Determine based on cron schedule
+            if [ "\${{ github.event.schedule }}" = "*/1 * * * *" ]; then
+              echo "run_check=true" >> \$GITHUB_OUTPUT
+            elif [ "\${{ github.event.schedule }}" = "0 */2 * * *" ]; then
+              echo "run_update=true" >> \$GITHUB_OUTPUT
+            elif [ "\${{ github.event.schedule }}" = "15 */2 * * *" ]; then
+              echo "run_dashboard=true" >> \$GITHUB_OUTPUT
+            fi
+          fi
+
+  # Shared setup job for common dependencies
+  setup:
+    runs-on: ubuntu-latest
+    needs: determine-jobs
+    if: \${{ needs.determine-jobs.outputs.run_check == 'true' || needs.determine-jobs.outputs.run_update == 'true' || needs.determine-jobs.outputs.run_dashboard == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1353,46 +1242,139 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
-      - name: Setup PHP and Composer (if needed)
-        if: \${{ hashFiles('composer.json') != '' }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          tools: composer
-          coverage: none
-
-      - name: Install Composer dependencies (if needed)
-        if: \${{ hashFiles('composer.json') != '' }}
-        run: composer install --prefer-dist --optimize-autoloader
+${generateComposerSetupSteps()}
+      - name: Install dependencies
+        run: bun install
 
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Verify Composer setup
+      - name: Cache workspace
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .
+            !.git
+          key: buddy-bot-workspace-\${{ github.sha }}
+
+  # Rebase check job (formerly buddy-check.yml)
+  rebase-check:
+    runs-on: ubuntu-latest
+    needs: [determine-jobs, setup]
+    if: \${{ needs.determine-jobs.outputs.run_check == 'true' }}
+
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .
+            !.git
+          key: buddy-bot-workspace-\${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${tokenEnv}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git
         run: |
-          echo "🔍 Verifying Composer and PHP setup..."
-          php --version
-          composer --version
-          echo ""
-          echo "📦 Checking composer.json..."
-          if [ -f "composer.json" ]; then
-            echo "✅ composer.json found"
-            composer validate --no-check-all --strict
-            echo ""
-            echo "📋 Composer packages in composer.json:"
-            cat composer.json | jq -r '.require, ."require-dev" | to_entries[] | "\\(.key): \\(.value)"' 2>/dev/null || echo "Unable to parse with jq, showing raw content:"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check token permissions
+        run: |
+          if [ -z "\${{ secrets.BUDDY_BOT_TOKEN }}" ]; then
+            echo "⚠️ Using GITHUB_TOKEN (limited permissions)"
+            echo "💡 For full workflow file update support:"
+            echo "   1. Create a Personal Access Token with 'repo' and 'workflow' scopes"
+            echo "   2. Add it as repository secret 'BUDDY_BOT_TOKEN'"
+            echo "   3. Re-run this workflow"
           else
-            echo "❌ composer.json not found"
+            echo "✅ Using BUDDY_BOT_TOKEN (full permissions)"
           fi
 
-      - name: Display test configuration
+      - name: Check for rebase requests
         run: |
-          echo "🧪 **Buddy Bot Testing Mode**"
+          echo "🔍 Checking for PRs with rebase checkbox enabled..."
+          echo "🔧 Environment info:"
+          echo "Current directory: \$(pwd)"
+          echo "GITHUB_TOKEN set: \$([[ -n \"\$GITHUB_TOKEN\" ]] && echo \"Yes\" || echo \"No\")"
+          echo "Repository: \${{ github.repository }}"
+          echo "Event: \${{ github.event_name }}"
+          echo ""
+
+          echo "🚀 Running update-check command..."
+          set -e  # Exit on any error
+
+          if [ "\${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "📋 Running in DRY RUN mode..."
+            bunx buddy-bot update-check --dry-run --verbose
+          else
+            echo "🔄 Running in LIVE mode..."
+            bunx buddy-bot update-check --verbose
+          fi
+
+        env:
+          GITHUB_TOKEN: ${tokenEnv}
+
+      - name: Create rebase check summary
+        if: always()
+        run: |
+          echo "## 🔄 Rebase Check Summary" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: \${{ github.event_name }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Dry run**: \${{ github.event.inputs.dry_run || 'false' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Time**: \$(date)" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+
+          if [ "\${{ github.event_name }}" = "schedule" ]; then
+            echo "⏰ **Scheduled Check**: Automatically checks every minute" >> \$GITHUB_STEP_SUMMARY
+          else
+            echo "🖱️ **Manual Check**: Manually triggered from Actions tab" >> \$GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "📋 View detailed logs above for rebase results." >> \$GITHUB_STEP_SUMMARY
+
+  # Dependency update job (formerly buddy-update.yml)
+  dependency-update:
+    runs-on: ubuntu-latest
+    needs: [determine-jobs, setup]
+    if: \${{ needs.determine-jobs.outputs.run_update == 'true' }}
+
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .
+            !.git
+          key: buddy-bot-workspace-\${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${tokenEnv}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Display update configuration
+        run: |
+          echo "🧪 **Buddy Bot Update Mode**"
           echo "Strategy: \${{ github.event.inputs.strategy || 'patch' }}"
-          echo "Dry Run: \${{ github.event.inputs.dry_run || 'true' }}"
+          echo "Dry Run: \${{ github.event.inputs.dry_run || 'false' }}"
           echo "Packages: \${{ github.event.inputs.packages || 'all' }}"
           echo "Verbose: \${{ github.event.inputs.verbose || 'true' }}"
           echo "Triggered by: \${{ github.event_name }}"
@@ -1466,14 +1448,14 @@ jobs:
           echo "ℹ️ **Dry Run Mode** - No changes were made"
           echo "To apply updates, run this workflow again with 'Dry run' set to false"
 
-      - name: Create test summary
+      - name: Create update summary
         if: always()
         run: |
-          echo "## 🧪 Buddy Bot Testing Summary" >> \$GITHUB_STEP_SUMMARY
+          echo "## 🚀 Dependency Update Summary" >> \$GITHUB_STEP_SUMMARY
           echo "" >> \$GITHUB_STEP_SUMMARY
           echo "- **Strategy**: \${{ github.event.inputs.strategy || 'patch' }}" >> \$GITHUB_STEP_SUMMARY
           echo "- **Triggered by**: \${{ github.event_name }}" >> \$GITHUB_STEP_SUMMARY
-          echo "- **Dry run**: \${{ github.event.inputs.dry_run || 'true' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Dry run**: \${{ github.event.inputs.dry_run || 'false' }}" >> \$GITHUB_STEP_SUMMARY
           echo "- **Packages**: \${{ github.event.inputs.packages || 'all' }}" >> \$GITHUB_STEP_SUMMARY
           echo "- **Verbose**: \${{ github.event.inputs.verbose || 'true' }}" >> \$GITHUB_STEP_SUMMARY
           echo "- **Time**: \$(date)" >> \$GITHUB_STEP_SUMMARY
@@ -1484,11 +1466,168 @@ jobs:
             echo "💡 **Tip**: Use 'Actions' tab to manually trigger with custom settings" >> \$GITHUB_STEP_SUMMARY
           else
             echo "🖱️ **Manual Trigger**: This was triggered manually from the Actions tab" >> \$GITHUB_STEP_SUMMARY
-            echo "⏰ **Auto-Schedule**: This workflow also runs every 2 hours for testing" >> \$GITHUB_STEP_SUMMARY
+            echo "⏰ **Auto-Schedule**: This workflow also runs every 2 hours" >> \$GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> \$GITHUB_STEP_SUMMARY
           echo "📊 View detailed logs above for scan and update results." >> \$GITHUB_STEP_SUMMARY
+
+  # Dashboard update job (formerly buddy-dashboard.yml)
+  dashboard-update:
+    runs-on: ubuntu-latest
+    needs: [determine-jobs, setup, dependency-update]
+    if: \${{ needs.determine-jobs.outputs.run_dashboard == 'true' && always() }}
+
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .
+            !.git
+          key: buddy-bot-workspace-\${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${tokenEnv}
+
+      - name: Build buddy-bot
+        run: bun run build
+
+      - name: Display dashboard configuration
+        run: |
+          echo "📊 **Buddy Bot Dashboard Management**"
+          echo "Pin Dashboard: \${{ github.event.inputs.pin || 'true' }}"
+          echo "Custom Title: \${{ github.event.inputs.title || 'default' }}"
+          echo "Issue Number: \${{ github.event.inputs.issue_number || 'auto-detect' }}"
+          echo "Verbose: \${{ github.event.inputs.verbose || 'true' }}"
+          echo "Dry Run: \${{ github.event.inputs.dry_run || 'false' }}"
+          echo "Triggered by: \${{ github.event_name }}"
+          echo "Repository: \${{ github.repository }}"
+          echo "Branch: \${{ github.ref_name }}"
+
+      - name: Update Dependency Dashboard
+        run: |
+          PIN="\${{ github.event.inputs.pin || 'true' }}"
+          TITLE="\${{ github.event.inputs.title }}"
+          ISSUE_NUMBER="\${{ github.event.inputs.issue_number }}"
+          VERBOSE="\${{ github.event.inputs.verbose || 'true' }}"
+          DRY_RUN="\${{ github.event.inputs.dry_run || 'false' }}"
+
+          echo "📊 Updating dependency dashboard..."
+          echo "Pin: \$PIN"
+          echo "Title: \${TITLE:-default}"
+          echo "Issue Number: \${ISSUE_NUMBER:-auto-detect}"
+          echo "Verbose: \$VERBOSE"
+          echo "Dry Run: \$DRY_RUN"
+          echo ""
+
+          set -e  # Exit on any error
+
+          # Build the command
+          COMMAND="bunx buddy-bot dashboard"
+
+          if [ "\$PIN" = "true" ]; then
+            COMMAND="\$COMMAND --pin"
+          fi
+
+          if [ "\$TITLE" != "" ]; then
+            COMMAND="\$COMMAND --title \\"\$TITLE\\""
+          fi
+
+          if [ "\$ISSUE_NUMBER" != "" ]; then
+            COMMAND="\$COMMAND --issue-number \\"\$ISSUE_NUMBER\\""
+          fi
+
+          if [ "\$VERBOSE" = "true" ]; then
+            COMMAND="\$COMMAND --verbose"
+          fi
+
+          if [ "\$DRY_RUN" = "true" ]; then
+            echo "📋 DRY RUN MODE - Command that would be executed:"
+            echo "\$COMMAND"
+            echo ""
+            echo "ℹ️ In dry run mode, dashboard content would be generated but no issue would be created/updated"
+
+            # Run scan to show what would be included
+            echo "🔍 Scanning for dependencies that would be included:"
+            if [ "\$VERBOSE" = "true" ]; then
+              bunx buddy-bot scan --verbose
+            else
+              bunx buddy-bot scan
+            fi
+          else
+            echo "🚀 Executing dashboard update:"
+            echo "\$COMMAND"
+            echo ""
+            eval "\$COMMAND"
+          fi
+
+        env:
+          GITHUB_TOKEN: ${tokenEnv}
+
+      - name: Dry run notification
+        if: \${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "ℹ️ **Dry Run Mode** - Dashboard preview completed"
+          echo "To actually update the dashboard, run this workflow again with 'Dry run' set to false"
+
+      - name: Check dashboard status
+        if: \${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "✅ Dashboard update completed"
+          echo "🔗 Check your repository issues for the updated dependency dashboard"
+
+          # Try to find and link to the dashboard issue
+          echo "📊 Looking for dependency dashboard issue..."
+
+          # Use GitHub CLI to find the dashboard issue
+          if command -v gh &> /dev/null; then
+            DASHBOARD_URL=\$(gh issue list --label "dashboard,dependencies" --state open --limit 1 --json url --jq '.[0].url' 2>/dev/null || echo "")
+            if [ "\$DASHBOARD_URL" != "null" ] && [ "\$DASHBOARD_URL" != "" ]; then
+              echo "🎯 Dashboard found: \$DASHBOARD_URL"
+            else
+              echo "🔍 Dashboard issue not found via CLI, check issues manually"
+            fi
+          else
+            echo "💡 Check your issues tab for the dependency dashboard"
+          fi
+
+      - name: Create dashboard summary
+        if: always()
+        run: |
+          echo "## 📊 Dependency Dashboard Summary" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Pin Dashboard**: \${{ github.event.inputs.pin || 'true' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Custom Title**: \${{ github.event.inputs.title || 'default' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Issue Number**: \${{ github.event.inputs.issue_number || 'auto-detect' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: \${{ github.event_name }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Dry run**: \${{ github.event.inputs.dry_run || 'false' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Verbose**: \${{ github.event.inputs.verbose || 'true' }}" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Time**: \$(date)" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+
+          if [ "\${{ github.event_name }}" = "schedule" ]; then
+            echo "⏰ **Scheduled Update**: This was triggered automatically" >> \$GITHUB_STEP_SUMMARY
+            echo "🔄 **Schedule**: Every 2 hours, 15 minutes after dependency updates" >> \$GITHUB_STEP_SUMMARY
+            echo "💡 **Tip**: Use 'Actions' tab to manually trigger with custom settings" >> \$GITHUB_STEP_SUMMARY
+          else
+            echo "🖱️ **Manual Trigger**: This was triggered manually from the Actions tab" >> \$GITHUB_STEP_SUMMARY
+            echo "⏰ **Auto-Schedule**: This workflow also runs automatically on schedule" >> \$GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> \$GITHUB_STEP_SUMMARY
+
+          if [ "\${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "📋 **Dry Run**: No changes were made. Dashboard content was previewed only." >> \$GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **Dashboard Updated**: Check your repository issues for the updated dependency dashboard." >> \$GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "📊 View detailed logs above for dashboard update results." >> \$GITHUB_STEP_SUMMARY
 `
 }
 
@@ -1499,33 +1638,27 @@ export async function generateCoreWorkflows(preset: WorkflowPreset, repoInfo: Re
     fs.mkdirSync(outputDir, { recursive: true })
   }
 
-  let generated = 0
+  // Generate unified workflow that combines all three previous workflows
+  const unifiedWorkflow = generateUnifiedWorkflow(hasCustomToken)
+  fs.writeFileSync(path.join(outputDir, 'buddy-bot.yml'), unifiedWorkflow)
+  logger.info('Generated unified buddy-bot workflow (combines check, update, and dashboard)')
 
-  // Generate core workflows based on user's project templates
+  // Clean up old workflow files if they exist
+  const oldFiles = ['buddy-check.yml', 'buddy-update.yml', 'buddy-dashboard.yml']
+  let cleanedUp = 0
 
-  // 1. Dashboard workflow
-  const dashboardWorkflow = generateDashboardWorkflow(hasCustomToken)
-  fs.writeFileSync(path.join(outputDir, 'buddy-dashboard.yml'), dashboardWorkflow)
-  logger.info('Generated dependency dashboard workflow')
-  generated++
-
-  // 2. Update check workflow
-  const updateCheckWorkflow = generateUpdateCheckWorkflow(hasCustomToken)
-  fs.writeFileSync(path.join(outputDir, 'buddy-check.yml'), updateCheckWorkflow)
-  logger.info('Generated update check workflow (for PR rebase automation)')
-  generated++
-
-  // 3. Update workflow based on preset
-  const updateWorkflow = generateUpdateWorkflow(preset, hasCustomToken)
-  fs.writeFileSync(path.join(outputDir, 'buddy-update.yml'), updateWorkflow)
-  logger.info(`Generated dependency update workflow (${preset.name})`)
-  generated++
-
-  if (generated === 0) {
-    logger.warn('No workflows were generated.')
+  for (const oldFile of oldFiles) {
+    const oldPath = path.join(outputDir, oldFile)
+    if (fs.existsSync(oldPath)) {
+      fs.unlinkSync(oldPath)
+      logger.info(`Removed old workflow file: ${oldFile}`)
+      cleanedUp++
+    }
   }
-  else {
-    logger.success(`Generated ${generated} workflow${generated === 1 ? '' : 's'} in ${outputDir}`)
+
+  logger.success(`Generated unified workflow in ${outputDir}`)
+  if (cleanedUp > 0) {
+    logger.info(`Cleaned up ${cleanedUp} old workflow file${cleanedUp === 1 ? '' : 's'}`)
   }
 }
 
@@ -1897,10 +2030,8 @@ export async function setupCustomWorkflow(preset: WorkflowPreset, _logger: Logge
 }
 
 export async function showFinalInstructions(repoInfo: RepositoryInfo, hasCustomToken: boolean): Promise<void> {
-  console.log('✅ Generated 3 core workflows in .github/workflows/:')
-  console.log(`   - buddy-dashboard.yml (Dependency Dashboard Management)`)
-  console.log(`   - buddy-check.yml (Auto-rebase PR checker)`)
-  console.log(`   - buddy-update.yml (Scheduled dependency updates)`)
+  console.log('✅ Generated unified buddy-bot workflow in .github/workflows/:')
+  console.log(`   - buddy-bot.yml (Combined check, update, and dashboard management)`)
   console.log(`📁 Configuration file: buddy-bot.config.ts`)
 
   console.log(`\n🚀 Next Steps:`)

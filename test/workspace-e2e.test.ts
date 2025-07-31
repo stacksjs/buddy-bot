@@ -1,9 +1,9 @@
-import { Logger } from '../src/utils/logger'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { RegistryClient } from '../src/registry/registry-client'
+import { Logger } from '../src/utils/logger'
 
 describe('Workspace Detection - End-to-End Tests', () => {
   let tempDir: string
