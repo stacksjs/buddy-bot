@@ -116,8 +116,9 @@ describe('Composer Non-Major PR', () => {
 
     const prBody = await prGenerator.generateBody(composerOnlyGroup)
 
-    // Should only have Composer section
-    expect(prBody).toContain('## 🐘 PHP/Composer Dependencies')
+    // Single package updates use simplified format - no section header
+    expect(prBody).not.toContain('## 🐘 PHP/Composer Dependencies')
+    expect(prBody).toContain('![composer](https://img.shields.io/badge/composer-885630') // Should have composer badge
     expect(prBody).toContain('psr/log')
 
     // Should NOT have npm or GitHub Actions sections
