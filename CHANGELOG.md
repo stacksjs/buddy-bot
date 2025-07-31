@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.15...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.15...main)
+
+### 🏡 Chore
+
+- Improve single package prs ([b2c6bfe](https://github.com/stacksjs/buddy-bot/commit/b2c6bfe))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.14...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.14...main)
