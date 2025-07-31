@@ -106,6 +106,7 @@ async function parseSimpleYamlDependencies(content: string, filePath: string): P
       }
 
       // Parse dependency line: "  package-name: ^1.0.0"
+      // eslint-disable-next-line regexp/no-super-linear-backtracking
       const depMatch = trimmed.match(/^([\w@/-]+):\s*(.+)$/)
       if (depMatch) {
         const [, name, version] = depMatch
