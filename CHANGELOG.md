@@ -1,6 +1,20 @@
 # Changelog
 
 
+## v0.5.12...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.12...main)
+
+### 🏡 Chore
+
+- Adjust title ([d730a68](https://github.com/stacksjs/buddy-bot/commit/d730a68))
+- Adjust copy ([ddf9796](https://github.com/stacksjs/buddy-bot/commit/ddf9796))
+- Rename to `buddy-bot` ([d5cf91a](https://github.com/stacksjs/buddy-bot/commit/d5cf91a))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.11...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.11...main)
