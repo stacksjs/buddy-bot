@@ -1,6 +1,24 @@
 # Changelog
 
 
+## v0.5.2...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.2...main)
+
+### 🏡 Chore
+
+- Adjust workflow ([c71b89b](https://github.com/stacksjs/buddy-bot/commit/c71b89b))
+- Update lockfile ([786900d](https://github.com/stacksjs/buddy-bot/commit/786900d))
+- Release v0.5.5 ([d96e325](https://github.com/stacksjs/buddy-bot/commit/d96e325))
+- Lint ([30a4fe9](https://github.com/stacksjs/buddy-bot/commit/30a4fe9))
+- Wip ([a6b6ac6](https://github.com/stacksjs/buddy-bot/commit/a6b6ac6))
+- Wip ([6a74a66](https://github.com/stacksjs/buddy-bot/commit/6a74a66))
+- Wip ([4b9e6a4](https://github.com/stacksjs/buddy-bot/commit/4b9e6a4))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.1...main)
