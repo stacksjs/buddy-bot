@@ -219,6 +219,9 @@ describe('RegistryClient - Workspace Detection', () => {
 
     it('should handle workspace scanning failures gracefully', async () => {
       spyOn(registryClient as any, 'getWorkspaceNames').mockResolvedValue(['@stacksjs/ai', '@stacksjs/cloud'])
+      
+      // Mock findPackageJsonFiles to return empty for the direct scanning part
+      spyOn(registryClient as any, 'findPackageJsonFiles').mockResolvedValue([])
 
       spyOn(registryClient as any, 'runBunOutdatedForWorkspace')
         .mockResolvedValueOnce([{ name: 'package1', current: '1.0.0', update: '1.1.0', latest: '1.1.0', workspace: '@stacksjs/ai' }])

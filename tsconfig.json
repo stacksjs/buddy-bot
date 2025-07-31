@@ -12,6 +12,7 @@
     "noFallthroughCasesInSwitch": true,
     "declaration": true,
     "noEmit": true,
+    "rootDir": "./",
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

@@ -14,6 +14,7 @@ export interface BunOutdatedResult {
   update: string
   latest: string
   workspace?: string
+  file?: string
 }
 
 export class RegistryClient {
