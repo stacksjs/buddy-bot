@@ -92,7 +92,7 @@ export class PullRequestGenerator {
     if (githubActionsCount > 0)
       body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
     if (composerCount > 0)
-      body += `| 🎼 Composer Packages | ${composerCount} |\n`
+      body += `| 🐘 Composer Packages | ${composerCount} |\n`
     body += `| **Total** | **${group.updates.length}** |\n\n`
 
     // Separate updates by type
@@ -143,6 +143,7 @@ export class PullRequestGenerator {
     // Package.json updates table (with full badges)
     if (packageJsonUpdates.length > 0) {
       body += `## 📦 npm Dependencies\n\n`
+      body += `![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)\n\n`
       if (packageJsonUpdates.length === 1) {
         body += `*${packageJsonUpdates.length} package will be updated*\n\n`
       }
@@ -226,6 +227,7 @@ export class PullRequestGenerator {
       }
 
       body += `## 🐘 PHP/Composer Dependencies\n\n`
+      body += `![composer](https://img.shields.io/badge/composer-885630?style=flat&logo=composer&logoColor=white)\n\n`
       if (uniqueComposerUpdates.length === 1) {
         body += `*${uniqueComposerUpdates.length} package will be updated*\n\n`
       }
@@ -278,6 +280,7 @@ export class PullRequestGenerator {
     // Dependency files table (enhanced with more information)
     if (dependencyFileUpdates.length > 0) {
       body += `## 🔧 System Dependencies\n\n`
+      body += `![system](https://img.shields.io/badge/system-4CAF50?style=flat&logo=linux&logoColor=white)\n\n`
 
       const uniqueFiles = [...new Set(dependencyFileUpdates.map(u => u.file))]
       if (dependencyFileUpdates.length === 1) {
@@ -287,8 +290,8 @@ export class PullRequestGenerator {
         body += `*${dependencyFileUpdates.length} packages will be updated across ${uniqueFiles.length} file(s): ${uniqueFiles.map(f => `\`${f.split('/').pop()}\``).join(', ')}*\n\n`
       }
 
-      body += `| Package | Change | Type | File | Links |\n`
-      body += `|---|---|---|---|---|\n`
+      body += `| Package | Change | Type | File |\n`
+      body += `|---|---|---|---|\n`
 
       for (const update of dependencyFileUpdates) {
         // Handle special case: bun.sh -> bun.com
@@ -311,14 +314,7 @@ export class PullRequestGenerator {
           ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
           : `\`${fileName}\``
 
-        // Enhanced links column
-        let linksCell = `📦 [pkgx](${packageUrl})`
-        if (update.name.includes('.org') || update.name.includes('.net') || update.name.includes('.com')) {
-          const domain = update.name.split('/')[0] || update.name
-          linksCell += ` | 🌐 [${domain}](https://${domain})`
-        }
-
-        body += `| ${packageCell} | ${change} | ${typeEmoji} ${updateType} | ${fileCell} | ${linksCell} |\n`
+        body += `| ${packageCell} | ${change} | ${typeEmoji} ${updateType} | ${fileCell} |\n`
       }
 
       body += `\n`
@@ -327,6 +323,7 @@ export class PullRequestGenerator {
     // GitHub Actions table (enhanced with more information)
     if (uniqueGithubActionsUpdates.length > 0) {
       body += `## 🚀 GitHub Actions\n\n`
+      body += `![github-actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)\n\n`
 
       if (uniqueGithubActionsUpdates.length === 1) {
         body += `*${uniqueGithubActionsUpdates.length} action will be updated*\n\n`
@@ -335,8 +332,8 @@ export class PullRequestGenerator {
         body += `*${uniqueGithubActionsUpdates.length} actions will be updated*\n\n`
       }
 
-      body += `| Action | Change | Type | Files | Links |\n`
-      body += `|---|---|---|---|---|\n`
+      body += `| Action | Change | Type | Files |\n`
+      body += `|---|---|---|---|\n`
 
       for (const update of uniqueGithubActionsUpdates) {
         // Generate action link
@@ -363,12 +360,7 @@ export class PullRequestGenerator {
                 : `\`${fileName}\``
             })()
 
-        // Enhanced links column
-        const releasesUrl = `https://github.com/${update.name}/releases`
-        const compareUrl = `https://github.com/${update.name}/compare/${update.currentVersion}...${update.newVersion}`
-        const linksCell = `📋 [releases](${releasesUrl}) | 📊 [compare](${compareUrl})`
-
-        body += `| ${actionCell} | ${change} | ${typeEmoji} ${updateType} | ${fileLinks} | ${linksCell} |\n`
+        body += `| ${actionCell} | ${change} | ${typeEmoji} ${updateType} | ${fileLinks} |\n`
       }
 
       body += `\n`

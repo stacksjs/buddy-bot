@@ -124,7 +124,7 @@ describe('PR Body Generation for Major Updates', () => {
 
       const composerBody = await generator.generateBody(majorComposerUpdate)
 
-      expect(composerBody).toContain('| 🎼 Composer Packages | 1 |')
+      expect(composerBody).toContain('| 🐘 Composer Packages | 1 |')
       expect(composerBody).toContain('## 🐘 PHP/Composer Dependencies')
       expect(composerBody).toContain('*1 package will be updated*')
       expect(composerBody).toContain('laravel/framework')

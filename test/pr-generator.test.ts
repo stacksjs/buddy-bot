@@ -121,6 +121,7 @@ describe('PullRequestGenerator', () => {
 
         // Should include detailed NPM dependencies section
         expect(body).toContain('## 📦 npm Dependencies')
+        expect(body).toContain('![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)')
         expect(body).toContain('*1 package will be updated*')
         expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')
         expect(body).toContain('stripe')
@@ -205,10 +206,11 @@ describe('PullRequestGenerator', () => {
 
         // Should include package summary table
         expect(body).toContain('## Package Updates Summary')
-        expect(body).toContain('| 🎼 Composer Packages | 1 |')
+        expect(body).toContain('| 🐘 Composer Packages | 1 |')
 
         // Should include detailed Composer dependencies section
         expect(body).toContain('## 🐘 PHP/Composer Dependencies')
+        expect(body).toContain('![composer](https://img.shields.io/badge/composer-885630?style=flat&logo=composer&logoColor=white)')
         expect(body).toContain('*1 package will be updated*')
         expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |')
         expect(body).toContain('laravel/framework')
@@ -241,8 +243,9 @@ describe('PullRequestGenerator', () => {
 
         // Should include detailed system dependencies section
         expect(body).toContain('## 🔧 System Dependencies')
+        expect(body).toContain('![system](https://img.shields.io/badge/system-4CAF50?style=flat&logo=linux&logoColor=white)')
         expect(body).toContain('*1 package will be updated in `deps.yaml`*')
-        expect(body).toContain('| Package | Change | Type | File | Links |')
+        expect(body).toContain('| Package | Change | Type | File |')
       })
     })
 
@@ -272,8 +275,9 @@ describe('PullRequestGenerator', () => {
 
         // Should include detailed GitHub Actions section
         expect(body).toContain('## 🚀 GitHub Actions')
+        expect(body).toContain('![github-actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)')
         expect(body).toContain('*1 action will be updated*')
-        expect(body).toContain('| Action | Change | Type | Files | Links |')
+        expect(body).toContain('| Action | Change | Type | Files |')
         expect(body).toContain('actions/checkout')
       })
     })
