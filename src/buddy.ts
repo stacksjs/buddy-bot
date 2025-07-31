@@ -227,7 +227,7 @@ export class Buddy {
             await runGitCommand('git', ['checkout', 'main'])
             await runGitCommand('git', ['reset', '--hard', 'HEAD'])
             await runGitCommand('git', ['clean', '-fd'])
-            // eslint-disable-next-line no-console
+
             console.log(`🧹 Reset to clean main state before generating updates for ${group.name}`)
           }
           catch (error) {

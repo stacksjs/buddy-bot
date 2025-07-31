@@ -71,14 +71,16 @@ export class GitHubProvider implements GitProvider {
         console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
       }
 
-      // Configure Git identity if not already set
-      // try {
-      //   await this.runCommand('git', ['config', 'user.name', 'buddy-bot[bot]'])
-      //   await this.runCommand('git', ['config', 'user.email', 'buddy-bot[bot]@users.noreply.github.com'])
-      // }
-      // catch {
-      //   // Ignore config errors if already set
-      // }
+      // Configure Git identity to ensure github-actions[bot] attribution
+      try {
+        await this.runCommand('git', ['config', 'user.name', 'github-actions[bot]'])
+        await this.runCommand('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
+        console.log('✅ Git identity configured for github-actions[bot]')
+      }
+      catch (error) {
+        console.warn('⚠️ Failed to configure Git identity:', error)
+        // Continue anyway as it might already be configured
+      }
 
       // Fetch latest changes
       await this.runCommand('git', ['fetch', 'origin'])
@@ -221,11 +223,19 @@ export class GitHubProvider implements GitProvider {
         tree,
       })
 
-      // Create new commit
+      // Create new commit with explicit github-actions[bot] author
       const newCommit = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/git/commits`, {
         message,
         tree: newTree.sha,
         parents: [currentSha],
+        author: {
+          name: 'github-actions[bot]',
+          email: '41898282+github-actions[bot]@users.noreply.github.com',
+        },
+        committer: {
+          name: 'github-actions[bot]',
+          email: '41898282+github-actions[bot]@users.noreply.github.com',
+        },
       })
 
       // Update branch reference
