@@ -1,6 +1,28 @@
 # Changelog
 
 
+## v0.4.4...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.4...main)
+
+### 🚀 Enhancements
+
+- Add workspace support ([91989ce](https://github.com/stacksjs/buddy-bot/commit/91989ce))
+
+### 🏡 Chore
+
+- Simplify buddy-bot workflows ([8a09ccc](https://github.com/stacksjs/buddy-bot/commit/8a09ccc))
+- Wip ([a2b310e](https://github.com/stacksjs/buddy-bot/commit/a2b310e))
+- Wip ([f8c5c81](https://github.com/stacksjs/buddy-bot/commit/f8c5c81))
+- Wip ([855ec00](https://github.com/stacksjs/buddy-bot/commit/855ec00))
+- Wip ([f0792ed](https://github.com/stacksjs/buddy-bot/commit/f0792ed))
+- Wip ([b85e3ed](https://github.com/stacksjs/buddy-bot/commit/b85e3ed))
+- Wip ([a52c0ea](https://github.com/stacksjs/buddy-bot/commit/a52c0ea))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.4.3...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.4.3...main)
