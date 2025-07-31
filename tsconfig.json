@@ -6,6 +6,9 @@
     "rootDir": "./",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "paths": {
+      "buddy-bot": ["./src/index.ts"]
+    },
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "strict": true,
