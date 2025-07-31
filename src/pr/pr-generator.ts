@@ -81,21 +81,19 @@ export class PullRequestGenerator {
 
     let body = `This PR contains the following updates:\n\n`
 
-    // Add summary table
-    if (group.updates.length > 1) {
-      body += `## 📦 Package Updates Summary\n\n`
-      body += `| Type | Count |\n`
-      body += `|------|-------|\n`
-      if (packageJsonCount > 0)
-        body += `| 📦 NPM Packages | ${packageJsonCount} |\n`
-      if (dependencyFileCount > 0)
-        body += `| 🔧 System Dependencies | ${dependencyFileCount} |\n`
-      if (githubActionsCount > 0)
-        body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
-      if (composerCount > 0)
-        body += `| 🎼 Composer Packages | ${composerCount} |\n`
-      body += `| **Total** | **${group.updates.length}** |\n\n`
-    }
+    // Add summary table (always show for clarity)
+    body += `## 📦 Package Updates Summary\n\n`
+    body += `| Type | Count |\n`
+    body += `|------|-------|\n`
+    if (packageJsonCount > 0)
+      body += `| 📦 NPM Packages | ${packageJsonCount} |\n`
+    if (dependencyFileCount > 0)
+      body += `| 🔧 System Dependencies | ${dependencyFileCount} |\n`
+    if (githubActionsCount > 0)
+      body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
+    if (composerCount > 0)
+      body += `| 🎼 Composer Packages | ${composerCount} |\n`
+    body += `| **Total** | **${group.updates.length}** |\n\n`
 
     // Separate updates by type
     const packageJsonUpdates = group.updates.filter(update =>
@@ -145,7 +143,9 @@ export class PullRequestGenerator {
     // Package.json updates table (with full badges)
     if (packageJsonUpdates.length > 0) {
       body += `## 📦 npm Dependencies\n\n`
-      if (packageJsonUpdates.length > 1) {
+      if (packageJsonUpdates.length === 1) {
+        body += `*${packageJsonUpdates.length} package will be updated*\n\n`
+      } else if (packageJsonUpdates.length > 1) {
         body += `*${packageJsonUpdates.length} packages will be updated*\n\n`
       }
       body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
@@ -224,7 +224,12 @@ export class PullRequestGenerator {
         }
       }
 
-      body += `### PHP/Composer Dependencies\n\n`
+      body += `## 🎼 PHP/Composer Dependencies\n\n`
+      if (uniqueComposerUpdates.length === 1) {
+        body += `*${uniqueComposerUpdates.length} package will be updated*\n\n`
+      } else if (uniqueComposerUpdates.length > 1) {
+        body += `*${uniqueComposerUpdates.length} packages will be updated*\n\n`
+      }
       body += `| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |\n`
       body += `|---|---|---|---|---|---|---|---|\n`
 
@@ -273,7 +278,9 @@ export class PullRequestGenerator {
       body += `## 🔧 System Dependencies\n\n`
 
       const uniqueFiles = [...new Set(dependencyFileUpdates.map(u => u.file))]
-      if (dependencyFileUpdates.length > 1) {
+      if (dependencyFileUpdates.length === 1) {
+        body += `*${dependencyFileUpdates.length} package will be updated in \`${uniqueFiles[0].split('/').pop()}\`*\n\n`
+      } else if (dependencyFileUpdates.length > 1) {
         body += `*${dependencyFileUpdates.length} packages will be updated across ${uniqueFiles.length} file(s): ${uniqueFiles.map(f => `\`${f.split('/').pop()}\``).join(', ')}*\n\n`
       }
 
@@ -318,7 +325,9 @@ export class PullRequestGenerator {
     if (uniqueGithubActionsUpdates.length > 0) {
       body += `## 🚀 GitHub Actions\n\n`
 
-      if (uniqueGithubActionsUpdates.length > 1) {
+      if (uniqueGithubActionsUpdates.length === 1) {
+        body += `*${uniqueGithubActionsUpdates.length} action will be updated*\n\n`
+      } else if (uniqueGithubActionsUpdates.length > 1) {
         body += `*${uniqueGithubActionsUpdates.length} actions will be updated*\n\n`
       }
 
