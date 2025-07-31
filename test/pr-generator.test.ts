@@ -208,7 +208,7 @@ describe('PullRequestGenerator', () => {
         expect(body).toContain('| 🎼 Composer Packages | 1 |')
 
         // Should include detailed Composer dependencies section
-        expect(body).toContain('## 🎼 PHP/Composer Dependencies')
+        expect(body).toContain('## 🐘 PHP/Composer Dependencies')
         expect(body).toContain('*1 package will be updated*')
         expect(body).toContain('| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |')
         expect(body).toContain('laravel/framework')

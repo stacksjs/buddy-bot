@@ -225,7 +225,7 @@ export class PullRequestGenerator {
         }
       }
 
-      body += `## 🎼 PHP/Composer Dependencies\n\n`
+      body += `## 🐘 PHP/Composer Dependencies\n\n`
       if (uniqueComposerUpdates.length === 1) {
         body += `*${uniqueComposerUpdates.length} package will be updated*\n\n`
       }

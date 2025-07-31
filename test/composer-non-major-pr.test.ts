@@ -78,7 +78,7 @@ describe('Composer Non-Major PR', () => {
     expect(prBody).toContain('cac')
 
     // Should include Composer dependencies section
-    expect(prBody).toContain('### PHP/Composer Dependencies')
+    expect(prBody).toContain('## 🐘 PHP/Composer Dependencies')
     expect(prBody).toContain('monolog/monolog')
     expect(prBody).toContain('phpunit/phpunit')
 
@@ -117,7 +117,7 @@ describe('Composer Non-Major PR', () => {
     const prBody = await prGenerator.generateBody(composerOnlyGroup)
 
     // Should only have Composer section
-    expect(prBody).toContain('### PHP/Composer Dependencies')
+    expect(prBody).toContain('## 🐘 PHP/Composer Dependencies')
     expect(prBody).toContain('psr/log')
 
     // Should NOT have npm or GitHub Actions sections
@@ -156,7 +156,7 @@ describe('Composer Non-Major PR', () => {
     // Both should appear in Composer section
     expect(prBody).toContain('symfony/http-foundation')
     expect(prBody).toContain('phpstan/phpstan')
-    expect(prBody).toContain('### PHP/Composer Dependencies')
+    expect(prBody).toContain('## 🐘 PHP/Composer Dependencies')
 
     // Should have the same format as npm dependencies (no file column)
     expect(prBody).toContain('| Package | Change | Age | Adoption | Passing | Confidence |')

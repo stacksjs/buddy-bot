@@ -13,14 +13,14 @@ export class Logger {
    * Log warning message in yellow
    */
   warn(message: string, ...args: any[]): void {
-    console.warn(`\x1B[33m⚠\x1B[0m ${message}`, ...args)
+    console.warn(message, ...args)
   }
 
   /**
    * Log error message in red
    */
   error(message: string, ...args: any[]): void {
-    console.error(`\x1B[31m✖\x1B[0m ${message}`, ...args)
+    console.error(message, ...args)
   }
 
   /**
