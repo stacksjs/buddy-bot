@@ -145,7 +145,8 @@ export class PullRequestGenerator {
       body += `## 📦 npm Dependencies\n\n`
       if (packageJsonUpdates.length === 1) {
         body += `*${packageJsonUpdates.length} package will be updated*\n\n`
-      } else if (packageJsonUpdates.length > 1) {
+      }
+      else if (packageJsonUpdates.length > 1) {
         body += `*${packageJsonUpdates.length} packages will be updated*\n\n`
       }
       body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
@@ -227,7 +228,8 @@ export class PullRequestGenerator {
       body += `## 🎼 PHP/Composer Dependencies\n\n`
       if (uniqueComposerUpdates.length === 1) {
         body += `*${uniqueComposerUpdates.length} package will be updated*\n\n`
-      } else if (uniqueComposerUpdates.length > 1) {
+      }
+      else if (uniqueComposerUpdates.length > 1) {
         body += `*${uniqueComposerUpdates.length} packages will be updated*\n\n`
       }
       body += `| Package | Change | Age | Adoption | Passing | Confidence | Type | Update |\n`
@@ -280,7 +282,8 @@ export class PullRequestGenerator {
       const uniqueFiles = [...new Set(dependencyFileUpdates.map(u => u.file))]
       if (dependencyFileUpdates.length === 1) {
         body += `*${dependencyFileUpdates.length} package will be updated in \`${uniqueFiles[0].split('/').pop()}\`*\n\n`
-      } else if (dependencyFileUpdates.length > 1) {
+      }
+      else if (dependencyFileUpdates.length > 1) {
         body += `*${dependencyFileUpdates.length} packages will be updated across ${uniqueFiles.length} file(s): ${uniqueFiles.map(f => `\`${f.split('/').pop()}\``).join(', ')}*\n\n`
       }
 
@@ -327,7 +330,8 @@ export class PullRequestGenerator {
 
       if (uniqueGithubActionsUpdates.length === 1) {
         body += `*${uniqueGithubActionsUpdates.length} action will be updated*\n\n`
-      } else if (uniqueGithubActionsUpdates.length > 1) {
+      }
+      else if (uniqueGithubActionsUpdates.length > 1) {
         body += `*${uniqueGithubActionsUpdates.length} actions will be updated*\n\n`
       }
 

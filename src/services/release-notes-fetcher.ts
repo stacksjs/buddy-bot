@@ -91,10 +91,10 @@ export class ReleaseNotesFetcher {
       console.error(`❌ Failed to fetch package info for ${packageName}:`, error)
       // Return minimal info that will still generate useful content
       return {
-        packageInfo: { 
+        packageInfo: {
           name: packageName,
           description: `Package ${packageName} - see npm for details`,
-          repository: { type: 'git', url: `https://github.com/search?q=${encodeURIComponent(packageName)}&type=repositories` }
+          repository: { type: 'git', url: `https://github.com/search?q=${encodeURIComponent(packageName)}&type=repositories` },
         },
         releaseNotes: [],
         changelog: [],
@@ -149,10 +149,10 @@ export class ReleaseNotesFetcher {
     }
     catch (error) {
       console.warn(`⚠️ Failed to fetch npm info for ${packageName}:`, error)
-      return { 
+      return {
         name: packageName,
         description: `NPM package ${packageName}`,
-        homepage: `https://www.npmjs.com/package/${encodeURIComponent(packageName)}`
+        homepage: `https://www.npmjs.com/package/${encodeURIComponent(packageName)}`,
       }
     }
   }
