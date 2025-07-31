@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.5.1...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.1...main)
+
+### 🏡 Chore
+
+- Improve handling of large pr bodies ([7edd828](https://github.com/stacksjs/buddy-bot/commit/7edd828))
+- Add test note ([f856097](https://github.com/stacksjs/buddy-bot/commit/f856097))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.0...main)
