@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.14...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.14...main)
+
+### 🏡 Chore
+
+- More stability ([4e929e0](https://github.com/stacksjs/buddy-bot/commit/4e929e0))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.13...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.13...main)
