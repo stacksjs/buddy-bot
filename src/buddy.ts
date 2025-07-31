@@ -183,7 +183,7 @@ export class Buddy {
               this.logger.info(`🔄 Updates differ, will update existing PR with new content`)
 
               // Generate dynamic labels for the update
-              const dynamicLabels = this.generatePRLabels(group)
+              const dynamicLabels = prGenerator.generateLabels(group)
 
               // Update existing PR with new content
               await gitProvider.updatePullRequest(existingPR.number, {
@@ -278,8 +278,8 @@ export class Buddy {
           // Commit changes
           await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
 
-          // Generate dynamic labels based on update types
-          const dynamicLabels = this.generatePRLabels(group)
+          // Generate dynamic labels based on update types and package types
+          const dynamicLabels = prGenerator.generateLabels(group)
 
           // Create pull request
           const pr = await gitProvider.createPullRequest({
