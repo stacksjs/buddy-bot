@@ -1493,9 +1493,6 @@ ${generateComposerSetupSteps()}
         with:
           token: ${tokenEnv}
 
-      - name: Build buddy-bot
-        run: bun run build
-
       - name: Display dashboard configuration
         run: |
           echo "📊 **Buddy Bot Dashboard Management**"
