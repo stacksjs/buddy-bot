@@ -67,7 +67,33 @@ export class PullRequestGenerator {
    * Generate enhanced PR body with rich formatting, badges, and release notes
    */
   async generateBody(group: UpdateGroup): Promise<string> {
+    // Count different types of updates
+    const packageJsonCount = group.updates.filter(u => u.file === 'package.json').length
+    const dependencyFileCount = group.updates.filter(u =>
+      (u.file.includes('.yaml') || u.file.includes('.yml')) && !u.file.includes('.github/workflows/'),
+    ).length
+    const githubActionsCount = group.updates.filter(u => u.file.includes('.github/workflows/')).length
+    const composerCount = group.updates.filter(u =>
+      u.file.endsWith('composer.json') || u.file.endsWith('composer.lock'),
+    ).length
+
     let body = `This PR contains the following updates:\n\n`
+
+    // Add summary table
+    if (group.updates.length > 1) {
+      body += `## 📦 Package Updates Summary\n\n`
+      body += `| Type | Count |\n`
+      body += `|------|-------|\n`
+      if (packageJsonCount > 0)
+        body += `| 📦 NPM Packages | ${packageJsonCount} |\n`
+      if (dependencyFileCount > 0)
+        body += `| 🔧 System Dependencies | ${dependencyFileCount} |\n`
+      if (githubActionsCount > 0)
+        body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
+      if (composerCount > 0)
+        body += `| 🎼 Composer Packages | ${composerCount} |\n`
+      body += `| **Total** | **${group.updates.length}** |\n\n`
+    }
 
     // Separate updates by type
     const packageJsonUpdates = group.updates.filter(update =>
@@ -116,7 +142,10 @@ export class PullRequestGenerator {
 
     // Package.json updates table (with full badges)
     if (packageJsonUpdates.length > 0) {
-      body += `### npm Dependencies\n\n`
+      body += `## 📦 npm Dependencies\n\n`
+      if (packageJsonUpdates.length > 1) {
+        body += `*${packageJsonUpdates.length} packages will be updated*\n\n`
+      }
       body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
       body += `|---|---|---|---|---|---|\n`
 
@@ -237,11 +266,17 @@ export class PullRequestGenerator {
       body += `\n`
     }
 
-    // Dependency files table (simplified, without badges)
+    // Dependency files table (enhanced with more information)
     if (dependencyFileUpdates.length > 0) {
-      body += `### Launchpad/pkgx Dependencies\n\n`
-      body += `| Package | Change | File | Status |\n`
-      body += `|---|---|---|---|\n`
+      body += `## 🔧 System Dependencies\n\n`
+
+      const uniqueFiles = [...new Set(dependencyFileUpdates.map(u => u.file))]
+      if (dependencyFileUpdates.length > 1) {
+        body += `*${dependencyFileUpdates.length} packages will be updated across ${uniqueFiles.length} file(s): ${uniqueFiles.map(f => `\`${f.split('/').pop()}\``).join(', ')}*\n\n`
+      }
+
+      body += `| Package | Change | Type | File | Links |\n`
+      body += `|---|---|---|---|---|\n`
 
       for (const update of dependencyFileUpdates) {
         // Handle special case: bun.sh -> bun.com
@@ -253,50 +288,72 @@ export class PullRequestGenerator {
           : `https://pkgx.com/pkg/${encodeURIComponent(update.name)}`
         const packageCell = `[${displayName}](${packageUrl})`
 
-        // Simple version change display
-        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+        // Enhanced version change display with update type
+        const updateType = this.getUpdateType(update.currentVersion, update.newVersion)
+        const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
+        const change = `\`${update.currentVersion}\` → \`${update.newVersion}\``
 
-        // File reference
+        // File reference with link to actual file
         const fileName = update.file.split('/').pop() || update.file
+        const fileCell = this.config?.repository?.owner && this.config?.repository?.name
+          ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
+          : `\`${fileName}\``
 
-        // Status (simple)
-        const status = '✅ Available'
+        // Enhanced links column
+        let linksCell = `📦 [pkgx](${packageUrl})`
+        if (update.name.includes('.org') || update.name.includes('.net') || update.name.includes('.com')) {
+          const domain = update.name.split('/')[0] || update.name
+          linksCell += ` | 🌐 [${domain}](https://${domain})`
+        }
 
-        body += `| ${packageCell} | ${change} | ${fileName} | ${status} |\n`
+        body += `| ${packageCell} | ${change} | ${typeEmoji} ${updateType} | ${fileCell} | ${linksCell} |\n`
       }
 
       body += `\n`
     }
 
-    // GitHub Actions table (simplified, without badges, deduplicated)
+    // GitHub Actions table (enhanced with more information)
     if (uniqueGithubActionsUpdates.length > 0) {
-      body += `### GitHub Actions\n\n`
-      body += `| Action | Change | File | Status |\n`
-      body += `|---|---|---|---|\n`
+      body += `## 🚀 GitHub Actions\n\n`
+
+      if (uniqueGithubActionsUpdates.length > 1) {
+        body += `*${uniqueGithubActionsUpdates.length} actions will be updated*\n\n`
+      }
+
+      body += `| Action | Change | Type | Files | Links |\n`
+      body += `|---|---|---|---|---|\n`
 
       for (const update of uniqueGithubActionsUpdates) {
         // Generate action link
         const actionUrl = `https://github.com/${update.name}`
         const actionCell = `[${update.name}](${actionUrl})`
 
-        // Simple version change display
-        const change = `\`${update.currentVersion}\` -> \`${update.newVersion}\``
+        // Enhanced version change display with update type
+        const updateType = this.getUpdateType(update.currentVersion, update.newVersion)
+        const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
+        const change = `\`${update.currentVersion}\` → \`${update.newVersion}\``
 
-        // File reference with GitHub links (may be multiple files now)
+        // Enhanced file reference with proper GitHub links
         const fileLinks = update.file.includes(', ')
           ? update.file.split(', ').map((f) => {
               const fileName = f.split('/').pop() || f
-              return `[${fileName}](../${f})`
+              return this.config?.repository?.owner && this.config?.repository?.name
+                ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${f})`
+                : `\`${fileName}\``
             }).join(', ')
           : (() => {
               const fileName = update.file.split('/').pop() || update.file
-              return `[${fileName}](../${update.file})`
+              return this.config?.repository?.owner && this.config?.repository?.name
+                ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
+                : `\`${fileName}\``
             })()
 
-        // Status (simple)
-        const status = '✅ Available'
+        // Enhanced links column
+        const releasesUrl = `https://github.com/${update.name}/releases`
+        const compareUrl = `https://github.com/${update.name}/compare/${update.currentVersion}...${update.newVersion}`
+        const linksCell = `📋 [releases](${releasesUrl}) | 📊 [compare](${compareUrl})`
 
-        body += `| ${actionCell} | ${change} | ${fileLinks} | ${status} |\n`
+        body += `| ${actionCell} | ${change} | ${typeEmoji} ${updateType} | ${fileLinks} | ${linksCell} |\n`
       }
 
       body += `\n`
@@ -376,7 +433,7 @@ export class PullRequestGenerator {
       body += `</details>\n\n`
     }
 
-    // Process dependency file updates with simple release notes (no duplicates with package.json)
+    // Process dependency file updates with enhanced release notes and file links
     const dependencyOnlyUpdates = dependencyFileUpdates.filter(depUpdate =>
       !packageJsonUpdates.some(pkgUpdate =>
         pkgUpdate.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '') === depUpdate.name,
@@ -391,11 +448,24 @@ export class PullRequestGenerator {
       body += `<summary>${displayName}</summary>\n\n`
       body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
 
+      // Add file reference with link to the dependency file
+      if (update.file) {
+        const fileName = update.file.split('/').pop() || update.file
+        body += `📁 **File**: [\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})\n\n`
+      }
+
+      // Add appropriate links based on package type
       if (update.name === 'bun.sh') {
-        body += `Visit [bun.sh](https://bun.sh) for more information about Bun releases.\n\n`
+        body += `🔗 **Release Notes**: [bun.sh](https://bun.sh)\n\n`
+      }
+      else if (update.name.includes('.org') || update.name.includes('.net') || update.name.includes('.com')) {
+        // For domain-style packages, link to pkgx and try to provide the official site
+        const domain = update.name.split('/')[0] || update.name
+        body += `🔗 **Package Info**: [pkgx.com](https://pkgx.com/pkg/${encodeURIComponent(update.name)})\n\n`
+        body += `🌐 **Official Site**: [${domain}](https://${domain})\n\n`
       }
       else {
-        body += `Visit [pkgx.com](https://pkgx.com/pkg/${encodeURIComponent(update.name)}) for more information.\n\n`
+        body += `🔗 **Package Info**: [pkgx.com](https://pkgx.com/pkg/${encodeURIComponent(update.name)})\n\n`
       }
 
       body += `</details>\n\n`
@@ -677,5 +747,52 @@ export class PullRequestGenerator {
     }
 
     return result
+  }
+
+  /**
+   * Determine update type between two versions
+   */
+  private getUpdateType(currentVersion: string, newVersion: string): 'major' | 'minor' | 'patch' {
+    // Remove any prefixes like ^, ~, >=, v, @, etc.
+    const cleanCurrent = currentVersion.replace(/^[v^~>=<@]+/, '')
+    const cleanNew = newVersion.replace(/^[v^~>=<@]+/, '')
+
+    const currentParts = cleanCurrent.split('.').map((part) => {
+      const num = Number(part)
+      return Number.isNaN(num) ? 0 : num
+    })
+    const newParts = cleanNew.split('.').map((part) => {
+      const num = Number(part)
+      return Number.isNaN(num) ? 0 : num
+    })
+
+    // Ensure we have at least major.minor.patch structure
+    while (currentParts.length < 3) currentParts.push(0)
+    while (newParts.length < 3) newParts.push(0)
+
+    // Compare major version
+    if (newParts[0] > currentParts[0]) {
+      return 'major'
+    }
+
+    // Compare minor version
+    if (newParts[0] === currentParts[0] && newParts[1] > currentParts[1]) {
+      return 'minor'
+    }
+
+    // Everything else is patch
+    return 'patch'
+  }
+
+  /**
+   * Generate a description of the version change
+   */
+  private getVersionChangeDescription(currentVersion: string, newVersion: string, updateType: 'major' | 'minor' | 'patch'): string {
+    const descriptions = {
+      major: '🔴 Breaking changes possible',
+      minor: '🟡 New features added',
+      patch: '🟢 Bug fixes & patches',
+    }
+    return descriptions[updateType]
   }
 }

@@ -116,7 +116,7 @@ describe('Buddy - GitHub Actions Integration', () => {
       expect(checkoutUpdate!.newVersion).toBe('v4.2.2')
       expect(checkoutUpdate!.dependencyType).toBe('github-actions')
       expect(checkoutUpdate!.file).toBe('.github/workflows/ci.yml')
-      expect(checkoutUpdate!.updateType).toBe('patch')
+      expect(checkoutUpdate!.updateType).toBe('minor') // v4 -> v4.2.2 is a minor update
 
       // Check oven-sh/setup-bun update
       const setupBunUpdate = result.updates.find(u => u.name === 'oven-sh/setup-bun')

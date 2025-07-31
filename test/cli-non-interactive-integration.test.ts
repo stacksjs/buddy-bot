@@ -188,7 +188,6 @@ describe('CLI Non-Interactive Integration Tests', () => {
         'Configure Git',
         'Setup PHP and Composer (if needed)',
         'Display update configuration',
-        'Run Buddy dependency scan',
         'Run Buddy dependency updates',
         'Dry run notification',
         'Create update summary',

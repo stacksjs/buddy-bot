@@ -46,12 +46,22 @@ export class VersionResolver {
    * Determine update type between two versions
    */
   static getUpdateType(fromVersion: string, toVersion: string): 'major' | 'minor' | 'patch' {
-    // Clean version strings for comparison
-    const cleanFrom = fromVersion.replace(/^[\^~>=<]+/, '')
-    const cleanTo = toVersion.replace(/^[\^~>=<]+/, '')
+    // Clean version strings for comparison, including @ prefix for version ranges
+    const cleanFrom = fromVersion.replace(/^[\^~>=<@]+/, '')
+    const cleanTo = toVersion.replace(/^[\^~>=<@]+/, '')
 
-    const fromParts = cleanFrom.split('.').map(Number)
-    const toParts = cleanTo.split('.').map(Number)
+    const fromParts = cleanFrom.split('.').map((part) => {
+      const num = Number(part)
+      return Number.isNaN(num) ? 0 : num
+    })
+    const toParts = cleanTo.split('.').map((part) => {
+      const num = Number(part)
+      return Number.isNaN(num) ? 0 : num
+    })
+
+    // Ensure we have at least major.minor.patch structure
+    while (fromParts.length < 3) fromParts.push(0)
+    while (toParts.length < 3) toParts.push(0)
 
     if (toParts[0] > fromParts[0])
       return 'major'

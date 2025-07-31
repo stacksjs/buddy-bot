@@ -430,12 +430,26 @@ export class Buddy {
    */
   private getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' {
     try {
-      const currentParts = current.split('.').map(Number)
-      const latestParts = latest.split('.').map(Number)
+      // Clean version strings, including @ prefix for version ranges
+      const cleanCurrent = current.replace(/^[\^~>=<@]+/, '')
+      const cleanLatest = latest.replace(/^[\^~>=<@]+/, '')
+
+      const currentParts = cleanCurrent.split('.').map((part) => {
+        const num = Number(part)
+        return Number.isNaN(num) ? 0 : num
+      })
+      const latestParts = cleanLatest.split('.').map((part) => {
+        const num = Number(part)
+        return Number.isNaN(num) ? 0 : num
+      })
+
+      // Ensure we have at least major.minor.patch structure
+      while (currentParts.length < 3) currentParts.push(0)
+      while (latestParts.length < 3) latestParts.push(0)
 
       if (latestParts[0] > currentParts[0])
         return 'major'
-      if (latestParts[1] > currentParts[1])
+      if (latestParts[0] === currentParts[0] && latestParts[1] > currentParts[1])
         return 'minor'
       return 'patch'
     }

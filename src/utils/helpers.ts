@@ -300,12 +300,24 @@ export function sortUpdatesByPriority(updates: PackageUpdate[]): PackageUpdate[]
  * Parse version string and determine update type using Bun's semver
  */
 export function getUpdateType(currentVersion: string, newVersion: string): 'major' | 'minor' | 'patch' {
-  // Remove any prefixes like ^, ~, >=, v, etc.
-  const cleanCurrent = currentVersion.replace(/^[v^~>=<]+/, '')
-  const cleanNew = newVersion.replace(/^[v^~>=<]+/, '')
+  // Remove any prefixes like ^, ~, >=, v, @, etc.
+  const cleanCurrent = currentVersion.replace(/^[v^~>=<@]+/, '')
+  const cleanNew = newVersion.replace(/^[v^~>=<@]+/, '')
 
-  const currentParts = cleanCurrent.split('.').map(Number)
-  const newParts = cleanNew.split('.').map(Number)
+  // Handle version ranges with @ (like @1.1, @1, etc.)
+  // For @1.1 -> 3.5.0, current should be interpreted as 1.1
+  const currentParts = cleanCurrent.split('.').map((part) => {
+    const num = Number(part)
+    return Number.isNaN(num) ? 0 : num
+  })
+  const newParts = cleanNew.split('.').map((part) => {
+    const num = Number(part)
+    return Number.isNaN(num) ? 0 : num
+  })
+
+  // Ensure we have at least major.minor.patch structure
+  while (currentParts.length < 3) currentParts.push(0)
+  while (newParts.length < 3) newParts.push(0)
 
   // Compare major version
   if (newParts[0] > currentParts[0]) {

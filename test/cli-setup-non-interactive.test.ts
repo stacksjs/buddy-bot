@@ -58,7 +58,6 @@ describe('CLI Setup - Non-Interactive Mode', () => {
       expect(workflow).toContain('Configure Git')
       expect(workflow).toContain('Setup PHP and Composer')
       expect(workflow).toContain('Display update configuration')
-      expect(workflow).toContain('Run Buddy dependency scan')
       expect(workflow).toContain('Run Buddy dependency updates')
       expect(workflow).toContain('Dry run notification')
       expect(workflow).toContain('Create update summary')

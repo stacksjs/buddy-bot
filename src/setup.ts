@@ -1374,37 +1374,6 @@ ${generateComposerSetupSteps()}
           echo "Repository: \${{ github.repository }}"
           echo "Branch: \${{ github.ref_name }}"
 
-      - name: Run Buddy dependency scan
-        run: |
-          STRATEGY="\${{ github.event.inputs.strategy || 'patch' }}"
-          PACKAGES="\${{ github.event.inputs.packages }}"
-          VERBOSE="\${{ github.event.inputs.verbose || 'true' }}"
-
-          echo "🔍 Scanning for dependency updates..."
-          echo "Strategy: \$STRATEGY"
-          echo "Packages: \${PACKAGES:-all}"
-          echo "Verbose: \$VERBOSE"
-          echo ""
-
-          set -e  # Exit on any error
-
-          if [ "\$PACKAGES" != "" ]; then
-            if [ "\$VERBOSE" = "true" ]; then
-              bunx buddy-bot scan --packages "\$PACKAGES" --verbose
-            else
-              bunx buddy-bot scan --packages "\$PACKAGES"
-            fi
-          else
-            if [ "\$VERBOSE" = "true" ]; then
-              bunx buddy-bot scan --strategy "\$STRATEGY" --verbose
-            else
-              bunx buddy-bot scan --strategy "\$STRATEGY"
-            fi
-          fi
-
-        env:
-          GITHUB_TOKEN: ${tokenEnv}
-
       - name: Run Buddy dependency updates
         if: \${{ github.event.inputs.dry_run != 'true' }}
         run: |

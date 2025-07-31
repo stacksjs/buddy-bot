@@ -73,7 +73,7 @@ describe('Composer Non-Major PR', () => {
     const prBody = await prGenerator.generateBody(nonMajorGroup)
 
     // Should include npm dependencies section
-    expect(prBody).toContain('### npm Dependencies')
+    expect(prBody).toContain('## 📦 npm Dependencies')
     expect(prBody).toContain('@types/bun')
     expect(prBody).toContain('cac')
 
@@ -83,7 +83,7 @@ describe('Composer Non-Major PR', () => {
     expect(prBody).toContain('phpunit/phpunit')
 
     // Should include GitHub Actions section
-    expect(prBody).toContain('### GitHub Actions')
+    expect(prBody).toContain('## 🚀 GitHub Actions')
     expect(prBody).toContain('actions/checkout')
 
     // Verify Composer package links - they now go to homepage/source, not packagist
