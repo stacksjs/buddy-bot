@@ -1,11 +1,27 @@
+/* eslint-disable no-console */
 import type { PackageInfo, ReleaseNote } from '../services/release-notes-fetcher'
 import type { BuddyBotConfig, PullRequest, UpdateGroup } from '../types'
+import process from 'node:process'
 import { ReleaseNotesFetcher } from '../services/release-notes-fetcher'
 
 export class PullRequestGenerator {
   private releaseNotesFetcher = new ReleaseNotesFetcher()
+  private verbose = false
 
-  constructor(private readonly config?: BuddyBotConfig | undefined) {}
+  constructor(private readonly config?: BuddyBotConfig | undefined) {
+    // Enable verbose logging via config or environment variable
+    this.verbose = config?.verbose || process.env.BUDDY_BOT_VERBOSE === 'true'
+  }
+
+  private log(message: string, data?: any) {
+    if (this.verbose) {
+      const timestamp = new Date().toISOString()
+      console.log(`[${timestamp}] PR-GEN: ${message}`)
+      if (data) {
+        console.log(JSON.stringify(data, null, 2))
+      }
+    }
+  }
 
   /**
    * Generate pull requests for update groups
@@ -69,8 +85,22 @@ export class PullRequestGenerator {
    * Generate enhanced PR body with rich formatting, badges, and release notes
    */
   async generateBody(group: UpdateGroup): Promise<string> {
+    this.log('🚀 Starting PR body generation', {
+      groupName: group.name,
+      totalUpdates: group.updates.length,
+      updates: group.updates.map(u => ({
+        name: u.name,
+        file: u.file,
+        dependencyType: u.dependencyType,
+        currentVersion: u.currentVersion,
+        newVersion: u.newVersion,
+      })),
+    })
+
     // Count different types of updates
-    const packageJsonCount = group.updates.filter(u => u.file === 'package.json').length
+    const packageJsonCount = group.updates.filter(u =>
+      u.file === 'package.json' || u.file.endsWith('/package.json') || u.file.endsWith('\\package.json'),
+    ).length
     const dependencyFileCount = group.updates.filter(u =>
       (u.file.includes('.yaml') || u.file.includes('.yml')) && !u.file.includes('.github/workflows/'),
     ).length
@@ -78,6 +108,28 @@ export class PullRequestGenerator {
     const composerCount = group.updates.filter(u =>
       u.file.endsWith('composer.json') || u.file.endsWith('composer.lock'),
     ).length
+
+    this.log('📊 Package type counts', {
+      packageJsonCount,
+      dependencyFileCount,
+      githubActionsCount,
+      composerCount,
+      total: group.updates.length,
+    })
+
+    // Debug file path matching for package.json
+    if (group.updates.length > 0) {
+      this.log('🔍 File path analysis', {
+        files: group.updates.map(u => ({
+          name: u.name,
+          file: u.file,
+          isExactMatch: u.file === 'package.json',
+          endsWithSlash: u.file.endsWith('/package.json'),
+          endsWithBackslash: u.file.endsWith('\\package.json'),
+          matchesAny: u.file === 'package.json' || u.file.endsWith('/package.json') || u.file.endsWith('\\package.json'),
+        })),
+      })
+    }
 
     let body = `This PR contains the following updates:\n\n`
 
@@ -97,7 +149,7 @@ export class PullRequestGenerator {
 
     // Separate updates by type
     const packageJsonUpdates = group.updates.filter(update =>
-      update.file === 'package.json',
+      update.file === 'package.json' || update.file.endsWith('/package.json') || update.file.endsWith('\\package.json'),
     )
     const composerUpdates = group.updates.filter(update =>
       update.file.endsWith('composer.json') || update.file.endsWith('composer.lock'),
@@ -108,6 +160,25 @@ export class PullRequestGenerator {
     const githubActionsUpdates = group.updates.filter(update =>
       update.file.includes('.github/workflows/'),
     )
+
+    this.log('📝 Filtered updates by type', {
+      packageJsonUpdates: {
+        count: packageJsonUpdates.length,
+        items: packageJsonUpdates.map(u => ({ name: u.name, file: u.file })),
+      },
+      composerUpdates: {
+        count: composerUpdates.length,
+        items: composerUpdates.map(u => ({ name: u.name, file: u.file })),
+      },
+      dependencyFileUpdates: {
+        count: dependencyFileUpdates.length,
+        items: dependencyFileUpdates.map(u => ({ name: u.name, file: u.file })),
+      },
+      githubActionsUpdates: {
+        count: githubActionsUpdates.length,
+        items: githubActionsUpdates.map(u => ({ name: u.name, file: u.file })),
+      },
+    })
 
     // Deduplicate GitHub Actions updates by name (multiple files may reference same action)
     const uniqueGithubActionsUpdates = githubActionsUpdates.reduce((acc, update) => {
@@ -142,6 +213,10 @@ export class PullRequestGenerator {
 
     // Package.json updates table (with full badges)
     if (packageJsonUpdates.length > 0) {
+      this.log('✅ Generating npm Dependencies section', {
+        packageCount: packageJsonUpdates.length,
+        packages: packageJsonUpdates.map(u => u.name),
+      })
       body += `## 📦 npm Dependencies\n\n`
       body += `![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)\n\n`
       if (packageJsonUpdates.length === 1) {
@@ -578,6 +653,27 @@ export class PullRequestGenerator {
         body = `${truncatedBody}\n\n---\n\n**Note**: This PR body was truncated due to GitHub's character limit.\n\n`
       }
       body += `This PR was generated by [Buddy](https://github.com/stacksjs/buddy-bot) 🤖`
+    }
+
+    this.log('✅ PR body generation complete', {
+      bodyLength: body.length,
+      hasNpmSection: body.includes('## 📦 npm Dependencies'),
+      hasComposerSection: body.includes('## 🐘 PHP/Composer Dependencies'),
+      hasSystemSection: body.includes('## 🔧 System Dependencies'),
+      hasGitHubActionsSection: body.includes('## 🚀 GitHub Actions'),
+      hasPackageTable: body.includes('| Package | Change | Age | Adoption | Passing | Confidence |'),
+      hasReleaseNotes: body.includes('### Release Notes'),
+      isSparse: body.length < 1000,
+      sections: {
+        hasNpmPackagesInSummary: body.includes('📦 NPM Packages'),
+        hasComposerInSummary: body.includes('🐘 Composer Packages'),
+        hasSystemInSummary: body.includes('🔧 System Dependencies'),
+        hasGitHubActionsInSummary: body.includes('🚀 GitHub Actions'),
+      },
+    })
+
+    if (body.length < 1000) {
+      this.log('🚨 WARNING: Generated PR body appears sparse (under 1000 chars)!')
     }
 
     return body
