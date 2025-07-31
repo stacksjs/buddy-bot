@@ -1246,14 +1246,6 @@ ${generateComposerSetupSteps()}
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Cache workspace
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            .
-            !.git
-          key: buddy-bot-workspace-\${{ github.sha }}
-
   # Rebase check job (formerly buddy-check.yml)
   rebase-check:
     runs-on: ubuntu-latest
