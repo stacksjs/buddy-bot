@@ -1261,21 +1261,20 @@ ${generateComposerSetupSteps()}
     if: \${{ needs.determine-jobs.outputs.run_check == 'true' }}
 
     steps:
-      - name: Restore workspace
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            .
-            !.git
-          key: buddy-bot-workspace-\${{ github.sha }}
-          fail-on-cache-miss: true
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${tokenEnv}
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
 
       - name: Configure Git
         run: |
@@ -1344,21 +1343,20 @@ ${generateComposerSetupSteps()}
     if: \${{ needs.determine-jobs.outputs.run_update == 'true' }}
 
     steps:
-      - name: Restore workspace
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            .
-            !.git
-          key: buddy-bot-workspace-\${{ github.sha }}
-          fail-on-cache-miss: true
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${tokenEnv}
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+${generateComposerSetupSteps()}
+      - name: Install dependencies
+        run: bun install
 
       - name: Configure Git
         run: |
@@ -1474,19 +1472,18 @@ ${generateComposerSetupSteps()}
     if: \${{ needs.determine-jobs.outputs.run_dashboard == 'true' && always() }}
 
     steps:
-      - name: Restore workspace
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            .
-            !.git
-          key: buddy-bot-workspace-\${{ github.sha }}
-          fail-on-cache-miss: true
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${tokenEnv}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
 
       - name: Display dashboard configuration
         run: |
