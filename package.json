@@ -1,7 +1,7 @@
 {
   "name": "buddy-bot",
   "type": "module",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "description": "The Stacks CLI.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",

@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.11...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.11...main)
+
+### 🏡 Chore
+
+- Pr improvements ([6b4e170](https://github.com/stacksjs/buddy-bot/commit/6b4e170))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.10...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.10...main)
