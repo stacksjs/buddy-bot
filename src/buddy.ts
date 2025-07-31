@@ -243,12 +243,14 @@ export class Buddy {
                   hasActualChanges = true
                   break
                 }
-              } else {
+              }
+              else {
                 // New file, counts as a change
                 hasActualChanges = true
                 break
               }
-            } catch (error) {
+            }
+            catch {
               // If we can't read the file, assume it's a change
               hasActualChanges = true
               break
