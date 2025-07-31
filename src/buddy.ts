@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type {
   BuddyBotConfig,
   DashboardData,
@@ -126,6 +127,12 @@ export class Buddy {
 
       // Determine if we have workflow permissions (BUDDY_BOT_TOKEN has full permissions)
       const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
+      if (process.env.BUDDY_BOT_TOKEN) {
+        console.log('✅ BUDDY_BOT_TOKEN detected - workflow permissions enabled')
+      }
+      else {
+        console.log('⚠️ BUDDY_BOT_TOKEN not found - workflow permissions disabled')
+      }
 
       // Initialize GitHub provider
       const gitProvider = new GitHubProvider(

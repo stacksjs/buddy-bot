@@ -54,7 +54,7 @@ export class GitHubProvider implements GitProvider {
       if (workflowFiles.length > 0 && !this.hasWorkflowPermissions) {
         console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
-        console.warn(`ℹ️ Workflow files will be skipped in this commit. You need to set BUDDY_BOT_TOKEN (with workflow permissions) in the repository settings.`)
+        console.warn(`ℹ️ Workflow files will be skipped in this commit. BUDDY_BOT_TOKEN not detected or lacks workflow permissions.`)
 
         // If we have non-workflow files, commit just those
         if (nonWorkflowFiles.length > 0) {
@@ -63,7 +63,7 @@ export class GitHubProvider implements GitProvider {
         }
         else {
           console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
-          console.warn(`💡 To update workflow files, you need to set BUDDY_BOT_TOKEN (with workflow permissions) in the repository settings.`)
+          console.warn(`💡 To update workflow files, ensure BUDDY_BOT_TOKEN is set with workflow:write permissions.`)
           return // Exit early if no non-workflow files to commit
         }
       }

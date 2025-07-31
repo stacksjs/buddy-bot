@@ -66,15 +66,44 @@ export class PullRequestGenerator {
     // Add update type labels
     if (group.updateType === 'major') {
       labels.push('major')
-    } else if (group.updateType === 'minor') {
+    }
+    else if (group.updateType === 'minor') {
       labels.push('minor')
-    } else if (group.updateType === 'patch') {
+    }
+    else if (group.updateType === 'patch') {
       labels.push('patch')
     }
 
+    // Add package type labels based on what types of packages are being updated
+    const npmCount = group.updates.filter(u =>
+      u.file === 'package.json' || u.file.endsWith('/package.json') || u.file.endsWith('\\package.json'),
+    ).length
+
+    const composerCount = group.updates.filter(u =>
+      u.file.endsWith('composer.json') || u.file.endsWith('composer.lock'),
+    ).length
+
+    const systemCount = group.updates.filter(u =>
+      (u.file.includes('.yaml') || u.file.includes('.yml')) && !u.file.includes('.github/workflows/'),
+    ).length
+
+    const actionsCount = group.updates.filter(u =>
+      u.file.includes('.github/workflows/'),
+    ).length
+
+    // Add package type labels
+    if (npmCount > 0)
+      labels.push('npm')
+    if (composerCount > 0)
+      labels.push('composer')
+    if (systemCount > 0)
+      labels.push('system')
+    if (actionsCount > 0)
+      labels.push('github-actions')
+
     // For single package updates, add the specific package name as a label
     if (group.updates.length === 1) {
-      const update = group.updates[0]
+      // const update = group.updates[0]
       labels.push(group.title) // This will be like "chore(deps): update dependency stripe to 18.4.0"
     }
 
@@ -118,8 +147,17 @@ export class PullRequestGenerator {
         dependencyType: u.dependencyType,
         currentVersion: u.currentVersion,
         newVersion: u.newVersion,
+        updateType: u.updateType,
       })),
     })
+
+    // Early validation - warn about empty updates
+    if (group.updates.length === 0) {
+      this.log('⚠️ WARNING: No updates in group - this will result in sparse PR body', {
+        groupName: group.name,
+        groupTitle: group.title,
+      })
+    }
 
     // Count different types of updates
     const packageJsonCount = group.updates.filter(u =>
