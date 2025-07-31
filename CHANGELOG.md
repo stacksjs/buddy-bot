@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.7...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.7...main)
+
+### 🏡 Chore
+
+- Remove `cache workspace` remnant ([533ff97](https://github.com/stacksjs/buddy-bot/commit/533ff97))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.6...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.6...main)
