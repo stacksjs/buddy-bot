@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.6...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.6...main)
+
+### 🏡 Chore
+
+- Improve pr generation ([67d0df1](https://github.com/stacksjs/buddy-bot/commit/67d0df1))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.2...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.2...main)
