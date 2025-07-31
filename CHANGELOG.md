@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.5.18...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.18...main)
+
+### 🏡 Chore
+
+- Resolve test ([34e274b](https://github.com/stacksjs/buddy-bot/commit/34e274b))
+- Properly calculate labels ([1810ac5](https://github.com/stacksjs/buddy-bot/commit/1810ac5))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.17...v0.5.17
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.17...v0.5.17)
