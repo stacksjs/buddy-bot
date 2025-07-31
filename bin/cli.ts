@@ -688,18 +688,20 @@ cli
         process.exit(1)
       }
 
-      // Get GitHub token from environment
-      const token = process.env.GITHUB_TOKEN
+      // Get GitHub token from environment (prefer BUDDY_BOT_TOKEN for full permissions)
+      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
       if (!token) {
-        logger.error('❌ GITHUB_TOKEN environment variable required for PR operations')
+        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR operations')
         process.exit(1)
       }
 
       const { GitHubProvider } = await import('../src/git/github-provider')
+      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
       const gitProvider = new GitHubProvider(
         token,
         config.repository.owner,
         config.repository.name,
+        hasWorkflowPermissions,
       )
 
       const prNum = Number.parseInt(prNumber)
@@ -864,18 +866,20 @@ cli
         process.exit(1)
       }
 
-      // Get GitHub token from environment
-      const token = process.env.GITHUB_TOKEN
+      // Get GitHub token from environment (prefer BUDDY_BOT_TOKEN for full permissions)
+      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
       if (!token) {
-        logger.error('❌ GITHUB_TOKEN environment variable required for PR operations')
+        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR operations')
         process.exit(1)
       }
 
       const { GitHubProvider } = await import('../src/git/github-provider')
+      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
       const gitProvider = new GitHubProvider(
         token,
         config.repository.owner,
         config.repository.name,
+        hasWorkflowPermissions,
       )
 
       // Get all open PRs

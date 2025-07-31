@@ -11,6 +11,7 @@ export class GitHubProvider implements GitProvider {
     private readonly token: string,
     private readonly owner: string,
     private readonly repo: string,
+    private readonly hasWorkflowPermissions: boolean = false,
   ) {}
 
   async createBranch(branchName: string, baseBranch: string): Promise<void> {
@@ -46,14 +47,14 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithGit(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
-      // Filter out workflow files since they require special permissions
+      // Handle workflow files based on token permissions
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
 
-      if (workflowFiles.length > 0) {
+      if (workflowFiles.length > 0 && !this.hasWorkflowPermissions) {
         console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
-        console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
+        console.warn(`ℹ️ Workflow files will be skipped in this commit. You need to set BUDDY_BOT_TOKEN (with workflow permissions) in the repository settings.`)
 
         // If we have non-workflow files, commit just those
         if (nonWorkflowFiles.length > 0) {
@@ -62,9 +63,12 @@ export class GitHubProvider implements GitProvider {
         }
         else {
           console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
-          console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
+          console.warn(`💡 To update workflow files, you need to set BUDDY_BOT_TOKEN (with workflow permissions) in the repository settings.`)
           return // Exit early if no non-workflow files to commit
         }
+      }
+      else if (workflowFiles.length > 0) {
+        console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
       }
 
       // Configure Git identity if not already set
@@ -150,11 +154,11 @@ export class GitHubProvider implements GitProvider {
 
   private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[]): Promise<void> {
     try {
-      // Filter out workflow files since they require special permissions
+      // Handle workflow files based on token permissions
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
 
-      if (workflowFiles.length > 0) {
+      if (workflowFiles.length > 0 && !this.hasWorkflowPermissions) {
         console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
         console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
         console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
@@ -169,6 +173,9 @@ export class GitHubProvider implements GitProvider {
           console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
           return // Exit early if no non-workflow files to commit
         }
+      }
+      else if (workflowFiles.length > 0) {
+        console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
       }
 
       // Get current branch SHA

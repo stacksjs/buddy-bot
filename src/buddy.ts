@@ -117,18 +117,22 @@ export class Buddy {
         return
       }
 
-      // Get GitHub token from environment
-      const token = process.env.GITHUB_TOKEN
+      // Get GitHub token from environment (prefer BUDDY_BOT_TOKEN for full permissions)
+      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
       if (!token) {
-        this.logger.error('❌ GITHUB_TOKEN environment variable required for PR creation')
+        this.logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR creation')
         return
       }
+
+      // Determine if we have workflow permissions (BUDDY_BOT_TOKEN has full permissions)
+      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
 
       // Initialize GitHub provider
       const gitProvider = new GitHubProvider(
         token,
         this.config.repository.owner,
         this.config.repository.name,
+        hasWorkflowPermissions,
       )
 
       // Initialize PR generator with config
@@ -877,10 +881,13 @@ export class Buddy {
       }
 
       // Initialize git provider
+      const token = this.config.repository.token || process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN || ''
+      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
       const gitProvider = new GitHubProvider(
-        this.config.repository.token || process.env.GITHUB_TOKEN || '',
+        token,
         this.config.repository.owner,
         this.config.repository.name,
+        hasWorkflowPermissions,
       )
 
       // Collect dashboard data

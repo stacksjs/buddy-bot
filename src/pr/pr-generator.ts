@@ -5,7 +5,7 @@ import { ReleaseNotesFetcher } from '../services/release-notes-fetcher'
 export class PullRequestGenerator {
   private releaseNotesFetcher = new ReleaseNotesFetcher()
 
-  constructor(private readonly config?: BuddyBotConfig) {}
+  constructor(private readonly config?: BuddyBotConfig | undefined) {}
 
   /**
    * Generate pull requests for update groups
