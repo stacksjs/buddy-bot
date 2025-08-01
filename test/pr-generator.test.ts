@@ -409,4 +409,102 @@ describe('PullRequestGenerator', () => {
       expect(generator.generateTitle(updateWithoutMetadata)).toBeDefined()
     })
   })
+
+  describe('formatVersionChange', () => {
+    // Access the private method for testing
+    const formatVersionChange = (generator as any).formatVersionChange.bind(generator)
+
+    describe('constraint prefixes', () => {
+      it('should preserve caret constraint prefix', () => {
+        const result = formatVersionChange('^3.0', '3.0.0')
+        expect(result).toBe('`^3.0` → `^3.0.0`')
+      })
+
+      it('should preserve tilde constraint prefix', () => {
+        const result = formatVersionChange('~2.1', '2.1.5')
+        expect(result).toBe('`~2.1` → `~2.1.5`')
+      })
+
+      it('should preserve greater than or equal constraint prefix', () => {
+        const result = formatVersionChange('>=1.5.0', '1.6.0')
+        expect(result).toBe('`>=1.5.0` → `>=1.6.0`')
+      })
+
+      it('should preserve less than constraint prefix', () => {
+        const result = formatVersionChange('<2.0.0', '1.9.0')
+        expect(result).toBe('`<2.0.0` → `<1.9.0`')
+      })
+
+      it('should preserve multiple character constraint prefix', () => {
+        const result = formatVersionChange('<=4.2.1', '4.1.0')
+        expect(result).toBe('`<=4.2.1` → `<=4.1.0`')
+      })
+
+      it('should handle complex constraint with version prefix', () => {
+        const result = formatVersionChange('^v1.2.3', 'v1.2.4')
+        expect(result).toBe('`^v1.2.3` → `^v1.2.4`')
+      })
+    })
+
+    describe('no constraint prefix', () => {
+      it('should handle versions without constraint prefix', () => {
+        const result = formatVersionChange('1.0.0', '1.0.1')
+        expect(result).toBe('`1.0.0` → `1.0.1`')
+      })
+
+      it('should handle semantic versions without prefix', () => {
+        const result = formatVersionChange('2.15.4', '2.16.0')
+        expect(result).toBe('`2.15.4` → `2.16.0`')
+      })
+
+      it('should handle version with v prefix but no constraint', () => {
+        const result = formatVersionChange('v3.1.0', 'v3.2.0')
+        expect(result).toBe('`v3.1.0` → `v3.2.0`')
+      })
+    })
+
+    describe('edge cases', () => {
+      it('should handle empty versions gracefully', () => {
+        const result = formatVersionChange('', '')
+        expect(result).toBe('`` → ``')
+      })
+
+      it('should handle mixed constraint formats', () => {
+        const result = formatVersionChange('^6.0', '6.0.0')
+        expect(result).toBe('`^6.0` → `^6.0.0`')
+      })
+
+      it('should handle pre-release versions with constraints', () => {
+        const result = formatVersionChange('^1.0.0-alpha', '1.0.0-beta')
+        expect(result).toBe('`^1.0.0-alpha` → `^1.0.0-beta`')
+      })
+
+      it('should handle complex version identifiers', () => {
+        const result = formatVersionChange('~2.1.0-rc.1', '2.1.0-rc.2')
+        expect(result).toBe('`~2.1.0-rc.1` → `~2.1.0-rc.2`')
+      })
+
+      it('should handle npm range constraints', () => {
+        const result = formatVersionChange('^18.0.0 || ^19.0.0', '19.1.0')
+        expect(result).toBe('`^18.0.0 || ^19.0.0` → `^19.1.0`')
+      })
+    })
+
+    describe('real-world examples from issue', () => {
+      it('should correctly format zip package constraint update', () => {
+        const result = formatVersionChange('^3.0', '3.0.0')
+        expect(result).toBe('`^3.0` → `^3.0.0`')
+      })
+
+      it('should correctly format unzip package constraint update', () => {
+        const result = formatVersionChange('^6.0', '6.0.0')
+        expect(result).toBe('`^6.0` → `^6.0.0`')
+      })
+
+      it('should handle info-zip.org packages correctly', () => {
+        const result = formatVersionChange('^6.0', '6.0.0')
+        expect(result).toBe('`^6.0` → `^6.0.0`')
+      })
+    })
+  })
 })
