@@ -182,6 +182,53 @@ export class Buddy {
             else {
               this.logger.info(`🔄 Updates differ, will update existing PR with new content`)
 
+              // Get the existing branch name from the PR
+              const existingBranchName = existingPR.head
+
+              // Ensure we're on a clean main branch before generating updates
+              // This prevents reading modified files from previous PR generations
+              try {
+                const { spawn } = await import('node:child_process')
+                const runGitCommand = (command: string, args: string[]): Promise<void> => {
+                  return new Promise((resolve, reject) => {
+                    const child = spawn(command, args, { stdio: 'pipe' })
+                    child.on('close', (code) => {
+                      if (code === 0)
+                        resolve()
+                      else reject(new Error(`Git command failed with code ${code}`))
+                    })
+                    child.on('error', reject)
+                  })
+                }
+
+                // Reset to clean main state before generating file updates
+                await runGitCommand('git', ['checkout', 'main'])
+                await runGitCommand('git', ['reset', '--hard', 'HEAD'])
+                await runGitCommand('git', ['clean', '-fd'])
+
+                console.log(`🧹 Reset to clean main state before updating existing PR ${existingPR.number}`)
+              }
+              catch (error) {
+                console.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
+              }
+
+              // Regenerate file updates with latest dependency versions
+              const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
+
+              // Check if we have any file changes to commit
+              if (packageJsonUpdates.length === 0) {
+                this.logger.warn(`ℹ️ No file changes generated for existing PR ${existingPR.number}, updating metadata only`)
+              }
+              else {
+                this.logger.info(`📝 Regenerated ${packageJsonUpdates.length} file changes for existing PR ${existingPR.number}`)
+
+                // Commit the updated changes to the existing branch
+                // This will overwrite the old file content with the new versions
+                await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates)
+
+                this.logger.success(`✅ Updated files in branch ${existingBranchName} with latest dependency versions`)
+              }
+
               // Generate dynamic labels for the update
               const dynamicLabels = prGenerator.generateLabels(group)
 

@@ -308,6 +308,50 @@ describe('Buddy - Dependency Files Integration', () => {
     })
   })
 
+  describe('existing PR update logic', () => {
+    it('should regenerate file updates when updating existing PRs', async () => {
+      // Mock scenario where PR exists but needs file updates
+      readFileSpy.mockReturnValue(JSON.stringify({
+        dependencies: {
+          zip: '^3.0',
+          unzip: '^6.0',
+        },
+      }, null, 2))
+
+      const updates: PackageUpdate[] = [
+        {
+          name: 'zip',
+          currentVersion: '^3.0',
+          newVersion: '3.0.0',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'package.json',
+          metadata: undefined,
+        },
+        {
+          name: 'unzip',
+          currentVersion: '^6.0',
+          newVersion: '6.0.0',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'package.json',
+          metadata: undefined,
+        },
+      ]
+
+      const result = await buddy.generateAllFileUpdates(updates)
+
+      // Should generate file updates that preserve constraints correctly
+      expect(result).toHaveLength(1)
+      expect(result[0].path).toBe('package.json')
+      expect(result[0].content).toContain('"zip": "^3.0.0"')
+      expect(result[0].content).toContain('"unzip": "^6.0.0"')
+
+      // Critical: ensure no cross-contamination in the generated content
+      expect(result[0].content).not.toContain('"unzip": "^3.0.0"')
+    })
+  })
+
   describe('package.json filtering logic', () => {
     it('should correctly filter package.json updates', async () => {
       readFileSpy.mockReturnValue(mockPackageJsonContent)
