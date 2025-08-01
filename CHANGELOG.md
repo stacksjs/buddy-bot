@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v0.5.23...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.23...main)
+
+### 🩹 Fixes
+
+- Prevent package name cross-contamination with word boundaries ([457c43d](https://github.com/stacksjs/buddy-bot/commit/457c43d))
+
+### 🏡 Chore
+
+- Lint ([14de83e](https://github.com/stacksjs/buddy-bot/commit/14de83e))
+- Remove unused job ([4cad5c2](https://github.com/stacksjs/buddy-bot/commit/4cad5c2))
+
+### ✅ Tests
+
+- Add comprehensive tests for formatVersionChange method ([362cc90](https://github.com/stacksjs/buddy-bot/commit/362cc90))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.22...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.22...main)
