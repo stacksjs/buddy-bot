@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.5.25...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.25...main)
+
+### 🩹 Fixes
+
+- Regenerate & commit file changes when updating existing PRs ([bd38841](https://github.com/stacksjs/buddy-bot/commit/bd38841))
+
+### 🏡 Chore
+
+- Lint ([3fa0a53](https://github.com/stacksjs/buddy-bot/commit/3fa0a53))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.24...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.24...main)
