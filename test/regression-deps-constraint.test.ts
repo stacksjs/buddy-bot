@@ -191,4 +191,110 @@ dependencies:
       expect(result).toContain('"@types/node-fetch": ^2.0.0')
     })
   })
+
+  describe('YAML comment preservation', () => {
+    it('should preserve inline comments when updating dependencies', async () => {
+      const content = `dependencies:
+  aws/cli: ^2.22.26
+  bun: ^1.2.19
+  gh: ^2.76.1
+  zip: ^3.0
+  unzip: ^6.0
+  sqlite3: ^3.50.3
+  node: ^22.12.0 # only temporarily needed until bun & vue-tsc issue is resolved`
+
+      const updates: PackageUpdate[] = [
+        {
+          name: 'node',
+          currentVersion: '^22.12.0',
+          newVersion: '22.17.1',
+          updateType: 'minor',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+      ]
+
+      const result = await updateDependencyFile('deps.yaml', content, updates)
+
+      // Should update the version but preserve the comment
+      expect(result).toContain('node: ^22.17.1 # only temporarily needed until bun & vue-tsc issue is resolved')
+      expect(result).not.toContain('node: ^22.12.0') // Old version should be gone
+      expect(result).not.toContain('node: ^22.17.1\n') // Should not strip the comment
+    })
+
+    it('should preserve comments for multiple dependencies with comments', async () => {
+      const content = `dependencies:
+  aws/cli: ^2.22.26 # AWS command line interface
+  bun: ^1.2.19 # JavaScript runtime
+  node: ^22.12.0 # only temporarily needed until bun & vue-tsc issue is resolved
+  # redis: ^7.4.1 # disabled for now
+  sqlite3: ^3.50.3 # database engine`
+
+      const updates: PackageUpdate[] = [
+        {
+          name: 'aws/cli',
+          currentVersion: '^2.22.26',
+          newVersion: '2.27.60',
+          updateType: 'minor',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+        {
+          name: 'node',
+          currentVersion: '^22.12.0',
+          newVersion: '22.17.1',
+          updateType: 'minor',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+      ]
+
+      const result = await updateDependencyFile('deps.yaml', content, updates)
+
+      // Should update versions but preserve all comments
+      expect(result).toContain('aws/cli: ^2.27.60 # AWS command line interface')
+      expect(result).toContain('bun: ^1.2.19 # JavaScript runtime')
+      expect(result).toContain('node: ^22.17.1 # only temporarily needed until bun & vue-tsc issue is resolved')
+      expect(result).toContain('# redis: ^7.4.1 # disabled for now') // Full-line comments should remain
+      expect(result).toContain('sqlite3: ^3.50.3 # database engine')
+    })
+
+    it('should handle dependencies without comments alongside ones with comments', async () => {
+      const content = `dependencies:
+  zip: ^3.0
+  unzip: ^6.0 # extraction utility
+  sqlite3: ^3.50.3`
+
+      const updates: PackageUpdate[] = [
+        {
+          name: 'zip',
+          currentVersion: '^3.0',
+          newVersion: '3.0.0',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+        {
+          name: 'unzip',
+          currentVersion: '^6.0',
+          newVersion: '6.0.0',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+      ]
+
+      const result = await updateDependencyFile('deps.yaml', content, updates)
+
+      // Should update both, preserving comment only where it exists
+      expect(result).toContain('zip: ^3.0.0')
+      expect(result).toContain('unzip: ^6.0.0 # extraction utility')
+      expect(result).toContain('sqlite3: ^3.50.3')
+    })
+  })
 })

@@ -142,17 +142,26 @@ export async function updateDependencyFile(filePath: string, content: string, up
       // Create regex to find the package line and update its version
       // Handle various YAML formats: "package: version", "package:version", "  package: ^version"
       // Use word boundaries to prevent partial matches (e.g., "zip" matching "unzip")
+      // Capture: (1) package name and colon, (2) version part, (3) optional comment part
       const packageRegex = new RegExp(
-        `(\\s*\\b${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b\\s*:\\s*)([^\\n\\r]*)`,
+        `(\\s*\\b${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b\\s*:\\s*)([^\\s#\\n\\r]+)(\\s*#.*)?`,
         'g',
       )
 
       // Extract the original version prefix (^, ~, >=, etc.) or lack thereof
       const currentMatch = updatedContent.match(packageRegex)
       if (currentMatch) {
-        const currentVersionMatch = currentMatch[0].match(/:[ \t]*([^\\nr]+)/)
-        if (currentVersionMatch) {
-          const currentVersionInFile = currentVersionMatch[1].trim()
+        const fullMatch = currentMatch[0]
+        // Parse the match into parts: package+colon, version, comment
+        const matchParts = fullMatch.match(new RegExp(
+          `(\\s*\\b${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b\\s*:\\s*)([^\\s#\\n\\r]+)(\\s*#.*)?`,
+        ))
+
+        if (matchParts) {
+          const packageAndColon = matchParts[1] // "  package: "
+          const currentVersionInFile = matchParts[2] // "^1.0.0"
+          const commentPart = matchParts[3] || '' // " # comment" or empty
+
           const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
           const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
 
@@ -162,7 +171,9 @@ export async function updateDependencyFile(filePath: string, content: string, up
           // Use newVersion as-is if it already has a prefix, otherwise preserve original prefix
           const finalVersion = newVersionHasPrefix ? update.newVersion : `${originalPrefix}${update.newVersion}`
 
-          updatedContent = updatedContent.replace(packageRegex, `$1${finalVersion}`)
+          // Replace with: package+colon + new version + preserved comment
+          const replacement = `${packageAndColon}${finalVersion}${commentPart}`
+          updatedContent = updatedContent.replace(packageRegex, replacement)
         }
       }
     }
