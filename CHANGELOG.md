@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.22...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.22...main)
+
+### 🚀 Enhancements
+
+- Improve version change display to preserve constraint formats ([bdc0725](https://github.com/stacksjs/buddy-bot/commit/bdc0725))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.21...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.21...main)

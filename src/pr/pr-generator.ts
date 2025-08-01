@@ -619,7 +619,7 @@ export class PullRequestGenerator {
 
       body += `<details>\n`
       body += `<summary>${displayName}</summary>\n\n`
-      
+
       // Use consistent version formatting with constraints
       const versionChange = this.formatVersionChange(update.currentVersion, update.newVersion)
         .replace(/`/g, '') // Remove backticks for clean display in details
@@ -655,12 +655,12 @@ export class PullRequestGenerator {
     for (const update of uniqueComposerUpdates) {
       body += `<details>\n`
       body += `<summary>${update.name}</summary>\n\n`
-      
+
       // Use consistent version formatting with constraints
       const versionChange = this.formatVersionChange(update.currentVersion, update.newVersion)
         .replace(/`/g, '') // Remove backticks for clean display in details
       body += `**${versionChange}**\n\n`
-      
+
       body += `Visit [${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)}) on Packagist for more information.\n\n`
       body += `</details>\n\n`
     }
@@ -669,12 +669,12 @@ export class PullRequestGenerator {
     for (const update of uniqueGithubActionsUpdates) {
       body += `<details>\n`
       body += `<summary>${update.name}</summary>\n\n`
-      
+
       // Use consistent version formatting with constraints
       const versionChange = this.formatVersionChange(update.currentVersion, update.newVersion)
         .replace(/`/g, '') // Remove backticks for clean display in details
       body += `**${versionChange}**\n\n`
-      
+
       body += `Visit [${update.name}](https://github.com/${update.name}/releases) for release notes.\n\n`
       body += `</details>\n\n`
     }
