@@ -1001,13 +1001,13 @@ export class PullRequestGenerator {
    */
   private formatVersionChange(currentVersion: string, newVersion: string): string {
     // Check if current version has constraint prefix (^, ~, >=, etc.)
-    const constraintMatch = currentVersion.match(/^([^0-9]+)/)
+    const constraintMatch = currentVersion.match(/^(\D+)/)
     const constraintPrefix = constraintMatch ? constraintMatch[1] : ''
 
     // If there's a constraint prefix, preserve it in the new version display
     if (constraintPrefix) {
-      const cleanCurrent = currentVersion.replace(/^[^0-9]+/, '')
-      const cleanNew = newVersion.replace(/^[^0-9]+/, '')
+      const cleanCurrent = currentVersion.replace(/^\D+/, '')
+      const cleanNew = newVersion.replace(/^\D+/, '')
       return `\`${constraintPrefix}${cleanCurrent}\` → \`${constraintPrefix}${cleanNew}\``
     }
 
