@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { PackageUpdate } from '../src/types'
 import { describe, expect, it } from 'bun:test'
 import { updateDependencyFile } from '../src/utils/dependency-file-parser'
@@ -54,13 +55,13 @@ dependencies:
       const result = await updateDependencyFile('deps.yaml', content, updates)
 
       // CRITICAL: These are the exact assertions that must pass to prevent regression
-      expect(result).toContain('zip: ^3.0.0')   // zip should be updated to ^3.0.0
+      expect(result).toContain('zip: ^3.0.0') // zip should be updated to ^3.0.0
       expect(result).toContain('unzip: ^6.0.0') // unzip should be updated to ^6.0.0 (NOT ^3.0.0!)
-      
+
       // Ensure no cross-contamination happened
       expect(result).not.toContain('unzip: ^3.0.0') // This was the bug - unzip getting zip's version
       expect(result).not.toMatch(/^\s*zip: \^6\.0\.0/m) // zip should not get unzip's version
-      
+
       // Verify other packages remain unchanged
       expect(result).toContain('aws/cli: ^2.22.26')
       expect(result).toContain('bun: ^1.2.13')
@@ -126,7 +127,7 @@ dependencies:
       expect(result).toContain('bun: ^1.2.19')
       expect(result).toContain('zip: ^3.0.0')
       expect(result).toContain('unzip: ^6.0.0') // MUST be ^6.0.0, not ^3.0.0!
-      
+
       // Log the result for debugging if the test fails
       if (result.includes('unzip: ^3.0.0')) {
         console.log('REGRESSION: unzip got wrong version!')
