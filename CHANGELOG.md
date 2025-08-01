@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.5.24...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.24...main)
+
+### 🏡 Chore
+
+- Lint ([a53810f](https://github.com/stacksjs/buddy-bot/commit/a53810f))
+
+### ✅ Tests
+
+- Add comprehensive regression tests for dependency constraint preservation ([390ca90](https://github.com/stacksjs/buddy-bot/commit/390ca90))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.23...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.23...main)
