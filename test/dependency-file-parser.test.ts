@@ -528,11 +528,11 @@ devDependencies:
       // Should preserve constraints and update to correct versions
       expect(result).toContain('zip: ^3.0.0')
       expect(result).toContain('unzip: ^6.0.0')
-      
+
       // Should NOT have cross-contamination (wrong packages having wrong versions)
       expect(result).not.toContain('unzip: ^3.0.0')
       expect(result).not.toMatch(/^\s*zip: \^6\.0\.0/m)
-      
+
       // Should preserve other packages unchanged
       expect(result).toContain('node: ^22.12.0')
     })
