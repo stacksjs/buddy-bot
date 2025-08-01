@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.19...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.19...main)
+
+### 🏡 Chore
+
+- Adjust labels ([29bccd4](https://github.com/stacksjs/buddy-bot/commit/29bccd4))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.18...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.18...main)
