@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.20...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.20...main)
+
+### 🩹 Fixes
+
+- Use correct github-actions bot email in workflow template ([3e19b41](https://github.com/stacksjs/buddy-bot/commit/3e19b41))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.19...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.19...main)
