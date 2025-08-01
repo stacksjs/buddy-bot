@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.26...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.26...main)
+
+### 🩹 Fixes
+
+- Preserve YAML inline comments when updating deps ([57fc655](https://github.com/stacksjs/buddy-bot/commit/57fc655))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.25...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.25...main)
