@@ -141,8 +141,9 @@ export async function updateDependencyFile(filePath: string, content: string, up
 
       // Create regex to find the package line and update its version
       // Handle various YAML formats: "package: version", "package:version", "  package: ^version"
+      // Use word boundaries to prevent partial matches (e.g., "zip" matching "unzip")
       const packageRegex = new RegExp(
-        `(\\s*${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*)([^\\n\\r]*)`,
+        `(\\s*\\b${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b\\s*:\\s*)([^\\n\\r]*)`,
         'g',
       )
 

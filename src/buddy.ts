@@ -328,7 +328,7 @@ export class Buddy {
         // Use ts-pkgx to resolve latest versions
         const resolved = await resolveDependencyFile(file.path)
 
-        for (const dep of resolved.allDependencies || []) {
+                for (const dep of resolved.allDependencies || []) {
           // Compare constraint version with resolved version
           if (dep.constraint !== dep.version && dep.version) {
             // Extract version prefix (^, ~, >=, etc.) from constraint

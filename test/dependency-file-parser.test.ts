@@ -494,4 +494,73 @@ devDependencies:
       expect(result[0].type).toBe('update')
     })
   })
+
+  describe('updateDependencyFile - package name disambiguation', () => {
+    it('should correctly update similar package names without cross-contamination', async () => {
+      const content = `dependencies:
+  zip: ^3.0
+  unzip: ^6.0
+  node: ^22.12.0`
+
+      const updates: PackageUpdate[] = [
+        {
+          name: 'zip',
+          currentVersion: '^3.0',
+          newVersion: '3.0.0',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+        {
+          name: 'unzip',
+          currentVersion: '^6.0',
+          newVersion: '6.0.0',
+          updateType: 'patch',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+      ]
+
+      const result = await updateDependencyFile('deps.yaml', content, updates)
+
+      // Should preserve constraints and update to correct versions
+      expect(result).toContain('zip: ^3.0.0')
+      expect(result).toContain('unzip: ^6.0.0')
+      
+      // Should NOT have cross-contamination (wrong packages having wrong versions)
+      expect(result).not.toContain('unzip: ^3.0.0')
+      expect(result).not.toMatch(/^\s*zip: \^6\.0\.0/m)
+      
+      // Should preserve other packages unchanged
+      expect(result).toContain('node: ^22.12.0')
+    })
+
+    it('should handle packages with shared substrings correctly', async () => {
+      const content = `dependencies:
+  vue: ^3.0.0
+  vue-router: ^4.0.0
+  @vue/compiler-sfc: ^3.0.0`
+
+      const updates: PackageUpdate[] = [
+        {
+          name: 'vue',
+          currentVersion: '^3.0.0',
+          newVersion: '3.5.0',
+          updateType: 'minor',
+          dependencyType: 'dependencies',
+          file: 'deps.yaml',
+          metadata: undefined,
+        },
+      ]
+
+      const result = await updateDependencyFile('deps.yaml', content, updates)
+
+      // Should only update 'vue', not 'vue-router' or '@vue/compiler-sfc'
+      expect(result).toContain('vue: ^3.5.0')
+      expect(result).toContain('vue-router: ^4.0.0')
+      expect(result).toContain('@vue/compiler-sfc: ^3.0.0')
+    })
+  })
 })
