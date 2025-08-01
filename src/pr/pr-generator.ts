@@ -61,7 +61,7 @@ export class PullRequestGenerator {
    * Generate labels for a pull request
    */
   generateLabels(group: UpdateGroup): string[] {
-    const labels = ['dependencies', 'automated']
+    const labels = ['dependencies']
 
     // Add update type labels
     if (group.updateType === 'major') {
@@ -103,8 +103,8 @@ export class PullRequestGenerator {
 
     // For single package updates, add the specific package name as a label
     if (group.updates.length === 1) {
-      // const update = group.updates[0]
-      labels.push(group.title) // This will be like "chore(deps): update dependency stripe to 18.4.0"
+      const update = group.updates[0]
+      labels.push(update.name) // Just the package name like "stripe"
     }
 
     return labels
