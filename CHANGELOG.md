@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.21...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.21...main)
+
+### 🏡 Chore
+
+- Simplify user email ([8fe5d2f](https://github.com/stacksjs/buddy-bot/commit/8fe5d2f))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.20...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.20...main)
