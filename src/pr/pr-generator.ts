@@ -452,10 +452,10 @@ export class PullRequestGenerator {
           : `https://pkgx.com/pkg/${encodeURIComponent(update.name)}`
         const packageCell = `[${displayName}](${packageUrl})`
 
-        // Enhanced version change display with update type
+        // Enhanced version change display with update type and proper constraint format
         const updateType = this.getUpdateType(update.currentVersion, update.newVersion)
         const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
-        const change = `\`${update.currentVersion}\` → \`${update.newVersion}\``
+        const change = this.formatVersionChange(update.currentVersion, update.newVersion)
 
         // File reference with link to actual file
         const fileName = update.file.split('/').pop() || update.file
@@ -491,10 +491,10 @@ export class PullRequestGenerator {
         const actionUrl = `https://github.com/${update.name}`
         const actionCell = `[${update.name}](${actionUrl})`
 
-        // Enhanced version change display with update type
+        // Enhanced version change display with update type and proper constraint format
         const updateType = this.getUpdateType(update.currentVersion, update.newVersion)
         const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
-        const change = `\`${update.currentVersion}\` → \`${update.newVersion}\``
+        const change = this.formatVersionChange(update.currentVersion, update.newVersion)
 
         // Enhanced file reference with proper GitHub links
         const fileLinks = update.file.includes(', ')
@@ -619,7 +619,11 @@ export class PullRequestGenerator {
 
       body += `<details>\n`
       body += `<summary>${displayName}</summary>\n\n`
-      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+      
+      // Use consistent version formatting with constraints
+      const versionChange = this.formatVersionChange(update.currentVersion, update.newVersion)
+        .replace(/`/g, '') // Remove backticks for clean display in details
+      body += `**${versionChange}**\n\n`
 
       // Add file reference with link to the dependency file
       if (update.file) {
@@ -651,7 +655,12 @@ export class PullRequestGenerator {
     for (const update of uniqueComposerUpdates) {
       body += `<details>\n`
       body += `<summary>${update.name}</summary>\n\n`
-      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+      
+      // Use consistent version formatting with constraints
+      const versionChange = this.formatVersionChange(update.currentVersion, update.newVersion)
+        .replace(/`/g, '') // Remove backticks for clean display in details
+      body += `**${versionChange}**\n\n`
+      
       body += `Visit [${update.name}](https://packagist.org/packages/${encodeURIComponent(update.name)}) on Packagist for more information.\n\n`
       body += `</details>\n\n`
     }
@@ -660,7 +669,12 @@ export class PullRequestGenerator {
     for (const update of uniqueGithubActionsUpdates) {
       body += `<details>\n`
       body += `<summary>${update.name}</summary>\n\n`
-      body += `**${update.currentVersion} -> ${update.newVersion}**\n\n`
+      
+      // Use consistent version formatting with constraints
+      const versionChange = this.formatVersionChange(update.currentVersion, update.newVersion)
+        .replace(/`/g, '') // Remove backticks for clean display in details
+      body += `**${versionChange}**\n\n`
+      
       body += `Visit [${update.name}](https://github.com/${update.name}/releases) for release notes.\n\n`
       body += `</details>\n\n`
     }
@@ -980,6 +994,25 @@ export class PullRequestGenerator {
 
     // Everything else is patch
     return 'patch'
+  }
+
+  /**
+   * Format version change preserving constraint prefixes
+   */
+  private formatVersionChange(currentVersion: string, newVersion: string): string {
+    // Check if current version has constraint prefix (^, ~, >=, etc.)
+    const constraintMatch = currentVersion.match(/^([^0-9]+)/)
+    const constraintPrefix = constraintMatch ? constraintMatch[1] : ''
+
+    // If there's a constraint prefix, preserve it in the new version display
+    if (constraintPrefix) {
+      const cleanCurrent = currentVersion.replace(/^[^0-9]+/, '')
+      const cleanNew = newVersion.replace(/^[^0-9]+/, '')
+      return `\`${constraintPrefix}${cleanCurrent}\` → \`${constraintPrefix}${cleanNew}\``
+    }
+
+    // No constraint prefix, display as-is
+    return `\`${currentVersion}\` → \`${newVersion}\``
   }
 
   /**
