@@ -376,5 +376,121 @@ jobs:
 
       expect(result).toBeNull()
     })
+
+    it('should detect major version updates correctly', async () => {
+      const { fetchLatestActionVersion } = await import('../src/utils/github-actions-parser')
+
+      // Mock the latest release API to return v5 (major update from v4)
+      const mockLatestResponse = { tag_name: 'v5' }
+      const mockFetch = (spyOn(globalThis, 'fetch') as any).mockImplementation(async (url: string) => {
+        if (url.includes('/releases/latest')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockLatestResponse,
+          } as any
+        }
+        // For other API calls, return empty results
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        } as any
+      })
+
+      const result = await fetchLatestActionVersion('actions/download-artifact')
+
+      expect(result).toBe('v5')
+      expect(mockFetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/download-artifact/releases/latest', {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'buddy-bot',
+        },
+      })
+    })
+
+    it('should fallback to all releases when latest release fails', async () => {
+      const { fetchLatestActionVersion } = await import('../src/utils/github-actions-parser')
+
+      const mockReleases = [
+        { tag_name: 'v5.0.0', published_at: '2024-01-15T00:00:00Z' },
+        { tag_name: 'v4.1.0', published_at: '2024-01-10T00:00:00Z' },
+        { tag_name: 'v4.0.0', published_at: '2024-01-05T00:00:00Z' },
+      ]
+
+      const mockFetch = (spyOn(globalThis, 'fetch') as any).mockImplementation(async (url: string) => {
+        if (url.includes('/releases/latest')) {
+          return {
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+          } as any
+        }
+        if (url.includes('/releases?')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockReleases,
+          } as any
+        }
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        } as any
+      })
+
+      const result = await fetchLatestActionVersion('actions/download-artifact')
+
+      expect(result).toBe('v5.0.0')
+      expect(mockFetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/download-artifact/releases?per_page=10', {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'buddy-bot',
+        },
+      })
+    })
+
+    it('should fallback to tags when releases fail', async () => {
+      const { fetchLatestActionVersion } = await import('../src/utils/github-actions-parser')
+
+      const mockTags = [
+        { name: 'v5.0.0' },
+        { name: 'v4.1.0' },
+        { name: 'v4.0.0' },
+      ]
+
+      const mockFetch = (spyOn(globalThis, 'fetch') as any).mockImplementation(async (url: string) => {
+        if (url.includes('/releases/latest') || url.includes('/releases?')) {
+          return {
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+          } as any
+        }
+        if (url.includes('/tags?')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => mockTags,
+          } as any
+        }
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        } as any
+      })
+
+      const result = await fetchLatestActionVersion('actions/download-artifact')
+
+      expect(result).toBe('v5.0.0')
+      expect(mockFetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/download-artifact/tags?per_page=10', {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'buddy-bot',
+        },
+      })
+    })
   })
 })

@@ -566,10 +566,23 @@ export class GitHubProvider implements GitProvider {
 
   async closePullRequest(prNumber: number): Promise<void> {
     try {
+      // Get PR details to know the branch name for cleanup
+      const prDetails = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
+      const branchName = prDetails.head.ref
+
       await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, {
         state: 'closed',
       })
       console.log(`✅ Closed PR #${prNumber}`)
+
+      // Clean up the branch after closing
+      try {
+        await this.deleteBranch(branchName)
+        console.log(`🧹 Cleaned up branch ${branchName} after close`)
+      }
+      catch (cleanupError) {
+        console.warn(`⚠️ Failed to clean up branch ${branchName}:`, cleanupError)
+      }
     }
     catch (error) {
       console.error(`❌ Failed to close PR #${prNumber}:`, error)
@@ -581,15 +594,54 @@ export class GitHubProvider implements GitProvider {
     try {
       const mergeMethod = strategy === 'rebase' ? 'rebase' : strategy === 'squash' ? 'squash' : 'merge'
 
+      // Get PR details to know the branch name for cleanup
+      const prDetails = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
+      const branchName = prDetails.head.ref
+
       await this.apiRequest(`PUT /repos/${this.owner}/${this.repo}/pulls/${prNumber}/merge`, {
         merge_method: mergeMethod,
       })
 
       console.log(`✅ Merged PR #${prNumber} using ${strategy}`)
+
+      // Clean up the branch after successful merge
+      try {
+        await this.deleteBranch(branchName)
+        console.log(`🧹 Cleaned up branch ${branchName} after merge`)
+      }
+      catch (cleanupError) {
+        console.warn(`⚠️ Failed to clean up branch ${branchName}:`, cleanupError)
+      }
     }
     catch (error) {
       console.error(`❌ Failed to merge PR #${prNumber}:`, error)
       throw error
+    }
+  }
+
+  /**
+   * Delete a branch
+   */
+  async deleteBranch(branchName: string): Promise<void> {
+    try {
+      // Try to delete using GitHub CLI first
+      try {
+        await this.runCommand('gh', ['api', 'repos', this.owner, this.repo, 'git/refs/heads', branchName, '-X', 'DELETE'])
+        console.log(`✅ Deleted branch ${branchName} via CLI`)
+        return
+      }
+      catch (cliError) {
+        // Fall back to API
+        console.log(`⚠️ CLI branch deletion failed, trying API: ${cliError}`)
+      }
+
+      // Fall back to API
+      await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`)
+      console.log(`✅ Deleted branch ${branchName} via API`)
+    }
+    catch (error) {
+      // Don't throw error for branch deletion failures - they're not critical
+      console.warn(`⚠️ Failed to delete branch ${branchName}:`, error)
     }
   }
 

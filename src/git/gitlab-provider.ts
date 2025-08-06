@@ -61,6 +61,11 @@ export class GitLabProvider implements GitProvider {
     console.log(`Would merge MR #${prNumber} using ${strategy}`)
   }
 
+  async deleteBranch(branchName: string): Promise<void> {
+    // TODO: Implement GitLab API call to delete branch
+    console.log(`Would delete branch ${branchName}`)
+  }
+
   async createIssue(options: IssueOptions): Promise<Issue> {
     // TODO: Implement GitLab API call to create issue
     console.log(`Would create issue: ${options.title}`)

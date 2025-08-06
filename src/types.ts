@@ -243,6 +243,9 @@ export interface GitProvider {
   /** Merge pull request */
   mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
 
+  /** Delete a branch */
+  deleteBranch: (branchName: string) => Promise<void>
+
   /** Create GitHub issue */
   createIssue: (options: IssueOptions) => Promise<Issue>
 

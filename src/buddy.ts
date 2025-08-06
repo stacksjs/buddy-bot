@@ -425,20 +425,31 @@ export class Buddy {
     // Filter to only GitHub Actions files
     const githubActionsFiles = packageFiles.filter(file => isGitHubActionsFile(file.path))
 
+    this.logger.info(`🔍 Found ${githubActionsFiles.length} GitHub Actions workflow files`)
+
     for (const file of githubActionsFiles) {
       try {
         this.logger.info(`Checking GitHub Actions file: ${file.path}`)
 
         // Get all GitHub Actions dependencies from this file
-        for (const dep of file.dependencies) {
-          if (dep.type === 'github-actions') {
-            try {
-              // Fetch latest version for this action
-              const latestVersion = await fetchLatestActionVersion(dep.name)
+        const actionDeps = file.dependencies.filter(dep => dep.type === 'github-actions')
+        this.logger.info(`Found ${actionDeps.length} GitHub Actions in ${file.path}`)
 
-              if (latestVersion && latestVersion !== dep.currentVersion) {
+        for (const dep of actionDeps) {
+          try {
+            this.logger.info(`Checking action: ${dep.name}@${dep.currentVersion}`)
+
+            // Fetch latest version for this action
+            const latestVersion = await fetchLatestActionVersion(dep.name)
+
+            if (latestVersion) {
+              this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)
+
+              if (latestVersion !== dep.currentVersion) {
                 // Determine update type
                 const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
+
+                this.logger.info(`Update available: ${dep.name} ${dep.currentVersion} → ${latestVersion} (${updateType})`)
 
                 updates.push({
                   name: dep.name,
@@ -453,10 +464,16 @@ export class Buddy {
                   homepage: `https://github.com/${dep.name}`,
                 })
               }
+              else {
+                this.logger.info(`No update needed for ${dep.name}: already at ${latestVersion}`)
+              }
             }
-            catch (error) {
-              this.logger.warn(`Failed to check version for action ${dep.name}:`, error)
+            else {
+              this.logger.warn(`Could not fetch latest version for ${dep.name}`)
             }
+          }
+          catch (error) {
+            this.logger.warn(`Failed to check version for action ${dep.name}:`, error)
           }
         }
       }
@@ -464,6 +481,8 @@ export class Buddy {
         this.logger.error(`Failed to check GitHub Actions file ${file.path}:`, error)
       }
     }
+
+    this.logger.info(`Generated ${updates.length} GitHub Actions updates`)
 
     // Additional safety: deduplicate updates by name, version, and file
     // This ensures no duplicate PackageUpdate objects make it to PR generation
@@ -479,6 +498,8 @@ export class Buddy {
       }
       return acc
     }, [] as PackageUpdate[])
+
+    this.logger.info(`After deduplication: ${deduplicatedUpdates.length} unique GitHub Actions updates`)
 
     return deduplicatedUpdates
   }

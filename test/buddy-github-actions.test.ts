@@ -133,12 +133,20 @@ describe('Buddy - GitHub Actions Integration', () => {
     it('should handle GitHub API failures gracefully', async () => {
       const buddy = new Buddy(mockConfig)
 
-      // Mock GitHub API to fail
+      // Mock GitHub API to fail for first two actions, succeed for third
       fetchSpy = spyOn(globalThis, 'fetch')
         .mockResolvedValueOnce({
           ok: false,
           status: 404,
         } as Response) // actions/checkout (not found)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+        } as Response) // actions/checkout fallback to releases
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+        } as Response) // actions/checkout fallback to tags
         .mockRejectedValueOnce(new Error('Network error')) // oven-sh/setup-bun (network error)
         .mockResolvedValueOnce({
           ok: true,
