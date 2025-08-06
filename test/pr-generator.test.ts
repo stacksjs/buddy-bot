@@ -28,6 +28,66 @@ describe('PullRequestGenerator', () => {
     generator = new PullRequestGenerator()
   })
 
+  describe('generateLabels', () => {
+    it('should generate labels for single package update', () => {
+      const labels = generator.generateLabels(mockUpdateGroup)
+      expect(labels).toContain('dependencies')
+      expect(labels).toContain('patch')
+      expect(labels).toContain('npm')
+      expect(labels).toContain('typescript')
+    })
+
+    it('should sanitize package names with slashes for GitHub labels', () => {
+      const slashUpdateGroup: UpdateGroup = {
+        name: 'Major Update - shivammathur/setup-php',
+        updateType: 'major',
+        title: 'chore(deps): update dependency shivammathur/setup-php to v2.35.2',
+        body: '',
+        updates: [{
+          name: 'shivammathur/setup-php',
+          currentVersion: 'v2',
+          newVersion: '2.35.2',
+          updateType: 'major',
+          dependencyType: 'github-actions',
+          file: '.github/workflows/buddy-check.yml',
+          metadata: undefined,
+        }],
+      }
+
+      const labels = generator.generateLabels(slashUpdateGroup)
+      expect(labels).toContain('dependencies')
+      expect(labels).toContain('major')
+      expect(labels).toContain('github-actions')
+      expect(labels).toContain('shivammathur-setup-php') // Sanitized label
+      expect(labels).not.toContain('shivammathur/setup-php') // Original name should not be present
+    })
+
+    it('should sanitize package names with spaces for GitHub labels', () => {
+      const spaceUpdateGroup: UpdateGroup = {
+        name: 'Minor Update - some package name',
+        updateType: 'minor',
+        title: 'chore(deps): update dependency some package name to v2.0.0',
+        body: '',
+        updates: [{
+          name: 'some package name',
+          currentVersion: 'v1.0.0',
+          newVersion: 'v2.0.0',
+          updateType: 'minor',
+          dependencyType: 'dependencies',
+          file: 'package.json',
+          metadata: undefined,
+        }],
+      }
+
+      const labels = generator.generateLabels(spaceUpdateGroup)
+      expect(labels).toContain('dependencies')
+      expect(labels).toContain('minor')
+      expect(labels).toContain('npm')
+      expect(labels).toContain('some-package-name') // Sanitized label
+      expect(labels).not.toContain('some package name') // Original name should not be present
+    })
+  })
+
   describe('generateTitle', () => {
     it('should generate title for single package update', () => {
       const title = generator.generateTitle(mockUpdateGroup)

@@ -510,9 +510,9 @@ export class Buddy {
    */
   private getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' {
     try {
-      // Clean version strings, including @ prefix for version ranges
-      const cleanCurrent = current.replace(/^[\^~>=<@]+/, '')
-      const cleanLatest = latest.replace(/^[\^~>=<@]+/, '')
+      // Clean version strings, including v, @ prefix for version ranges
+      const cleanCurrent = current.replace(/^[v^~>=<@]+/, '')
+      const cleanLatest = latest.replace(/^[v^~>=<@]+/, '')
 
       const currentParts = cleanCurrent.split('.').map((part) => {
         const num = Number(part)

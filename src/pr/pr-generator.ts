@@ -104,7 +104,9 @@ export class PullRequestGenerator {
     // For single package updates, add the specific package name as a label
     if (group.updates.length === 1) {
       const update = group.updates[0]
-      labels.push(update.name) // Just the package name like "stripe"
+      // Sanitize package name for GitHub label (no slashes, spaces, or special chars)
+      const sanitizedLabel = update.name.replace(/[/\s]/g, '-').toLowerCase()
+      labels.push(sanitizedLabel)
     }
 
     return labels
