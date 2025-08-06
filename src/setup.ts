@@ -1172,6 +1172,7 @@ env:
   # Add it as a repository secret named 'BUDDY_BOT_TOKEN'
   # If BUDDY_BOT_TOKEN is not available, falls back to GITHUB_TOKEN (limited permissions)
   GITHUB_TOKEN: ${tokenEnv}
+  BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
 permissions:
   contents: write
@@ -1308,6 +1309,7 @@ ${generateComposerSetupSteps()}
 
         env:
           GITHUB_TOKEN: ${tokenEnv}
+          BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Create rebase check summary
         if: always()
@@ -1395,6 +1397,7 @@ ${generateComposerSetupSteps()}
 
         env:
           GITHUB_TOKEN: ${tokenEnv}
+          BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
         if: \${{ github.event.inputs.dry_run == 'true' }}
@@ -1517,6 +1520,7 @@ ${generateComposerSetupSteps()}
 
         env:
           GITHUB_TOKEN: ${tokenEnv}
+          BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
         if: \${{ github.event.inputs.dry_run == 'true' }}

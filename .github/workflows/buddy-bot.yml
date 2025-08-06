@@ -195,6 +195,7 @@ jobs:
           echo "🔧 Environment info:"
           echo "Current directory: $(pwd)"
           echo "GITHUB_TOKEN set: $([[ -n "$GITHUB_TOKEN" ]] && echo "Yes" || echo "No")"
+          echo "BUDDY_BOT_TOKEN set: $([[ -n "$BUDDY_BOT_TOKEN" ]] && echo "Yes" || echo "No")"
           echo "Repository: ${{ github.repository }}"
           echo "Event: ${{ github.event_name }}"
           echo ""
@@ -212,6 +213,7 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Create rebase check summary
         if: always()
@@ -311,6 +313,7 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
         if: ${{ github.event.inputs.dry_run == 'true' }}
@@ -433,6 +436,7 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
         if: ${{ github.event.inputs.dry_run == 'true' }}
