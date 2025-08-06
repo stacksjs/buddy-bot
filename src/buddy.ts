@@ -128,11 +128,16 @@ export class Buddy {
 
       // Determine if we have workflow permissions (BUDDY_BOT_TOKEN has full permissions)
       const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
+
       if (process.env.BUDDY_BOT_TOKEN) {
         console.log('✅ BUDDY_BOT_TOKEN detected - workflow permissions enabled')
+        console.log(`🔑 Token length: ${process.env.BUDDY_BOT_TOKEN.length} characters`)
       }
       else {
         console.log('⚠️ BUDDY_BOT_TOKEN not found - workflow permissions disabled')
+        console.log('💡 Ensure BUDDY_BOT_TOKEN is properly configured in GitHub secrets')
+        // eslint-disable-next-line no-template-curly-in-string
+        console.log('💡 The workflow should set: env: BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}')
       }
 
       // Initialize GitHub provider

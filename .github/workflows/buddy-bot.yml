@@ -62,7 +62,8 @@ env:
   # Create a PAT at: https://github.com/settings/tokens
   # Add it as a repository secret named 'BUDDY_BOT_TOKEN'
   # If BUDDY_BOT_TOKEN is not available, falls back to GITHUB_TOKEN (limited permissions)
-  GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
 permissions:
   contents: write

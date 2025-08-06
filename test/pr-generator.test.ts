@@ -37,7 +37,7 @@ describe('PullRequestGenerator', () => {
       expect(labels).toContain('typescript')
     })
 
-    it('should sanitize package names with slashes for GitHub labels', () => {
+    it('should add package names with slashes as labels', () => {
       const slashUpdateGroup: UpdateGroup = {
         name: 'Minor Update - shivammathur/setup-php',
         updateType: 'minor',
@@ -58,11 +58,10 @@ describe('PullRequestGenerator', () => {
       expect(labels).toContain('dependencies')
       expect(labels).toContain('minor')
       expect(labels).toContain('github-actions')
-      expect(labels).toContain('shivammathur-setup-php') // Sanitized label
-      expect(labels).not.toContain('shivammathur/setup-php') // Original name should not be present
+      expect(labels).toContain('shivammathur/setup-php') // Package name should be added as label
     })
 
-    it('should sanitize package names with spaces for GitHub labels', () => {
+    it('should add package names with spaces as labels', () => {
       const spaceUpdateGroup: UpdateGroup = {
         name: 'Minor Update - some package name',
         updateType: 'minor',
@@ -83,8 +82,31 @@ describe('PullRequestGenerator', () => {
       expect(labels).toContain('dependencies')
       expect(labels).toContain('minor')
       expect(labels).toContain('npm')
-      expect(labels).toContain('some-package-name') // Sanitized label
-      expect(labels).not.toContain('some package name') // Original name should not be present
+      expect(labels).toContain('some package name') // Package name should be added as label
+    })
+
+    it('should add any package name as a label', () => {
+      const packageGroup: UpdateGroup = {
+        name: 'Minor Update - @vue-macros/volar',
+        updateType: 'minor',
+        title: 'chore(deps): update dependency @vue-macros/volar to v5.9.2',
+        body: '',
+        updates: [{
+          name: '@vue-macros/volar',
+          currentVersion: '5.8.3',
+          newVersion: '5.9.2',
+          updateType: 'minor',
+          dependencyType: 'dependencies',
+          file: 'package.json',
+          metadata: undefined,
+        }],
+      }
+
+      const labels = generator.generateLabels(packageGroup)
+      expect(labels).toContain('dependencies')
+      expect(labels).toContain('minor')
+      expect(labels).toContain('npm')
+      expect(labels).toContain('@vue-macros/volar') // Package name should be added as label
     })
   })
 

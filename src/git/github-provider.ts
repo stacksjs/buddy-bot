@@ -64,7 +64,32 @@ export class GitHubProvider implements GitProvider {
         else {
           console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
           console.warn(`💡 To update workflow files, ensure BUDDY_BOT_TOKEN is set with workflow:write permissions.`)
-          return // Exit early if no non-workflow files to commit
+          // Don't return early - we'll create an empty commit to avoid "No commits between branches" error
+          console.log(`📝 Creating empty commit to avoid "No commits between branches" error...`)
+          try {
+            await this.runCommand('git', ['commit', '--allow-empty', '-m', 'Workflow files require elevated permissions - no changes committed'])
+            console.log(`✅ Created empty commit for workflow-only PR`)
+          }
+          catch (error) {
+            console.warn(`⚠️ Failed to create empty commit: ${error}`)
+            // Try to create a minimal README update instead
+            try {
+              const readmePath = 'README.md'
+              const fs = await import('node:fs')
+              if (fs.existsSync(readmePath)) {
+                const content = fs.readFileSync(readmePath, 'utf-8')
+                const updatedContent = `${content}\n\n<!-- Updated by Buddy Bot -->\n`
+                fs.writeFileSync(readmePath, updatedContent)
+                await this.runCommand('git', ['add', readmePath])
+                await this.runCommand('git', ['commit', '-m', 'Update README for workflow-only PR'])
+                console.log(`✅ Created README update for workflow-only PR`)
+              }
+            }
+            catch (readmeError) {
+              console.error(`❌ Failed to create any commit: ${readmeError}`)
+            }
+          }
+          return
         }
       }
       else if (workflowFiles.length > 0) {
@@ -387,6 +412,17 @@ export class GitHubProvider implements GitProvider {
         }
         catch (labelError) {
           console.warn(`⚠️ Failed to add labels: ${labelError}`)
+          // Try to add labels one by one to handle missing labels gracefully
+          for (const label of options.labels) {
+            try {
+              await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${response.number}/labels`, {
+                labels: [label],
+              })
+            }
+            catch (singleLabelError) {
+              console.warn(`⚠️ Failed to add label '${label}': ${singleLabelError}`)
+            }
+          }
         }
       }
 
@@ -507,6 +543,17 @@ export class GitHubProvider implements GitProvider {
         }
         catch (labelError) {
           console.warn(`⚠️ Failed to update labels for PR #${prNumber}: ${labelError}`)
+          // Try to add labels one by one to handle missing labels gracefully
+          for (const label of options.labels) {
+            try {
+              await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${prNumber}/labels`, {
+                labels: [label],
+              })
+            }
+            catch (singleLabelError) {
+              console.warn(`⚠️ Failed to add label '${label}' to PR #${prNumber}: ${singleLabelError}`)
+            }
+          }
         }
       }
 
