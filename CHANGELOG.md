@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.6.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.0...main)
+
+### 🏡 Chore
+
+- Improve deprecated tests ([4c8b706](https://github.com/stacksjs/buddy-bot/commit/4c8b706))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.28...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.28...main)
