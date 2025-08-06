@@ -39,15 +39,15 @@ describe('PullRequestGenerator', () => {
 
     it('should sanitize package names with slashes for GitHub labels', () => {
       const slashUpdateGroup: UpdateGroup = {
-        name: 'Major Update - shivammathur/setup-php',
-        updateType: 'major',
+        name: 'Minor Update - shivammathur/setup-php',
+        updateType: 'minor',
         title: 'chore(deps): update dependency shivammathur/setup-php to v2.35.2',
         body: '',
         updates: [{
           name: 'shivammathur/setup-php',
           currentVersion: 'v2',
           newVersion: '2.35.2',
-          updateType: 'major',
+          updateType: 'minor',
           dependencyType: 'github-actions',
           file: '.github/workflows/buddy-check.yml',
           metadata: undefined,
@@ -56,7 +56,7 @@ describe('PullRequestGenerator', () => {
 
       const labels = generator.generateLabels(slashUpdateGroup)
       expect(labels).toContain('dependencies')
-      expect(labels).toContain('major')
+      expect(labels).toContain('minor')
       expect(labels).toContain('github-actions')
       expect(labels).toContain('shivammathur-setup-php') // Sanitized label
       expect(labels).not.toContain('shivammathur/setup-php') // Original name should not be present
