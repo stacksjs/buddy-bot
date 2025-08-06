@@ -319,9 +319,8 @@ export class GitHubProvider implements GitProvider {
         args.push('--assignee', options.assignees.join(','))
       }
 
-      if (options.labels && options.labels.length > 0) {
-        args.push('--label', options.labels.join(','))
-      }
+      // Note: We don't add labels via CLI to avoid failures when labels don't exist
+      // Labels will be added via API after PR creation if needed
 
       // Execute GitHub CLI command
       const result = await this.runCommand('gh', args)
@@ -336,6 +335,30 @@ export class GitHubProvider implements GitProvider {
       const prUrl = prUrlMatch[0]
 
       console.log(`✅ Created PR #${prNumber}: ${options.title}`)
+
+      // Add labels via API after PR creation to handle missing labels gracefully
+      if (options.labels && options.labels.length > 0) {
+        try {
+          await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${prNumber}/labels`, {
+            labels: options.labels,
+          })
+          console.log(`✅ Added labels to PR #${prNumber}: ${options.labels.join(', ')}`)
+        }
+        catch (labelError) {
+          console.warn(`⚠️ Failed to add labels: ${labelError}`)
+          // Try to add labels one by one to handle missing labels gracefully
+          for (const label of options.labels) {
+            try {
+              await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${prNumber}/labels`, {
+                labels: [label],
+              })
+            }
+            catch (singleLabelError) {
+              console.warn(`⚠️ Failed to add label '${label}': ${singleLabelError}`)
+            }
+          }
+        }
+      }
 
       return {
         number: prNumber,
