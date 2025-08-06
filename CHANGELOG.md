@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.6.1...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.1...main)
+
+### 🏡 Chore
+
+- Minor updates ([65865ee](https://github.com/stacksjs/buddy-bot/commit/65865ee))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.6.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.0...main)
