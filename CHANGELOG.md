@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.6.3...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.3...main)
+
+### 🏡 Chore
+
+- Properly set `BUDDY_BOT_TOKEN` ([4ec43e6](https://github.com/stacksjs/buddy-bot/commit/4ec43e6))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.6.2...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.2...main)
