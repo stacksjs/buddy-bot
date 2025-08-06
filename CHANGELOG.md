@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.6.2...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.2...main)
+
+### 🏡 Chore
+
+- Adjust test ([1194771](https://github.com/stacksjs/buddy-bot/commit/1194771))
+- More minor adjustments ([174b24f](https://github.com/stacksjs/buddy-bot/commit/174b24f))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.6.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.1...main)
