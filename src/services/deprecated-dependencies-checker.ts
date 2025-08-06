@@ -43,7 +43,7 @@ export class DeprecatedDependenciesChecker {
     for (const dependency of file.dependencies) {
       const isDeprecated = await this.checkDependencyDeprecation(dependency, file.type)
 
-      if (isDeprecated) {
+      if (isDeprecated.deprecated) {
         deprecated.push({
           name: dependency.name,
           currentVersion: dependency.currentVersion,
