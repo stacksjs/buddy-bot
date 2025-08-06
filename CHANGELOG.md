@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.5.27...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.27...main)
+
+### 🏡 Chore
+
+- Minor improvements ([fb844dc](https://github.com/stacksjs/buddy-bot/commit/fb844dc))
+- Adjust timeouts ([a04077e](https://github.com/stacksjs/buddy-bot/commit/a04077e))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.26...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.26...main)
