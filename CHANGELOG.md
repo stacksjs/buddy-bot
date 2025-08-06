@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.5.28...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.28...main)
+
+### 🚀 Enhancements
+
+- Add deprecated deps checker ([8ae30b0](https://github.com/stacksjs/buddy-bot/commit/8ae30b0))
+
+### 🏡 Chore
+
+- Update deps ([c7af071](https://github.com/stacksjs/buddy-bot/commit/c7af071))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.5.27...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.5.27...main)
