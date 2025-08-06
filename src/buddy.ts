@@ -15,6 +15,7 @@ import { GitHubProvider } from './git/github-provider'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
+import { DeprecatedDependenciesChecker } from './services/deprecated-dependencies-checker'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger } from './utils/logger'
 
@@ -973,6 +974,7 @@ export class Buddy {
       const { title, body } = this.dashboardGenerator.generateDashboard(dashboardData, {
         showOpenPRs: dashboardConfig.showOpenPRs ?? true,
         showDetectedDependencies: dashboardConfig.showDetectedDependencies ?? true,
+        showDeprecatedDependencies: dashboardConfig.showDeprecatedDependencies ?? true,
         bodyTemplate: dashboardConfig.bodyTemplate,
       })
 
@@ -1051,6 +1053,10 @@ export class Buddy {
       && file.type !== 'package.json',
     )
 
+    // Check for deprecated dependencies
+    const deprecatedChecker = new DeprecatedDependenciesChecker()
+    const deprecatedDependencies = await deprecatedChecker.checkDeprecatedDependencies(packageFiles)
+
     return {
       openPRs: dependencyPRs,
       detectedDependencies: {
@@ -1058,6 +1064,7 @@ export class Buddy {
         dependencyFiles,
         githubActions,
       },
+      deprecatedDependencies,
       repository: {
         owner: this.config.repository!.owner,
         name: this.config.repository!.name,

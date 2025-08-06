@@ -1,4 +1,4 @@
-import type { DashboardData, PackageFile, PullRequest } from '../types'
+import type { DashboardData, DeprecatedDependency, PackageFile, PullRequest } from '../types'
 
 export class DashboardGenerator {
   /**
@@ -7,11 +7,13 @@ export class DashboardGenerator {
   generateDashboard(data: DashboardData, options: {
     showOpenPRs?: boolean
     showDetectedDependencies?: boolean
+    showDeprecatedDependencies?: boolean
     bodyTemplate?: string
   } = {}): { title: string, body: string } {
     const {
       showOpenPRs = true,
       showDetectedDependencies = true,
+      showDeprecatedDependencies = true,
       bodyTemplate,
     } = options
 
@@ -25,6 +27,11 @@ export class DashboardGenerator {
     }
 
     let body = this.generateDefaultHeader(data)
+
+    // Show deprecated dependencies warning first (like Renovate)
+    if (showDeprecatedDependencies && data.deprecatedDependencies && data.deprecatedDependencies.length > 0) {
+      body += this.generateDeprecatedDependenciesSection(data.deprecatedDependencies)
+    }
 
     if (showOpenPRs && data.openPRs.length > 0) {
       body += this.generateOpenPRsSection(data.openPRs)
@@ -297,6 +304,29 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
 `
 
+    return section
+  }
+
+  /**
+   * Generate the deprecated dependencies section
+   */
+  private generateDeprecatedDependenciesSection(deprecatedDependencies: DeprecatedDependency[]): string {
+    let section = `> [!WARNING]
+> These dependencies are deprecated and should be updated to avoid potential security risks and compatibility issues.
+
+| Datasource | Name | Replacement PR? |
+|------------|------|-----------------|
+`
+
+    for (const dep of deprecatedDependencies) {
+      const nameDisplay = `\`${dep.name}\``
+      const replacementStatus = dep.replacementAvailable ? 'available' : 'unavailable'
+      const replacementBadge = replacementStatus === 'available' ? '![available](https://img.shields.io/badge/available-green)' : '![unavailable](https://img.shields.io/badge/unavailable-orange)'
+
+      section += `| ${dep.datasource} | ${nameDisplay} | ${replacementBadge} |\n`
+    }
+
+    section += '\n'
     return section
   }
 

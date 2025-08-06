@@ -127,6 +127,8 @@ export interface BuddyBotConfig {
     showOpenPRs?: boolean
     /** Show detected dependencies section */
     showDetectedDependencies?: boolean
+    /** Show deprecated dependencies section */
+    showDeprecatedDependencies?: boolean
     /** Issue number to update (if it exists) */
     issueNumber?: number
   }
@@ -406,6 +408,8 @@ export interface DashboardData {
     /** GitHub Actions files */
     githubActions: PackageFile[]
   }
+  /** Deprecated dependencies found */
+  deprecatedDependencies?: DeprecatedDependency[]
   /** Repository information */
   repository: {
     owner: string
@@ -414,6 +418,25 @@ export interface DashboardData {
   }
   /** Last update timestamp */
   lastUpdated: Date
+}
+
+export interface DeprecatedDependency {
+  /** Package name */
+  name: string
+  /** Current version being used */
+  currentVersion: string
+  /** Datasource (npm, bun, composer, etc.) */
+  datasource: string
+  /** File where dependency is defined */
+  file: string
+  /** Dependency type */
+  type: string
+  /** Whether a replacement PR is available */
+  replacementAvailable: boolean
+  /** Suggested replacement package (if available) */
+  suggestedReplacement?: string
+  /** Deprecation message from registry */
+  deprecationMessage?: string
 }
 
 // CLI and command types

@@ -118,6 +118,48 @@ describe('DashboardGenerator', () => {
       expect(result.body).not.toContain('## Open')
       expect(result.body).not.toContain('## Detected dependencies')
     })
+
+    it('should include deprecated dependencies section when deprecated dependencies exist', () => {
+      const dataWithDeprecated: DashboardData = {
+        ...mockDashboardData,
+        deprecatedDependencies: [
+          {
+            name: '@types/minimatch',
+            currentVersion: '3.0.5',
+            datasource: 'bun',
+            file: 'package.json',
+            type: 'devDependencies',
+            replacementAvailable: false,
+            deprecationMessage: 'This package is deprecated, use minimatch instead',
+          },
+          {
+            name: 'lodash',
+            currentVersion: '4.17.21',
+            datasource: 'npm',
+            file: 'package.json',
+            type: 'dependencies',
+            replacementAvailable: true,
+            suggestedReplacement: 'lodash-es',
+            deprecationMessage: 'This package is deprecated, use lodash-es instead',
+          },
+        ],
+      }
+
+      const result = generator.generateDashboard(dataWithDeprecated)
+
+      expect(result.body).toContain('> [!WARNING]')
+      expect(result.body).toContain('> These dependencies are deprecated and should be updated to avoid potential security risks and compatibility issues.')
+      expect(result.body).toContain('| Datasource | Name | Replacement PR? |')
+      expect(result.body).toContain('| bun | `@types/minimatch` | ![unavailable](https://img.shields.io/badge/unavailable-orange) |')
+      expect(result.body).toContain('| npm | `lodash` | ![available](https://img.shields.io/badge/available-green) |')
+    })
+
+    it('should not include deprecated dependencies section when no deprecated dependencies exist', () => {
+      const result = generator.generateDashboard(mockDashboardData)
+
+      expect(result.body).not.toContain('> [!WARNING]')
+      expect(result.body).not.toContain('| Datasource | Name | Replacement PR? |')
+    })
   })
 
   describe('Open PRs section', () => {
