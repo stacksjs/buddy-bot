@@ -216,7 +216,7 @@ describe('CLI Non-Interactive Integration Tests', () => {
         'cron: \'*/1 * * * *\'',
         'workflow_dispatch:',
         'dry_run:',
-        'rebase-check:', // job name
+        'check:', // job name
         'bunx buddy-bot update-check',
         'Check for rebase requests',
       ]

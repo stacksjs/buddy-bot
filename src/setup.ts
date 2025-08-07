@@ -1247,8 +1247,8 @@ ${generateComposerSetupSteps()}
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-  # Rebase check job
-  rebase-check:
+  # Check job (handles both rebase requests and auto-closing PRs)
+  check:
     runs-on: ubuntu-latest
     needs: [determine-jobs, setup]
     if: \${{ needs.determine-jobs.outputs.run_check == 'true' }}
@@ -1286,9 +1286,9 @@ ${generateComposerSetupSteps()}
             echo "✅ Using BUDDY_BOT_TOKEN (full permissions)"
           fi
 
-      - name: Check for rebase requests
+      - name: Check for PRs that need attention
         run: |
-          echo "🔍 Checking for PRs with rebase checkbox enabled..."
+          echo "🔍 Checking for PRs that need attention (rebase requests or auto-closing)..."
           echo "🔧 Environment info:"
           echo "Current directory: \$(pwd)"
           echo "GITHUB_TOKEN set: \$([[ -n \"\$GITHUB_TOKEN\" ]] && echo \"Yes\" || echo \"No\")"
@@ -1311,10 +1311,10 @@ ${generateComposerSetupSteps()}
           GITHUB_TOKEN: ${tokenEnv}
           BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
-      - name: Create rebase check summary
+      - name: Create check summary
         if: always()
         run: |
-          echo "## 🔄 Rebase Check Summary" >> \$GITHUB_STEP_SUMMARY
+          echo "## 🔍 Check Summary" >> \$GITHUB_STEP_SUMMARY
           echo "" >> \$GITHUB_STEP_SUMMARY
           echo "- **Triggered by**: \${{ github.event_name }}" >> \$GITHUB_STEP_SUMMARY
           echo "- **Dry run**: \${{ github.event.inputs.dry_run || 'false' }}" >> \$GITHUB_STEP_SUMMARY
@@ -1328,7 +1328,7 @@ ${generateComposerSetupSteps()}
           fi
 
           echo "" >> \$GITHUB_STEP_SUMMARY
-          echo "📋 View detailed logs above for rebase results." >> \$GITHUB_STEP_SUMMARY
+          echo "📋 View detailed logs above for check results (rebase requests and auto-closing)." >> \$GITHUB_STEP_SUMMARY
 
   # Dependency update job
   dependency-update:

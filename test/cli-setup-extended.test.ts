@@ -33,7 +33,7 @@ describe('CLI Setup - Extended Tests', () => {
       // Check all jobs are present
       expect(workflow).toContain('determine-jobs:')
       expect(workflow).toContain('setup:')
-      expect(workflow).toContain('rebase-check:')
+      expect(workflow).toContain('check:')
       expect(workflow).toContain('dependency-update:')
       expect(workflow).toContain('dashboard-update:')
 

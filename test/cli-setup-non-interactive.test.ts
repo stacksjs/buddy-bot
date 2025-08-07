@@ -92,7 +92,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
 
       expect(workflow).toContain('name: Buddy Bot')
       expect(workflow).toContain('cron: \'*/1 * * * *\'')
-      expect(workflow).toContain('rebase-check:') // job name
+      expect(workflow).toContain('check:') // job name
       expect(workflow).toContain('bunx buddy-bot update-check')
     })
 
@@ -123,7 +123,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
       const unifiedContent = await fs.readFile('.github/workflows/buddy-bot.yml', 'utf-8')
 
       expect(unifiedContent).toContain('name: Buddy Bot')
-      expect(unifiedContent).toContain('rebase-check:') // rebase check job
+      expect(unifiedContent).toContain('check:') // check job
       expect(unifiedContent).toContain('dependency-update:') // dependency update job
       expect(unifiedContent).toContain('dashboard-update:') // dashboard update job
     })

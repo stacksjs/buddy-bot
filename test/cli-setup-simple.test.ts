@@ -30,7 +30,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       const { generateUnifiedWorkflow } = await import('../src/setup')
       const workflow = generateUnifiedWorkflow(true)
 
-      expect(workflow).toContain('rebase-check:')
+      expect(workflow).toContain('check:')
       expect(workflow).toContain('dependency-update:')
       expect(workflow).toContain('dashboard-update:')
       expect(workflow).toContain('cron: \'*/1 * * * *\'') // Check every minute
