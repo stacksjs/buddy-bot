@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.1...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.1...main)
+
+### 🏡 Chore
+
+- Ensure auto-close is triggered when workflow checks ([016d745](https://github.com/stacksjs/buddy-bot/commit/016d745))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.0...main)
