@@ -5,6 +5,7 @@ import type {
   Issue,
   PackageFile,
   PackageUpdate,
+  PullRequest,
   UpdateGroup,
   UpdateScanResult,
 } from './types'
@@ -177,6 +178,22 @@ export class Buddy {
 
           if (existingPR) {
             this.logger.info(`🔄 Found existing PR #${existingPR.number}: ${existingPR.title}`)
+
+            // Check if this PR should be auto-closed due to respectLatest config changes
+            const shouldAutoClose = this.shouldAutoClosePR(existingPR, group.updates)
+            if (shouldAutoClose) {
+              this.logger.info(`🔒 Auto-closing PR #${existingPR.number} due to respectLatest config change`)
+              try {
+                await gitProvider.closePullRequest(existingPR.number)
+                await gitProvider.deleteBranch(existingPR.head)
+                this.logger.success(`✅ Auto-closed PR #${existingPR.number} and deleted branch ${existingPR.head}`)
+                continue
+              }
+              catch (error) {
+                this.logger.error(`❌ Failed to auto-close PR #${existingPR.number}:`, error)
+                // Continue with normal PR creation if auto-close fails
+              }
+            }
 
             // Check if the updates are the same by comparing package lists
             const existingUpdatesMatch = this.checkIfUpdatesMatch(existingPR.body, group.updates)
@@ -945,6 +962,106 @@ export class Buddy {
 
     // Convert to array and return
     return Array.from(labels)
+  }
+
+  /**
+   * Check if a PR should be auto-closed due to respectLatest config changes
+   * This handles cases where old PRs were created with respectLatest: false
+   * but now the config is respectLatest: true, making those updates invalid
+   */
+  private shouldAutoClosePR(existingPR: PullRequest, newUpdates: PackageUpdate[]): boolean {
+    const respectLatest = this.config.packages?.respectLatest ?? true
+
+    // Only auto-close if respectLatest is true (the new default behavior)
+    if (!respectLatest) {
+      return false
+    }
+
+    // Check if the existing PR contains updates that would now be filtered out
+    // Look for dynamic version indicators in the PR body
+    const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+    const prBody = existingPR.body.toLowerCase()
+
+    // Check if the PR body contains any dynamic version indicators
+    const hasDynamicVersions = dynamicIndicators.some(indicator =>
+      prBody.includes(indicator.toLowerCase()),
+    )
+
+    if (!hasDynamicVersions) {
+      return false
+    }
+
+    // Check if the new updates don't include the same packages that were in the old PR
+    // This indicates the packages were filtered out due to respectLatest
+    const oldPRPackages = this.extractPackagesFromPRBody(existingPR.body)
+    const newUpdatePackages = newUpdates.map(update => update.name)
+
+    // If old PR had packages that are not in new updates, and those packages had dynamic versions
+    const missingPackages = oldPRPackages.filter(pkg => !newUpdatePackages.includes(pkg))
+
+    if (missingPackages.length === 0) {
+      return false
+    }
+
+    // Check if the missing packages had dynamic versions in the old PR
+    const missingPackagesWithDynamicVersions = missingPackages.filter((pkg) => {
+      // Look for the package in the PR body table format: | [package](url) | version → newVersion |
+      const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
+      const match = existingPR.body.match(packagePattern)
+      if (!match) {
+        // Fallback: look for the package name anywhere in the body with a version pattern
+        const fallbackPattern = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\w]*[:=]\\s*["']?([^"'\n]+)["']?`, 'i')
+        const fallbackMatch = existingPR.body.match(fallbackPattern)
+        if (!fallbackMatch)
+          return false
+
+        const version = fallbackMatch[1].toLowerCase().trim()
+        return dynamicIndicators.includes(version)
+      }
+
+      // Extract the version change part (e.g., "* → 3.13.5")
+      const versionChange = match[1].trim()
+      const currentVersionMatch = versionChange.match(/^([^→]+)→/)
+      if (!currentVersionMatch)
+        return false
+
+      const currentVersion = currentVersionMatch[1].trim().toLowerCase()
+      return dynamicIndicators.includes(currentVersion)
+    })
+
+    return missingPackagesWithDynamicVersions.length > 0
+  }
+
+  /**
+   * Extract package names from PR body
+   */
+  private extractPackagesFromPRBody(prBody: string): string[] {
+    const packages: string[] = []
+
+    // Look for package names in the PR body table
+    const tableMatch = prBody.match(/\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|/g)
+    if (tableMatch) {
+      for (const row of tableMatch) {
+        // Extract package name from table row - use a more specific pattern to avoid backtracking
+        const packageMatch = row.match(/\[([^\]]+)\]\([^)]*\)/)
+        if (packageMatch) {
+          packages.push(packageMatch[1])
+        }
+      }
+    }
+
+    // Also look for package names in the release notes section
+    const releaseNotesMatch = prBody.match(/<summary>([^<]+)<\/summary>/g)
+    if (releaseNotesMatch) {
+      for (const match of releaseNotesMatch) {
+        const packageName = match.replace(/<summary>/, '').replace(/<\/summary>/, '').trim()
+        if (packageName && !packages.includes(packageName)) {
+          packages.push(packageName)
+        }
+      }
+    }
+
+    return packages
   }
 
   /**

@@ -2,6 +2,7 @@ import type { BuddyBotConfig } from '../src/types'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
+import { Buddy } from '../src/buddy'
 import { RegistryClient } from '../src/registry/registry-client'
 import { Logger } from '../src/utils/logger'
 
@@ -152,5 +153,137 @@ devDependencies:
     }
 
     expect(finalConfig.packages?.respectLatest).toBe(false)
+  })
+
+  it('should test auto-close PR functionality for dynamic versions', async () => {
+    // Test the auto-close logic for PRs with dynamic versions
+    const config: BuddyBotConfig = {
+      packages: {
+        strategy: 'all',
+        respectLatest: true, // New default behavior
+      },
+    }
+
+    const _logger = new Logger(false)
+    const buddy = new Buddy(config, testDir)
+
+    // Mock existing PR with dynamic version
+    const existingPR = {
+      number: 48,
+      title: 'chore(deps): update dependency python.org to 3.13.5',
+      body: `This PR contains the following updates:
+
+| Package | Change | Type | File |
+|---------|--------|------|------|
+| [python.org](https://pkgx.com/pkg/python.org) | * → 3.13.5 | 🔴 major | pkgx.yml |
+
+### Release Notes
+
+python.org
+
+*** → _3.13.5_***
+
+📁 **File**: pkgx.yml
+
+🔗 **Package Info**: pkgx.com
+
+🌐 **Official Site**: python.org`,
+      head: 'buddy-bot/update-major-update---python.org-1754515225181',
+      author: 'github-actions[bot]',
+    }
+
+    // Mock new updates that don't include python.org (filtered out by respectLatest)
+    const newUpdates = [
+      {
+        name: 'typescript',
+        currentVersion: '^5.0.0',
+        newVersion: '^5.1.0',
+        updateType: 'minor' as const,
+        dependencyType: 'dependencies' as const,
+        file: 'package.json',
+      },
+    ]
+
+    // Test the auto-close logic
+    const shouldAutoClose = (buddy as any).shouldAutoClosePR(existingPR, newUpdates)
+    expect(shouldAutoClose).toBe(true)
+  })
+
+  it('should not auto-close PRs when respectLatest is false', async () => {
+    // Test that auto-close doesn't happen when respectLatest is false
+    const config: BuddyBotConfig = {
+      packages: {
+        strategy: 'all',
+        respectLatest: false, // Old behavior
+      },
+    }
+
+    const _logger = new Logger(false)
+    const buddy = new Buddy(config, testDir)
+
+    // Mock existing PR with dynamic version
+    const existingPR = {
+      number: 48,
+      title: 'chore(deps): update dependency python.org to 3.13.5',
+      body: `This PR contains the following updates:
+
+| Package | Change | Type | File |
+|---------|--------|------|------|
+| [python.org](https://pkgx.com/pkg/python.org) | * → 3.13.5 | 🔴 major | pkgx.yml |`,
+      head: 'buddy-bot/update-major-update---python.org-1754515225181',
+      author: 'github-actions[bot]',
+    }
+
+    // Mock new updates that include python.org (not filtered out when respectLatest is false)
+    const newUpdates = [
+      {
+        name: 'python.org',
+        currentVersion: '*',
+        newVersion: '3.13.5',
+        updateType: 'major' as const,
+        dependencyType: 'dependencies' as const,
+        file: 'pkgx.yml',
+      },
+    ]
+
+    // Test the auto-close logic
+    const shouldAutoClose = (buddy as any).shouldAutoClosePR(existingPR, newUpdates)
+    expect(shouldAutoClose).toBe(false)
+  })
+
+  it('should extract packages from PR body correctly', async () => {
+    const config: BuddyBotConfig = {
+      packages: {
+        strategy: 'all',
+        respectLatest: true,
+      },
+    }
+
+    const _logger = new Logger(false)
+    const buddy = new Buddy(config, testDir)
+
+    const prBody = `This PR contains the following updates:
+
+| Package | Change | Type | File |
+|---------|--------|------|------|
+| [python.org](https://pkgx.com/pkg/python.org) | * → 3.13.5 | 🔴 major | pkgx.yml |
+| [typescript](https://github.com/microsoft/TypeScript) | ^5.0.0 → ^5.1.0 | 🟡 minor | package.json |
+
+### Release Notes
+
+<details>
+<summary>python.org</summary>
+*** → _3.13.5_***
+</details>
+
+<details>
+<summary>typescript</summary>
+**^5.0.0 → ^5.1.0**
+</details>`
+
+    const packages = (buddy as any).extractPackagesFromPRBody(prBody)
+    expect(packages).toContain('python.org')
+    expect(packages).toContain('typescript')
+    expect(packages).toHaveLength(2)
   })
 })
