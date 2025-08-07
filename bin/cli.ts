@@ -1106,7 +1106,7 @@ async function checkForAutoClose(pr: any, config: any, _logger: any): Promise<bo
 
   // Check if any of the packages in the PR had dynamic versions
   const packagesWithDynamicVersions = packageNames.filter((pkg) => {
-    // Look for the package in the PR body table format: | [package](url) | version → newVersion |
+    // Look for the package in the PR body table format: | [package](url) | version → newVersion | ... |
     const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
     const match = pr.body.match(packagePattern)
     if (!match) {
@@ -1121,6 +1121,7 @@ async function checkForAutoClose(pr: any, config: any, _logger: any): Promise<bo
     }
 
     const versionChange = match[1].trim()
+    // Look for patterns like "* → 3.13.5" or "latest → 1.2.3"
     const currentVersionMatch = versionChange.match(/^([^→]+)→/)
     if (!currentVersionMatch)
       return false

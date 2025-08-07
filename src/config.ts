@@ -4,6 +4,9 @@ import { loadConfig } from 'bunfig'
 
 export const defaultConfig: BuddyBotConfig = {
   verbose: true,
+  packages: {
+    respectLatest: true,
+  },
 }
 
 // eslint-disable-next-line antfu/no-top-level-await
