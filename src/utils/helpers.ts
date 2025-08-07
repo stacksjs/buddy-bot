@@ -456,21 +456,21 @@ export async function checkForAutoClose(pr: any, config: any, logger: Logger): P
         return false
       }
 
-      const version = fallbackMatch[1].toLowerCase().trim()
+      const version = fallbackMatch[1].toLowerCase().trim().replace(/`/g, '')
       const isDynamic = dynamicIndicators.includes(version)
       logger.debug(`🔍 PR #${pr.number}: Package ${pkg} has version ${version}, isDynamic: ${isDynamic}`)
       return isDynamic
     }
 
     const versionChange = match[1].trim()
-    // Look for patterns like "* → 3.13.5" or "latest → 1.2.3"
+    // Look for patterns like "* → 3.13.5" or "latest → 1.2.3" or "* → 3.13.5"
     const currentVersionMatch = versionChange.match(/^([^→]+)→/)
     if (!currentVersionMatch) {
       logger.debug(`🔍 PR #${pr.number}: Could not parse version change for package ${pkg}: ${versionChange}`)
       return false
     }
 
-    const currentVersion = currentVersionMatch[1].trim().toLowerCase()
+    const currentVersion = currentVersionMatch[1].trim().toLowerCase().replace(/`/g, '')
     const isDynamic = dynamicIndicators.includes(currentVersion)
     logger.debug(`🔍 PR #${pr.number}: Package ${pkg} has current version ${currentVersion}, isDynamic: ${isDynamic}`)
     return isDynamic
