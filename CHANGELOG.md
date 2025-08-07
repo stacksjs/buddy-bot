@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.3...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.3...main)
+
+### 🏡 Chore
+
+- Add default config ([7d83c8e](https://github.com/stacksjs/buddy-bot/commit/7d83c8e))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.2...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.2...main)
