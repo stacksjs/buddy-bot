@@ -25,6 +25,24 @@ export class RegistryClient {
   ) {}
 
   /**
+   * Check if a version should be respected (not updated)
+   * This prevents updating "latest", "*", or other dynamic version indicators
+   */
+  public shouldRespectVersion(version: string): boolean {
+    const respectLatest = this.config?.packages?.respectLatest ?? true
+
+    if (!respectLatest) {
+      return false
+    }
+
+    // Check for dynamic version indicators that should not be updated
+    const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+    const cleanVersion = version.toLowerCase().trim()
+
+    return dynamicIndicators.includes(cleanVersion)
+  }
+
+  /**
    * Get outdated packages using bun outdated command
    */
   async getOutdatedPackages(filter?: string): Promise<PackageUpdate[]> {
@@ -67,6 +85,12 @@ export class RegistryClient {
       const updates: PackageUpdate[] = []
 
       for (const result of allResults.values()) {
+        // Skip packages that should be respected (like "latest", "*", etc.)
+        if (this.shouldRespectVersion(result.current)) {
+          this.logger.debug(`Skipping ${result.name} - version "${result.current}" should be respected`)
+          continue
+        }
+
         const updateType = getUpdateType(result.current, result.latest)
 
         // Get additional metadata for the package

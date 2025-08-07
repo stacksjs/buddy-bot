@@ -382,6 +382,22 @@ export class Buddy {
         const resolved = await resolveDependencyFile(file.path)
 
         for (const dep of resolved.allDependencies || []) {
+          // Check if current version should be respected (like "*", "latest", etc.)
+          const shouldRespectVersion = (version: string): boolean => {
+            const respectLatest = this.config.packages?.respectLatest ?? true
+            if (!respectLatest)
+              return false
+
+            const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+            const cleanVersion = version.toLowerCase().trim()
+            return dynamicIndicators.includes(cleanVersion)
+          }
+
+          if (shouldRespectVersion(dep.constraint)) {
+            this.logger.debug(`Skipping ${dep.name} - version "${dep.constraint}" should be respected`)
+            continue
+          }
+
           // Compare constraint version with resolved version
           if (dep.constraint !== dep.version && dep.version) {
             // Extract version prefix (^, ~, >=, etc.) from constraint

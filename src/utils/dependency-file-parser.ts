@@ -162,6 +162,18 @@ export async function updateDependencyFile(filePath: string, content: string, up
           const currentVersionInFile = matchParts[2] // "^1.0.0"
           const commentPart = matchParts[3] || '' // " # comment" or empty
 
+          // Check if current version should be respected (like "*", "latest", etc.)
+          const shouldRespectVersion = (version: string): boolean => {
+            const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+            const cleanVersion = version.toLowerCase().trim()
+            return dynamicIndicators.includes(cleanVersion)
+          }
+
+          if (shouldRespectVersion(currentVersionInFile)) {
+            console.log(`⚠️ Skipping update for ${cleanPackageName} - version "${currentVersionInFile}" should be respected`)
+            continue
+          }
+
           const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
           const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
 

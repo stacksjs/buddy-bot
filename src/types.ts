@@ -41,6 +41,8 @@ export interface BuddyBotConfig {
     includePrerelease?: boolean
     /** Exclude major version updates (even if strategy allows them) */
     excludeMajor?: boolean
+    /** Respect "latest" and "*" version indicators (default: true) */
+    respectLatest?: boolean
   }
 
   /** PR generation settings */

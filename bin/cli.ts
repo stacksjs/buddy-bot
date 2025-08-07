@@ -90,6 +90,7 @@ interface CLIOptions {
   strategy?: 'major' | 'minor' | 'patch' | 'all'
   ignore?: string
   dryRun?: boolean
+  respectLatest?: boolean
 }
 
 cli
@@ -443,11 +444,14 @@ cli
   .option('--pattern <pattern>', 'Glob pattern to match packages')
   .option('--strategy <type>', 'Update strategy: major|minor|patch|all', { default: 'all' })
   .option('--ignore <names>', 'Comma-separated list of packages to ignore')
+  .option('--respect-latest', 'Respect "latest", "*", and other dynamic version indicators (default: true)')
+  .option('--no-respect-latest', 'Allow updating "latest", "*", and other dynamic version indicators')
   .example('buddy-bot scan')
   .example('buddy-bot scan --verbose')
   .example('buddy-bot scan --packages "react,typescript,laravel/framework"')
   .example('buddy-bot scan --pattern "@types/*"')
   .example('buddy-bot scan --strategy minor')
+  .example('buddy-bot scan --no-respect-latest')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
@@ -474,6 +478,7 @@ cli
           ...config.packages,
           strategy: options.strategy ?? config.packages?.strategy ?? 'all',
           ignore: ignore ?? config.packages?.ignore,
+          respectLatest: options.respectLatest ?? config.packages?.respectLatest ?? true,
         },
       }
 
@@ -615,10 +620,13 @@ cli
   .option('--strategy <type>', 'Update strategy: major|minor|patch|all', { default: 'all' })
   .option('--ignore <names>', 'Comma-separated list of packages to ignore')
   .option('--dry-run', 'Preview changes without making them')
+  .option('--respect-latest', 'Respect "latest", "*", and other dynamic version indicators (default: true)')
+  .option('--no-respect-latest', 'Allow updating "latest", "*", and other dynamic version indicators')
   .example('buddy-bot update')
   .example('buddy-bot update --dry-run')
   .example('buddy-bot update --strategy patch')
   .example('buddy-bot update --verbose')
+  .example('buddy-bot update --no-respect-latest')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
@@ -638,6 +646,7 @@ cli
           ...config.packages,
           strategy: options.strategy ?? config.packages?.strategy ?? 'all',
           ignore: ignore ?? config.packages?.ignore,
+          respectLatest: options.respectLatest ?? config.packages?.respectLatest ?? true,
         },
       }
 
