@@ -29,6 +29,7 @@ import {
   validateRepositoryAccess,
   validateWorkflowGeneration,
 } from '../src/setup'
+import { checkForAutoClose, extractPackageNamesFromPRBody } from '../src/utils/helpers'
 import { Logger } from '../src/utils/logger'
 
 const cli = new CAC('buddy-bot')
@@ -1049,88 +1050,6 @@ function checkRebaseCheckbox(body: string): boolean {
   // Look for the checked rebase checkbox pattern - handle both "rebase/retry" and "update/retry"
   const checkedPattern = /- \[x\] <!-- rebase-check -->If you want to (?:rebase|update)\/retry this PR, check this box/i
   return checkedPattern.test(body)
-}
-
-// Helper function to extract package names from PR body
-function extractPackageNamesFromPRBody(body: string): string[] {
-  const packages: string[] = []
-
-  // Look for package names in the PR body table
-  const tableMatch = body.match(/\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|/g)
-  if (tableMatch) {
-    for (const row of tableMatch) {
-      // Extract package name from table row - use a more specific pattern to avoid backtracking
-      const packageMatch = row.match(/\[([^\]]+)\]\([^)]*\)/)
-      if (packageMatch) {
-        packages.push(packageMatch[1])
-      }
-    }
-  }
-
-  // Also look for package names in the release notes section
-  const releaseNotesMatch = body.match(/<summary>([^<]+)<\/summary>/g)
-  if (releaseNotesMatch) {
-    for (const match of releaseNotesMatch) {
-      const packageName = match.replace(/<summary>/, '').replace(/<\/summary>/, '').trim()
-      if (packageName && !packages.includes(packageName)) {
-        packages.push(packageName)
-      }
-    }
-  }
-
-  return packages
-}
-
-// Helper function to check if a PR should be auto-closed due to respectLatest config changes
-async function checkForAutoClose(pr: any, config: any, _logger: any): Promise<boolean> {
-  const respectLatest = config.packages?.respectLatest ?? true
-
-  // Only auto-close if respectLatest is true (the new default behavior)
-  if (!respectLatest) {
-    return false
-  }
-
-  // Check if the existing PR contains updates that would now be filtered out
-  // Look for dynamic version indicators in the PR body
-  const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
-  const prBody = pr.body.toLowerCase()
-
-  // Check if PR body contains dynamic version indicators
-  const hasDynamicVersions = dynamicIndicators.some(indicator => prBody.includes(indicator))
-  if (!hasDynamicVersions) {
-    return false
-  }
-
-  // Extract packages from PR body and check if they have dynamic versions
-  const packageNames = extractPackageNamesFromPRBody(pr.body)
-
-  // Check if any of the packages in the PR had dynamic versions
-  const packagesWithDynamicVersions = packageNames.filter((pkg) => {
-    // Look for the package in the PR body table format: | [package](url) | version → newVersion | ... |
-    const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
-    const match = pr.body.match(packagePattern)
-    if (!match) {
-      // Fallback: look for any version pattern with this package
-      const fallbackPattern = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\w]*[:=]\\s*["']?([^"'\n]+)["']?`, 'i')
-      const fallbackMatch = pr.body.match(fallbackPattern)
-      if (!fallbackMatch)
-        return false
-
-      const version = fallbackMatch[1].toLowerCase().trim()
-      return dynamicIndicators.includes(version)
-    }
-
-    const versionChange = match[1].trim()
-    // Look for patterns like "* → 3.13.5" or "latest → 1.2.3"
-    const currentVersionMatch = versionChange.match(/^([^→]+)→/)
-    if (!currentVersionMatch)
-      return false
-
-    const currentVersion = currentVersionMatch[1].trim().toLowerCase()
-    return dynamicIndicators.includes(currentVersion)
-  })
-
-  return packagesWithDynamicVersions.length > 0
 }
 
 cli

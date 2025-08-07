@@ -1,4 +1,5 @@
 import type { Dependency, PackageFile, PackageUpdate, UpdateGroup } from '../types'
+import type { Logger } from './logger'
 import { isDependencyFile, parseDependencyFile } from './dependency-file-parser'
 
 /**
@@ -386,4 +387,98 @@ export async function checkForRebaseRequests(token: string, owner: string, repo:
   catch (error) {
     throw new Error(`Failed to check for rebase requests: ${error}`)
   }
+}
+
+/**
+ * Extract package names from PR body
+ */
+export function extractPackageNamesFromPRBody(body: string): string[] {
+  const packages: string[] = []
+
+  // Look for package names in the PR body table
+  const tableMatch = body.match(/\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|/g)
+  if (tableMatch) {
+    for (const row of tableMatch) {
+      // Extract package name from table row
+      const packageMatch = row.match(/\[([^\]]+)\]\([^)]*\)/)
+      if (packageMatch) {
+        packages.push(packageMatch[1])
+      }
+    }
+  }
+
+  return packages
+}
+
+/**
+ * Check if a PR should be auto-closed due to respectLatest config changes
+ * This handles cases where old PRs were created with respectLatest: false
+ * but now the config is respectLatest: true, making those updates invalid
+ */
+export async function checkForAutoClose(pr: any, config: any, logger: Logger): Promise<boolean> {
+  const respectLatest = config.packages?.respectLatest ?? true
+
+  // Only auto-close if respectLatest is true (the new default behavior)
+  if (!respectLatest) {
+    logger.debug(`🔍 PR #${pr.number}: respectLatest is false, skipping auto-close`)
+    return false
+  }
+
+  // Check if the existing PR contains updates that would now be filtered out
+  // Look for dynamic version indicators in the PR body
+  const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+  const prBody = pr.body.toLowerCase()
+
+  // Check if PR body contains dynamic version indicators
+  const hasDynamicVersions = dynamicIndicators.some(indicator => prBody.includes(indicator))
+  if (!hasDynamicVersions) {
+    logger.debug(`🔍 PR #${pr.number}: No dynamic versions found in PR body`)
+    return false
+  }
+
+  logger.debug(`🔍 PR #${pr.number}: Found dynamic versions in PR body`)
+
+  // Extract packages from PR body and check if they have dynamic versions
+  const packageNames = extractPackageNamesFromPRBody(pr.body)
+  logger.debug(`🔍 PR #${pr.number}: Extracted packages: ${packageNames.join(', ')}`)
+
+  // Check if any of the packages in the PR had dynamic versions
+  const packagesWithDynamicVersions = packageNames.filter((pkg) => {
+    // Look for the package in the PR body table format: | [package](url) | version → newVersion | ... |
+    const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
+    const match = pr.body.match(packagePattern)
+    if (!match) {
+      // Fallback: look for any version pattern with this package
+      const fallbackPattern = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\w]*[:=]\\s*["']?([^"'\n]+)["']?`, 'i')
+      const fallbackMatch = pr.body.match(fallbackPattern)
+      if (!fallbackMatch) {
+        logger.debug(`🔍 PR #${pr.number}: No version pattern found for package ${pkg}`)
+        return false
+      }
+
+      const version = fallbackMatch[1].toLowerCase().trim()
+      const isDynamic = dynamicIndicators.includes(version)
+      logger.debug(`🔍 PR #${pr.number}: Package ${pkg} has version ${version}, isDynamic: ${isDynamic}`)
+      return isDynamic
+    }
+
+    const versionChange = match[1].trim()
+    // Look for patterns like "* → 3.13.5" or "latest → 1.2.3"
+    const currentVersionMatch = versionChange.match(/^([^→]+)→/)
+    if (!currentVersionMatch) {
+      logger.debug(`🔍 PR #${pr.number}: Could not parse version change for package ${pkg}: ${versionChange}`)
+      return false
+    }
+
+    const currentVersion = currentVersionMatch[1].trim().toLowerCase()
+    const isDynamic = dynamicIndicators.includes(currentVersion)
+    logger.debug(`🔍 PR #${pr.number}: Package ${pkg} has current version ${currentVersion}, isDynamic: ${isDynamic}`)
+    return isDynamic
+  })
+
+  const shouldClose = packagesWithDynamicVersions.length > 0
+  logger.debug(`🔍 PR #${pr.number}: Packages with dynamic versions: ${packagesWithDynamicVersions.join(', ')}`)
+  logger.debug(`🔍 PR #${pr.number}: Should auto-close: ${shouldClose}`)
+
+  return shouldClose
 }
