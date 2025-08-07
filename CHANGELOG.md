@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.6...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.6...main)
+
+### 🏡 Chore
+
+- Improve latest logic ([2d8f8fc](https://github.com/stacksjs/buddy-bot/commit/2d8f8fc))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.5...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.5...main)
