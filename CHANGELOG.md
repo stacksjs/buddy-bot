@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.5...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.5...main)
+
+### 🏡 Chore
+
+- Export helpers ([5fc2f96](https://github.com/stacksjs/buddy-bot/commit/5fc2f96))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.4...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.4...main)
