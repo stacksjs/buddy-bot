@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.0...main)
+
+### 🚀 Enhancements
+
+- Auto-close PRs with only latest update ([513780e](https://github.com/stacksjs/buddy-bot/commit/513780e))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.6.5...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.6.5...main)
