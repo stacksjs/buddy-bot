@@ -907,8 +907,40 @@ cli
       logger.info(`📋 Found ${buddyPRs.length} buddy-bot PR(s)`)
 
       let rebasedCount = 0
+      let closedCount = 0
 
       for (const pr of buddyPRs) {
+        // First, check if this PR should be auto-closed due to respectLatest config changes
+        const shouldAutoClose = await checkForAutoClose(pr, config, logger)
+        if (shouldAutoClose) {
+          if (options.dryRun) {
+            logger.info(`🔍 [DRY RUN] Would auto-close PR #${pr.number} (contains dynamic versions that are now filtered)`)
+
+            // Extract package names for logging
+            const packageNames = extractPackageNamesFromPRBody(pr.body)
+            logger.info(`📋 PR contains packages: ${packageNames.join(', ')}`)
+            closedCount++
+            continue
+          }
+          else {
+            logger.info(`🔒 Auto-closing PR #${pr.number} (contains dynamic versions that are now filtered by respectLatest config)`)
+
+            // Extract package names for logging
+            const packageNames = extractPackageNamesFromPRBody(pr.body)
+            logger.info(`📋 PR contains packages: ${packageNames.join(', ')}`)
+
+            try {
+              await gitProvider.closePullRequest(pr.number)
+              logger.success(`✅ Successfully closed PR #${pr.number} (contains dynamic versions that are now filtered by respectLatest configuration)`)
+              closedCount++
+              continue
+            }
+            catch (error) {
+              logger.error(`❌ Failed to close PR #${pr.number}:`, error)
+            }
+          }
+        }
+
         // Check if rebase checkbox is checked
         const isRebaseChecked = checkRebaseCheckbox(pr.body)
 
@@ -994,11 +1026,16 @@ cli
         }
       }
 
+      if (closedCount > 0) {
+        logger.success(`🔒 ${options.dryRun ? 'Would close' : 'Successfully closed'} ${closedCount} PR(s) with dynamic versions`)
+      }
+
       if (rebasedCount > 0) {
         logger.success(`✅ ${options.dryRun ? 'Would rebase' : 'Successfully rebased'} ${rebasedCount} PR(s)`)
       }
-      else {
-        logger.info('✅ No PRs need rebasing')
+
+      if (closedCount === 0 && rebasedCount === 0) {
+        logger.info('✅ No PRs need attention')
       }
     }
     catch (error) {
@@ -1012,6 +1049,87 @@ function checkRebaseCheckbox(body: string): boolean {
   // Look for the checked rebase checkbox pattern - handle both "rebase/retry" and "update/retry"
   const checkedPattern = /- \[x\] <!-- rebase-check -->If you want to (?:rebase|update)\/retry this PR, check this box/i
   return checkedPattern.test(body)
+}
+
+// Helper function to extract package names from PR body
+function extractPackageNamesFromPRBody(body: string): string[] {
+  const packages: string[] = []
+
+  // Look for package names in the PR body table
+  const tableMatch = body.match(/\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|/g)
+  if (tableMatch) {
+    for (const row of tableMatch) {
+      // Extract package name from table row - use a more specific pattern to avoid backtracking
+      const packageMatch = row.match(/\[([^\]]+)\]\([^)]*\)/)
+      if (packageMatch) {
+        packages.push(packageMatch[1])
+      }
+    }
+  }
+
+  // Also look for package names in the release notes section
+  const releaseNotesMatch = body.match(/<summary>([^<]+)<\/summary>/g)
+  if (releaseNotesMatch) {
+    for (const match of releaseNotesMatch) {
+      const packageName = match.replace(/<summary>/, '').replace(/<\/summary>/, '').trim()
+      if (packageName && !packages.includes(packageName)) {
+        packages.push(packageName)
+      }
+    }
+  }
+
+  return packages
+}
+
+// Helper function to check if a PR should be auto-closed due to respectLatest config changes
+async function checkForAutoClose(pr: any, config: any, _logger: any): Promise<boolean> {
+  const respectLatest = config.packages?.respectLatest ?? true
+
+  // Only auto-close if respectLatest is true (the new default behavior)
+  if (!respectLatest) {
+    return false
+  }
+
+  // Check if the existing PR contains updates that would now be filtered out
+  // Look for dynamic version indicators in the PR body
+  const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+  const prBody = pr.body.toLowerCase()
+
+  // Check if PR body contains dynamic version indicators
+  const hasDynamicVersions = dynamicIndicators.some(indicator => prBody.includes(indicator))
+  if (!hasDynamicVersions) {
+    return false
+  }
+
+  // Extract packages from PR body and check if they have dynamic versions
+  const packageNames = extractPackageNamesFromPRBody(pr.body)
+
+  // Check if any of the packages in the PR had dynamic versions
+  const packagesWithDynamicVersions = packageNames.filter((pkg) => {
+    // Look for the package in the PR body table format: | [package](url) | version → newVersion |
+    const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
+    const match = pr.body.match(packagePattern)
+    if (!match) {
+      // Fallback: look for any version pattern with this package
+      const fallbackPattern = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\w]*[:=]\\s*["']?([^"'\n]+)["']?`, 'i')
+      const fallbackMatch = pr.body.match(fallbackPattern)
+      if (!fallbackMatch)
+        return false
+
+      const version = fallbackMatch[1].toLowerCase().trim()
+      return dynamicIndicators.includes(version)
+    }
+
+    const versionChange = match[1].trim()
+    const currentVersionMatch = versionChange.match(/^([^→]+)→/)
+    if (!currentVersionMatch)
+      return false
+
+    const currentVersion = currentVersionMatch[1].trim().toLowerCase()
+    return dynamicIndicators.includes(currentVersion)
+  })
+
+  return packagesWithDynamicVersions.length > 0
 }
 
 cli
