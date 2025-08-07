@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.2...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.2...main)
+
+### 🏡 Chore
+
+- Rename `rebase-check` to `check` ([463fc1b](https://github.com/stacksjs/buddy-bot/commit/463fc1b))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.1...main)
