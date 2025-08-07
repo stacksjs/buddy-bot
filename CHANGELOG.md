@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.4...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.4...main)
+
+### 🏡 Chore
+
+- Add default values ([270c700](https://github.com/stacksjs/buddy-bot/commit/270c700))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.3...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.3...main)
