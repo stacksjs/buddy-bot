@@ -244,6 +244,9 @@ export interface GitProvider {
   /** Close pull request */
   closePullRequest: (prNumber: number) => Promise<void>
 
+  /** Create comment on pull request */
+  createComment: (prNumber: number, comment: string) => Promise<void>
+
   /** Merge pull request */
   mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
 

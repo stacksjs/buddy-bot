@@ -931,6 +931,22 @@ cli
             logger.info(`📋 PR contains packages: ${packageNames.join(', ')}`)
 
             try {
+              // Add a comment explaining why the PR was closed
+              const comment = `🤖 **Auto-closed by Buddy Bot**
+
+This PR was automatically closed because it contains updates for packages with dynamic version indicators (like \`*\`, \`latest\`, etc.) that are now filtered out by the \`respectLatest\` configuration.
+
+**Affected packages:** ${packageNames.join(', ')}
+
+The \`respectLatest\` setting (default: \`true\`) prevents updates to packages that use dynamic version indicators, as these are typically meant to always use the latest version and shouldn't be pinned to specific versions.
+
+If you need to update these packages to specific versions, you can:
+1. Set \`respectLatest: false\` in your \`buddy-bot.config.ts\`
+2. Or manually update the dependency files to use specific versions instead of dynamic indicators
+
+This helps maintain the intended behavior of dynamic version indicators while preventing unwanted updates.`
+
+              await gitProvider.createComment(pr.number, comment)
               await gitProvider.closePullRequest(pr.number)
               logger.success(`✅ Successfully closed PR #${pr.number} (contains dynamic versions that are now filtered by respectLatest configuration)`)
               closedCount++

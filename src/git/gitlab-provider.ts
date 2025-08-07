@@ -56,6 +56,11 @@ export class GitLabProvider implements GitProvider {
     console.log(`Would close MR #${prNumber}`)
   }
 
+  async createComment(prNumber: number, comment: string): Promise<void> {
+    // TODO: Implement GitLab API call to create comment
+    console.log(`Would add comment to MR #${prNumber}: ${comment}`)
+  }
+
   async mergePullRequest(prNumber: number, strategy: 'merge' | 'squash' | 'rebase' = 'merge'): Promise<void> {
     // TODO: Implement GitLab API call to merge MR
     console.log(`Would merge MR #${prNumber} using ${strategy}`)

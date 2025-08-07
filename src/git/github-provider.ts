@@ -660,6 +660,19 @@ export class GitHubProvider implements GitProvider {
     }
   }
 
+  async createComment(prNumber: number, comment: string): Promise<void> {
+    try {
+      await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${prNumber}/comments`, {
+        body: comment,
+      })
+      console.log(`💬 Added comment to PR #${prNumber}`)
+    }
+    catch (error) {
+      console.error(`❌ Failed to add comment to PR #${prNumber}:`, error)
+      throw error
+    }
+  }
+
   async mergePullRequest(prNumber: number, strategy: 'merge' | 'squash' | 'rebase' = 'merge'): Promise<void> {
     try {
       const mergeMethod = strategy === 'rebase' ? 'rebase' : strategy === 'squash' ? 'squash' : 'merge'
