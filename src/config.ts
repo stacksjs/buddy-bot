@@ -4,7 +4,33 @@ import { loadConfig } from 'bunfig'
 
 export const defaultConfig: BuddyBotConfig = {
   verbose: true,
+  repository: {
+    owner: '',
+    name: '',
+    provider: 'github',
+  },
+  dashboard: {
+    enabled: false,
+    title: 'Dependency Dashboard',
+  },
+  workflows: {
+    enabled: false,
+    outputDir: '.github/workflows',
+    templates: {
+      daily: false,
+      weekly: false,
+      monthly: false,
+    },
+    custom: [],
+  },
   packages: {
+    strategy: 'all',
+    ignore: [],
+    ignorePaths: [],
+    pin: {},
+    groups: [],
+    includePrerelease: false,
+    excludeMajor: false,
     respectLatest: true,
   },
 }
