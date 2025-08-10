@@ -24,9 +24,6 @@ buddy-bot dashboard
 ### With Options
 
 ```bash
-# Create a pinned dashboard (or pin existing one)
-buddy-bot dashboard --pin
-
 # Use custom title
 buddy-bot dashboard --title "My Project Dependencies"
 
@@ -157,7 +154,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - name: Update Dashboard
-        run: bunx buddy-bot dashboard --pin
+        run: bunx buddy-bot dashboard
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

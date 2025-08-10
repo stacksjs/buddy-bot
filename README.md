@@ -186,9 +186,6 @@ buddy setup --non-interactive --preset testing --verbose
 buddy scan
 buddy scan --verbose
 
-# Create or update dependency dashboard
-buddy dashboard --pin
-
 # Check specific packages
 buddy scan --packages "react,typescript,@types/node"
 
@@ -521,8 +518,8 @@ For the rebase functionality to update GitHub Actions workflow files, you need p
 # Create basic dashboard
 buddy-bot dashboard
 
-# Create pinned dashboard with custom title
-buddy-bot dashboard --pin --title "My Dependencies"
+# Create dashboard with custom title
+buddy-bot dashboard --title "My Dependencies"
 ```
 
 ### Automated Dashboard Updates

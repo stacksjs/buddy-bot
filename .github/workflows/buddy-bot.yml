@@ -398,9 +398,10 @@ jobs:
           # Build the command
           COMMAND="bunx buddy-bot dashboard"
 
-          if [ "$PIN" = "true" ]; then
-            COMMAND="$COMMAND --pin"
-          fi
+          # TODO: Uncomment this when we have a way to pin the dashboard
+          # if [ "$PIN" = "true" ]; then
+          #   COMMAND="$COMMAND --pin"
+          # fi
 
           if [ "$TITLE" != "" ]; then
             COMMAND="$COMMAND --title \"$TITLE\""

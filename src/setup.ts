@@ -1482,10 +1482,6 @@ ${generateComposerSetupSteps()}
           # Build the command
           COMMAND="bunx buddy-bot dashboard"
 
-          if [ "\$PIN" = "true" ]; then
-            COMMAND="\$COMMAND --pin"
-          fi
-
           if [ "\$TITLE" != "" ]; then
             COMMAND="\$COMMAND --title \\"\$TITLE\\""
           fi

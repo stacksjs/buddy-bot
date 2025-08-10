@@ -67,7 +67,6 @@ Examples:
   buddy-bot setup                      # Interactive setup with migration
   buddy-bot setup --non-interactive    # Automated setup for CI/CD
   buddy-bot scan --verbose             # Scan for updates (npm + Composer)
-  buddy-bot dashboard --pin            # Create pinned dashboard
   buddy-bot rebase 17                  # Rebase PR #17
   buddy-bot update-check               # Auto-rebase checked PRs
   buddy-bot info laravel/framework     # Get Composer package info
@@ -575,7 +574,6 @@ cli
   .option('--title <title>', 'Custom dashboard title')
   .option('--issue-number <number>', 'Update specific issue number')
   .example('buddy-bot dashboard')
-  .example('buddy-bot dashboard --pin')
   .example('buddy-bot dashboard --title "My Dependencies"')
   .example('buddy-bot dashboard --issue-number 42')
   .action(async (options: CLIOptions & { pin?: boolean, title?: string, issueNumber?: string }) => {
