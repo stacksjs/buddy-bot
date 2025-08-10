@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.7.7...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.7...main)
+
+### 🚀 Enhancements
+
+- Create pr comment when closing latest pr ([cf519f0](https://github.com/stacksjs/buddy-bot/commit/cf519f0))
+
+### 🏡 Chore
+
+- Temporarily remove the pin option ([a776ce2](https://github.com/stacksjs/buddy-bot/commit/a776ce2))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.6...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.6...main)
