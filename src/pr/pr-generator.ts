@@ -969,31 +969,21 @@ export class PullRequestGenerator {
     const cleanCurrent = currentVersion.replace(/^[v^~>=<@]+/, '')
     const cleanNew = newVersion.replace(/^[v^~>=<@]+/, '')
 
-    const currentParts = cleanCurrent.split('.').map((part) => {
-      const num = Number(part)
-      return Number.isNaN(num) ? 0 : num
-    })
-    const newParts = cleanNew.split('.').map((part) => {
-      const num = Number(part)
-      return Number.isNaN(num) ? 0 : num
-    })
+    try {
+      if (Bun.semver.order(cleanNew, cleanCurrent) <= 0)
+        return 'patch'
 
-    // Ensure we have at least major.minor.patch structure
-    while (currentParts.length < 3) currentParts.push(0)
-    while (newParts.length < 3) newParts.push(0)
+      if (Bun.semver.satisfies(cleanNew, `~${cleanCurrent}`))
+        return 'patch'
 
-    // Compare major version
-    if (newParts[0] > currentParts[0]) {
-      return 'major'
+      if (Bun.semver.satisfies(cleanNew, `^${cleanCurrent}`))
+        return 'minor'
+    }
+    catch {
+      return 'patch'
     }
 
-    // Compare minor version
-    if (newParts[0] === currentParts[0] && newParts[1] > currentParts[1]) {
-      return 'minor'
-    }
-
-    // Everything else is patch
-    return 'patch'
+    return 'major'
   }
 
   /**

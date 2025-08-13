@@ -305,45 +305,44 @@ export function getUpdateType(currentVersion: string, newVersion: string): 'majo
   const cleanCurrent = currentVersion.replace(/^[v^~>=<@]+/, '')
   const cleanNew = newVersion.replace(/^[v^~>=<@]+/, '')
 
-  // Handle version ranges with @ (like @1.1, @1, etc.)
-  // For @1.1 -> 3.5.0, current should be interpreted as 1.1
-  const currentParts = cleanCurrent.split('.').map((part) => {
-    const num = Number(part)
-    return Number.isNaN(num) ? 0 : num
-  })
-  const newParts = cleanNew.split('.').map((part) => {
-    const num = Number(part)
-    return Number.isNaN(num) ? 0 : num
-  })
-
-  // Ensure we have at least major.minor.patch structure
-  while (currentParts.length < 3) currentParts.push(0)
-  while (newParts.length < 3) newParts.push(0)
-
-  // Compare major version
-  if (newParts[0] > currentParts[0]) {
-    return 'major'
+  // If not an upgrade or equal, treat as patch (no-op or bugfix)
+  try {
+    if (Bun.semver.order(cleanNew, cleanCurrent) <= 0)
+      return 'patch'
+  }
+  catch {
+    // Fallback to patch if semver fails
+    return 'patch'
   }
 
-  // Compare minor version
-  if (newParts[0] === currentParts[0] && newParts[1] > currentParts[1]) {
-    return 'minor'
+  // Patch: within same minor series
+  try {
+    if (Bun.semver.satisfies(cleanNew, `~${cleanCurrent}`))
+      return 'patch'
   }
+  catch {}
 
-  // Everything else is patch
-  return 'patch'
+  // Minor: within same major series
+  try {
+    if (Bun.semver.satisfies(cleanNew, `^${cleanCurrent}`))
+      return 'minor'
+  }
+  catch {}
+
+  // Otherwise major
+  return 'major'
 }
 
 /**
  * Check if version satisfies semver range
  */
 export function satisfiesRange(version: string, range: string): boolean {
-  // This is a simplified implementation
-  // In production, use a proper semver library
-  const cleanVersion = version.replace(/^[\^~>=<]+/, '')
-  const cleanRange = range.replace(/^[\^~>=<]+/, '')
-
-  return cleanVersion === cleanRange
+  try {
+    return Bun.semver.satisfies(version, range)
+  }
+  catch {
+    return false
+  }
 }
 
 /**

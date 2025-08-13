@@ -422,6 +422,12 @@ export class Buddy {
             // const originalPrefix = prefixMatch ? prefixMatch[1] : ''
             const constraintVersion = dep.constraint.replace(/^[\^~>=<]+/, '')
 
+            // Ensure we only propose upgrades, never downgrades
+            if (!this.isNewerVersion(constraintVersion, dep.version)) {
+              this.logger.debug(`Skipping ${dep.name} - latest (${dep.version}) is not newer than constraint (${constraintVersion})`)
+              continue
+            }
+
             // Determine update type
             const updateType = this.getUpdateType(constraintVersion, dep.version)
 
@@ -552,27 +558,31 @@ export class Buddy {
       const cleanCurrent = current.replace(/^[v^~>=<@]+/, '')
       const cleanLatest = latest.replace(/^[v^~>=<@]+/, '')
 
-      const currentParts = cleanCurrent.split('.').map((part) => {
-        const num = Number(part)
-        return Number.isNaN(num) ? 0 : num
-      })
-      const latestParts = cleanLatest.split('.').map((part) => {
-        const num = Number(part)
-        return Number.isNaN(num) ? 0 : num
-      })
+      if (Bun.semver.order(cleanLatest, cleanCurrent) <= 0)
+        return 'patch'
 
-      // Ensure we have at least major.minor.patch structure
-      while (currentParts.length < 3) currentParts.push(0)
-      while (latestParts.length < 3) latestParts.push(0)
+      if (Bun.semver.satisfies(cleanLatest, `~${cleanCurrent}`))
+        return 'patch'
 
-      if (latestParts[0] > currentParts[0])
-        return 'major'
-      if (latestParts[0] === currentParts[0] && latestParts[1] > currentParts[1])
+      if (Bun.semver.satisfies(cleanLatest, `^${cleanCurrent}`))
         return 'minor'
-      return 'patch'
+
+      return 'major'
     }
     catch {
-      return 'patch' // Default to patch if parsing fails
+      return 'patch'
+    }
+  }
+
+  /**
+   * Check if latest version is strictly newer than current
+   */
+  private isNewerVersion(current: string, latest: string): boolean {
+    try {
+      return Bun.semver.order(latest.replace(/^[v^~>=<@]+/, ''), current.replace(/^[v^~>=<@]+/, '')) > 0
+    }
+    catch {
+      return false
     }
   }
 
