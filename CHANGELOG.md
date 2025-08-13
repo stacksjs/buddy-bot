@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.8...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.8...main)
+
+### 🏡 Chore
+
+- Use bun semver ([a79bd5a](https://github.com/stacksjs/buddy-bot/commit/a79bd5a))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.7...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.7...main)
