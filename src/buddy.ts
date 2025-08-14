@@ -1141,17 +1141,38 @@ export class Buddy {
           labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
           assignees: dashboardConfig.assignees,
         })
+
+        this.logger.success(`✅ Successfully updated dashboard issue #${issue.number}`)
       }
       else {
         this.logger.info('Creating new dashboard issue')
 
-        // Create new dashboard
-        issue = await gitProvider.createIssue({
-          title: dashboardConfig.title || title,
-          body,
-          labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
-          assignees: dashboardConfig.assignees,
-        })
+        // Double-check for race condition: search again right before creating
+        // This helps prevent duplicates if multiple workflow runs are happening simultaneously
+        this.logger.info('Performing final check for existing dashboards before creation...')
+        const raceCheckIssue = await this.findExistingDashboard(gitProvider, dashboardConfig.issueNumber)
+
+        if (raceCheckIssue) {
+          this.logger.info(`Race condition detected! Found existing dashboard #${raceCheckIssue.number} during final check`)
+          // Update the found issue instead of creating a new one
+          issue = await gitProvider.updateIssue(raceCheckIssue.number, {
+            title: dashboardConfig.title || title,
+            body,
+            labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
+            assignees: dashboardConfig.assignees,
+          })
+          this.logger.success(`✅ Updated existing dashboard issue #${issue.number} (race condition avoided)`)
+        }
+        else {
+          // Safe to create new dashboard
+          issue = await gitProvider.createIssue({
+            title: dashboardConfig.title || title,
+            body,
+            labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
+            assignees: dashboardConfig.assignees,
+          })
+          this.logger.success(`✅ Successfully created new dashboard issue #${issue.number}`)
+        }
       }
 
       this.logger.success(`✅ Dashboard updated: ${issue.url}`)
@@ -1227,19 +1248,62 @@ export class Buddy {
    */
   private async findExistingDashboard(gitProvider: GitHubProvider, issueNumber?: number): Promise<Issue | null> {
     try {
+      this.logger.info('Searching for existing dashboard issue...')
+
       // If issue number is provided, try to get that specific issue
       if (issueNumber) {
+        this.logger.info(`Looking for specific dashboard issue #${issueNumber}`)
         const issues = await gitProvider.getIssues('open')
-        return issues.find(issue => issue.number === issueNumber) || null
+        const specificIssue = issues.find(issue => issue.number === issueNumber)
+        if (specificIssue) {
+          this.logger.info(`Found specified dashboard issue #${specificIssue.number}: ${specificIssue.title}`)
+          return specificIssue
+        }
+        else {
+          this.logger.warn(`Specified dashboard issue #${issueNumber} not found`)
+          return null
+        }
       }
 
-      // Otherwise, search for existing dashboard by title and labels
+      // Get all open issues
       const issues = await gitProvider.getIssues('open')
-      return issues.find(issue =>
-        (issue.title.toLowerCase().includes('dependency dashboard')
-          || issue.labels.includes('dashboard'))
-        && issue.labels.includes('dependencies'),
-      ) || null
+      this.logger.info(`Found ${issues.length} open issues to search through`)
+
+      // Search for existing dashboard with multiple criteria for better matching
+      for (const issue of issues) {
+        const hasRequiredLabels = issue.labels.includes('dashboard') && issue.labels.includes('dependencies')
+        const titleMatches = issue.title.toLowerCase().includes('dependency dashboard')
+        const bodyHasMarker = issue.body.includes('This issue lists Buddy Bot updates and detected dependencies')
+
+        // Be more strict: require both proper labels AND (title match OR body marker)
+        if (hasRequiredLabels && (titleMatches || bodyHasMarker)) {
+          this.logger.info(`Found existing dashboard issue #${issue.number}: ${issue.title}`)
+          this.logger.info(`  - Labels: ${issue.labels.join(', ')}`)
+          this.logger.info(`  - Title matches: ${titleMatches}`)
+          this.logger.info(`  - Body has marker: ${bodyHasMarker}`)
+          return issue
+        }
+      }
+
+      // If no exact match found, log what we found for debugging
+      const dashboardLabeled = issues.filter(issue => issue.labels.includes('dashboard'))
+      const dependenciesLabeled = issues.filter(issue => issue.labels.includes('dependencies'))
+      const titleMatches = issues.filter(issue => issue.title.toLowerCase().includes('dependency dashboard'))
+
+      this.logger.info(`Dashboard search results:`)
+      this.logger.info(`  - Issues with 'dashboard' label: ${dashboardLabeled.length}`)
+      this.logger.info(`  - Issues with 'dependencies' label: ${dependenciesLabeled.length}`)
+      this.logger.info(`  - Issues with 'dependency dashboard' in title: ${titleMatches.length}`)
+
+      if (dashboardLabeled.length > 0) {
+        this.logger.info(`Issues with 'dashboard' label:`)
+        for (const issue of dashboardLabeled) {
+          this.logger.info(`  - #${issue.number}: ${issue.title} (labels: ${issue.labels.join(', ')})`)
+        }
+      }
+
+      this.logger.info('No existing dashboard issue found')
+      return null
     }
     catch (error) {
       this.logger.warn(`Failed to search for existing dashboard: ${error}`)
