@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.7.9...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.9...main)
+
+### 🏡 Chore
+
+- Default to bun latest version ([fc63a14](https://github.com/stacksjs/buddy-bot/commit/fc63a14))
+- Improve dashboard creation & maintenance ([04e4000](https://github.com/stacksjs/buddy-bot/commit/04e4000))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.8...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.8...main)
