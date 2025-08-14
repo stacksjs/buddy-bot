@@ -555,19 +555,39 @@ export class Buddy {
   private getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' {
     try {
       // Clean version strings, including v, @ prefix for version ranges
-      const cleanCurrent = current.replace(/^[v^~>=<@]+/, '')
-      const cleanLatest = latest.replace(/^[v^~>=<@]+/, '')
+      let cleanCurrent = current.replace(/^[v^~>=<@]+/, '')
+      let cleanLatest = latest.replace(/^[v^~>=<@]+/, '')
+
+      // For GitHub Actions, normalize incomplete versions like "4" to "4.0.0"
+      // This is important for proper semver comparison
+      const normalizeVersion = (version: string): string => {
+        const parts = version.split('.')
+        while (parts.length < 3) {
+          parts.push('0')
+        }
+        return parts.join('.')
+      }
+
+      cleanCurrent = normalizeVersion(cleanCurrent)
+      cleanLatest = normalizeVersion(cleanLatest)
 
       if (Bun.semver.order(cleanLatest, cleanCurrent) <= 0)
         return 'patch'
 
-      if (Bun.semver.satisfies(cleanLatest, `~${cleanCurrent}`))
-        return 'patch'
+      // Use manual comparison for more accurate update type determination
+      const currentParts = cleanCurrent.split('.').map(Number)
+      const latestParts = cleanLatest.split('.').map(Number)
 
-      if (Bun.semver.satisfies(cleanLatest, `^${cleanCurrent}`))
+      // Major version change
+      if (latestParts[0] > currentParts[0])
+        return 'major'
+
+      // Minor version change
+      if (latestParts[0] === currentParts[0] && latestParts[1] > currentParts[1])
         return 'minor'
 
-      return 'major'
+      // Patch version change
+      return 'patch'
     }
     catch {
       return 'patch'
