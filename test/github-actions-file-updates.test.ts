@@ -14,8 +14,6 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Cache dependencies
         uses: actions/cache@v4.1.0
@@ -125,7 +123,6 @@ describe('GitHub Actions File Updates', () => {
       // Should preserve all other content
       expect(result).toContain('name: CI')
       expect(result).toContain('runs-on: ubuntu-latest')
-      expect(result).toContain('bun-version: latest')
       expect(result).toContain('run: bun install')
     })
 

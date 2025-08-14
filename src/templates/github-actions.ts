@@ -53,8 +53,6 @@ export class GitHubActionsTemplate {
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Install dependencies
         run: bun install
@@ -113,8 +111,6 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 \${GitHubActionsTemplate.generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
@@ -292,8 +288,6 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 \${GitHubActionsTemplate.generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
@@ -492,8 +486,6 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 \${GitHubActionsTemplate.generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install

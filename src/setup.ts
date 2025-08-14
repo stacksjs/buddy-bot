@@ -1236,8 +1236,6 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 ${generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
@@ -1263,8 +1261,6 @@ ${generateComposerSetupSteps()}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Install dependencies
         run: bun install
@@ -1346,8 +1342,6 @@ ${generateComposerSetupSteps()}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 ${generateComposerSetupSteps()}
       - name: Install dependencies
         run: bun install
@@ -1443,8 +1437,6 @@ ${generateComposerSetupSteps()}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Install dependencies
         run: bun install

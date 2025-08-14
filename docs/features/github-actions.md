@@ -45,8 +45,6 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2 # ← Detected & updated
-        with:
-          bun-version: latest
 
       - name: Cache dependencies
         uses: actions/cache@v4.1.0 # ← Detected & updated
