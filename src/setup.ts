@@ -463,17 +463,17 @@ export class PluginManager {
   }
 
   private async hasSlackWebhook(): Promise<boolean> {
-    return process.env.SLACK_WEBHOOK_URL !== undefined
+    return (process.env.SLACK_WEBHOOK_URL !== undefined && process.env.SLACK_WEBHOOK_URL !== '')
       || fs.existsSync('.buddy/slack-webhook')
   }
 
   private async hasJiraIntegration(): Promise<boolean> {
-    return process.env.JIRA_API_TOKEN !== undefined
+    return (process.env.JIRA_API_TOKEN !== undefined && process.env.JIRA_API_TOKEN !== '')
       || fs.existsSync('.buddy/jira-config.json')
   }
 
   private async hasDiscordWebhook(): Promise<boolean> {
-    return process.env.DISCORD_WEBHOOK_URL !== undefined
+    return (process.env.DISCORD_WEBHOOK_URL !== undefined && process.env.DISCORD_WEBHOOK_URL !== '')
       || fs.existsSync('.buddy/discord-webhook')
   }
 

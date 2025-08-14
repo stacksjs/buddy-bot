@@ -129,7 +129,15 @@ async function parseSimpleYamlDependencies(content: string, filePath: string): P
 export async function updateDependencyFile(filePath: string, content: string, updates: PackageUpdate[]): Promise<string> {
   try {
     if (!isDependencyFile(filePath)) {
+      console.log(`⚠️ updateDependencyFile: ${filePath} is not a dependency file, returning original content`)
       return content
+    }
+
+    // Extra safety check: ensure we're not accidentally processing non-YAML content
+    if (content.trim().startsWith('{') && content.includes('"require"')) {
+      console.log(`⚠️ updateDependencyFile: Content appears to be JSON (composer.json), but file is ${filePath}`)
+      console.log(`Content preview: ${content.substring(0, 200)}`)
+      return content // Don't process JSON content in YAML function
     }
 
     let updatedContent = content

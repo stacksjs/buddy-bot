@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { BuddyBotConfig } from '../src/types'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs'
@@ -10,8 +11,16 @@ describe('respectLatest functionality', () => {
   let testDir: string
 
   beforeEach(() => {
-    // Create temporary test directory
-    testDir = fs.mkdtempSync('buddy-test-')
+    // Create temporary test directory in a more isolated location
+    // eslint-disable-next-line ts/no-require-imports
+    testDir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'buddy-test-'))
+
+    // Ensure the directory is truly isolated by checking it's empty
+    const files = fs.readdirSync(testDir)
+    if (files.length > 0) {
+      console.log('🚨 Test directory not empty:', files)
+      files.forEach(file => fs.rmSync(path.join(testDir, file), { recursive: true, force: true }))
+    }
   })
 
   afterEach(() => {
@@ -72,7 +81,11 @@ describe('respectLatest functionality', () => {
   })
 
   it('should test dependency file respectLatest logic', async () => {
-    // Create test deps.yaml with dynamic versions
+    // Test the dependency file respectLatest logic directly without file system operations
+    // This avoids the file corruption issue in GitHub Actions environment
+    const { updateDependencyFile, isDependencyFile } = await import('../src/utils/dependency-file-parser')
+
+    // Create test deps.yaml content
     const depsYaml = `dependencies:
   python.org: "*"
   node: "latest"
@@ -84,11 +97,10 @@ devDependencies:
   prettier: "^3.0.0"
 `
 
-    const depsPath = path.join(testDir, 'deps.yaml')
-    fs.writeFileSync(depsPath, depsYaml)
+    const depsPath = 'deps.yaml' // Use relative path for testing
 
-    // Test the dependency file respectLatest logic
-    const { updateDependencyFile } = await import('../src/utils/dependency-file-parser')
+    // Verify file detection works correctly
+    expect(isDependencyFile(depsPath)).toBe(true)
 
     // Create mock updates
     const updates = [
@@ -110,18 +122,9 @@ devDependencies:
       },
     ]
 
-    // Read the original content using a try-catch to handle potential mocking conflicts
-    let originalContent: string
-    try {
-      originalContent = fs.readFileSync(depsPath, 'utf-8')
-    }
-    catch {
-      // If there's a mocking conflict, use the content directly
-      originalContent = depsYaml
-    }
-
     // Test that dynamic versions are respected (not updated)
-    const updatedContent = await updateDependencyFile(depsPath, originalContent, updates)
+    // Pass the content directly to avoid file system corruption
+    const updatedContent = await updateDependencyFile(depsPath, depsYaml, updates)
 
     // python.org should not be updated because it uses "*"
     expect(updatedContent).toContain('python.org: "*"')
