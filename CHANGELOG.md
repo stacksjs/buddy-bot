@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.11...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.11...main)
+
+### 🏡 Chore
+
+- Update deps ([e85f052](https://github.com/stacksjs/buddy-bot/commit/e85f052))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.10...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.10...main)
