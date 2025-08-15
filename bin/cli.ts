@@ -60,6 +60,10 @@ PACKAGE INFORMATION:
   compare       ⚖️  Compare two versions of a package
   search        🔍 Search for packages in the registry
 
+BRANCH MANAGEMENT:
+  cleanup       🧹 Clean up stale buddy-bot branches
+  list-branches 📋 List all buddy-bot branches and their status
+
 CONFIGURATION & SETUP:
   open-settings 🔧 Open GitHub repository and organization settings pages
 
@@ -69,6 +73,8 @@ Examples:
   buddy-bot scan --verbose             # Scan for updates (npm + Composer)
   buddy-bot rebase 17                  # Rebase PR #17
   buddy-bot update-check               # Auto-rebase checked PRs
+  buddy-bot cleanup                    # Clean up stale branches
+  buddy-bot list-branches              # List all buddy-bot branches
   buddy-bot info laravel/framework     # Get Composer package info
   buddy-bot info react                 # Get npm package info
   buddy-bot versions react --latest 5  # Show recent versions
@@ -1052,6 +1058,31 @@ This helps maintain the intended behavior of dynamic version indicators while pr
       if (closedCount === 0 && rebasedCount === 0) {
         logger.info('✅ No PRs need attention')
       }
+
+      // Automatic cleanup of stale branches after processing PRs
+      if (!options.dryRun) {
+        logger.info('\n🧹 Checking for stale branches to clean up...')
+        try {
+          const cleanupResult = await gitProvider.cleanupStaleBranches(7, false) // Clean branches older than 7 days
+
+          if (cleanupResult.deleted.length > 0) {
+            logger.success(`🧹 Automatically cleaned up ${cleanupResult.deleted.length} stale branch(es)`)
+            if (options.verbose) {
+              cleanupResult.deleted.forEach(branch => logger.info(`  ✅ Deleted: ${branch}`))
+            }
+          }
+
+          if (cleanupResult.failed.length > 0) {
+            logger.warn(`⚠️ Failed to clean up ${cleanupResult.failed.length} branch(es)`)
+            if (options.verbose) {
+              cleanupResult.failed.forEach(branch => logger.warn(`  ❌ Failed: ${branch}`))
+            }
+          }
+        }
+        catch (cleanupError) {
+          logger.warn('⚠️ Branch cleanup failed:', cleanupError)
+        }
+      }
     }
     catch (error) {
       logger.error('update-check failed:', error)
@@ -1753,6 +1784,229 @@ cli
     catch (error) {
       logger.error('Failed to search packages:', error)
       console.log(`💡 Try searching at https://www.npmjs.com/search?q=${encodeURIComponent(query)}`)
+    }
+  })
+
+cli
+  .command('cleanup', 'Clean up stale buddy-bot branches that don\'t have associated open PRs')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--dry-run', 'Show what would be deleted without actually deleting')
+  .option('--days <number>', 'Delete branches older than N days (default: 7)', { default: '7' })
+  .option('--force', 'Force cleanup without confirmation prompt')
+  .example('buddy-bot cleanup')
+  .example('buddy-bot cleanup --dry-run')
+  .example('buddy-bot cleanup --days 14')
+  .example('buddy-bot cleanup --force')
+  .action(async (options: CLIOptions & { dryRun?: boolean, days?: string, force?: boolean }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      logger.info('🧹 Starting buddy-bot branch cleanup...')
+
+      // Check if repository is configured
+      if (!config.repository) {
+        logger.error('❌ Repository configuration required for branch cleanup')
+        logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        process.exit(1)
+      }
+
+      // Get GitHub token from environment
+      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
+      if (!token) {
+        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for branch operations')
+        process.exit(1)
+      }
+
+      const { GitHubProvider } = await import('../src/git/github-provider')
+      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
+      const gitProvider = new GitHubProvider(
+        token,
+        config.repository.owner,
+        config.repository.name,
+        hasWorkflowPermissions,
+      )
+
+      const days = Number.parseInt(options.days || '7', 10)
+      if (Number.isNaN(days) || days < 1) {
+        logger.error('❌ Invalid days value. Must be a positive number.')
+        process.exit(1)
+      }
+
+      logger.info(`🔍 Looking for buddy-bot branches older than ${days} days...`)
+
+      // Get all orphaned branches
+      const orphanedBranches = await gitProvider.getOrphanedBuddyBotBranches()
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - days)
+      const staleBranches = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
+
+      if (staleBranches.length === 0) {
+        logger.success('✅ No stale branches found!')
+        logger.info(`📊 Total buddy-bot branches: ${orphanedBranches.length}`)
+        logger.info(`📊 Stale branches (>${days} days): 0`)
+        return
+      }
+
+      logger.info(`📊 Found ${staleBranches.length} stale branches to clean up:`)
+      staleBranches.forEach(branch => {
+        const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
+        logger.info(`  - ${branch.name} (${daysOld} days old)`)
+      })
+
+      if (options.dryRun) {
+        logger.info('\n🔍 [DRY RUN] These branches would be deleted')
+        logger.info('💡 Run without --dry-run to actually delete them')
+        return
+      }
+
+      // Confirmation prompt (unless --force is used)
+      if (!options.force) {
+        const response = await prompts({
+          type: 'confirm',
+          name: 'confirmed',
+          message: `Are you sure you want to delete ${staleBranches.length} stale branches?`,
+          initial: false,
+        })
+
+        if (!response.confirmed) {
+          logger.info('❌ Cleanup cancelled')
+          return
+        }
+      }
+
+      // Perform cleanup
+      const result = await gitProvider.cleanupStaleBranches(days, false)
+
+      if (result.deleted.length > 0) {
+        logger.success(`✅ Successfully deleted ${result.deleted.length} stale branches`)
+      }
+
+      if (result.failed.length > 0) {
+        logger.warn(`⚠️ Failed to delete ${result.failed.length} branches`)
+        result.failed.forEach(branch => logger.warn(`  - ${branch}`))
+      }
+
+      logger.info(`\n📊 Cleanup Summary:`)
+      logger.info(`  ✅ Deleted: ${result.deleted.length}`)
+      logger.info(`  ❌ Failed: ${result.failed.length}`)
+      logger.info(`  📊 Total processed: ${staleBranches.length}`)
+    }
+    catch (error) {
+      logger.error('Branch cleanup failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('list-branches', 'List all buddy-bot branches and their status')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--orphaned-only', 'Show only branches without associated open PRs')
+  .option('--stale-only', 'Show only stale branches (older than 7 days)')
+  .option('--days <number>', 'Define stale threshold in days (default: 7)', { default: '7' })
+  .example('buddy-bot list-branches')
+  .example('buddy-bot list-branches --orphaned-only')
+  .example('buddy-bot list-branches --stale-only --days 14')
+  .action(async (options: CLIOptions & { orphanedOnly?: boolean, staleOnly?: boolean, days?: string }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    try {
+      logger.info('📋 Listing buddy-bot branches...')
+
+      // Check if repository is configured
+      if (!config.repository) {
+        logger.error('❌ Repository configuration required for branch listing')
+        logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        process.exit(1)
+      }
+
+      // Get GitHub token from environment
+      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
+      if (!token) {
+        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for branch operations')
+        process.exit(1)
+      }
+
+      const { GitHubProvider } = await import('../src/git/github-provider')
+      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
+      const gitProvider = new GitHubProvider(
+        token,
+        config.repository.owner,
+        config.repository.name,
+        hasWorkflowPermissions,
+      )
+
+      const days = Number.parseInt(options.days || '7', 10)
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - days)
+
+      // Get all branches and PRs
+      const [allBuddyBranches, openPRs] = await Promise.all([
+        gitProvider.getBuddyBotBranches(),
+        gitProvider.getPullRequests('open'),
+      ])
+
+      const prBranches = new Set(openPRs.map(pr => pr.head))
+
+      // Filter branches based on options
+      let branches = allBuddyBranches
+      if (options.orphanedOnly) {
+        branches = branches.filter(branch => !prBranches.has(branch.name))
+      }
+      if (options.staleOnly) {
+        branches = branches.filter(branch => branch.lastCommitDate < cutoffDate && !prBranches.has(branch.name))
+      }
+
+      if (branches.length === 0) {
+        if (options.orphanedOnly && options.staleOnly) {
+          logger.success('✅ No stale orphaned branches found!')
+        }
+        else if (options.orphanedOnly) {
+          logger.success('✅ No orphaned branches found!')
+        }
+        else if (options.staleOnly) {
+          logger.success('✅ No stale branches found!')
+        }
+        else {
+          logger.info('📋 No buddy-bot branches found')
+        }
+        return
+      }
+
+      console.log(`\n📊 Found ${branches.length} buddy-bot branch${branches.length !== 1 ? 'es' : ''}:\n`)
+
+      // Sort by last commit date (newest first)
+      branches.sort((a, b) => b.lastCommitDate.getTime() - a.lastCommitDate.getTime())
+
+      branches.forEach(branch => {
+        const hasOpenPR = prBranches.has(branch.name)
+        const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
+        const isStale = branch.lastCommitDate < cutoffDate
+
+        const status = hasOpenPR ? '🔴 Open PR' : (isStale ? '🟡 Stale' : '🟢 Recent')
+        const shortSha = branch.sha.substring(0, 7)
+
+        console.log(`${status} ${branch.name}`)
+        console.log(`    📅 ${daysOld} days old | 📝 ${shortSha} | 🗓️  ${branch.lastCommitDate.toISOString().split('T')[0]}`)
+        console.log()
+      })
+
+      // Summary
+      const orphanedCount = branches.filter(branch => !prBranches.has(branch.name)).length
+      const staleCount = branches.filter(branch => branch.lastCommitDate < cutoffDate && !prBranches.has(branch.name)).length
+
+      console.log('📊 Summary:')
+      console.log(`  📋 Total buddy-bot branches: ${allBuddyBranches.length}`)
+      console.log(`  🔴 With open PRs: ${allBuddyBranches.length - orphanedCount}`)
+      console.log(`  🟡 Orphaned: ${orphanedCount}`)
+      console.log(`  🗑️  Stale (>${days} days): ${staleCount}`)
+
+      if (staleCount > 0) {
+        console.log(`\n💡 Run 'buddy-bot cleanup' to clean up stale branches`)
+      }
+    }
+    catch (error) {
+      logger.error('Branch listing failed:', error)
+      process.exit(1)
     }
   })
 

@@ -729,6 +729,110 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * Get all buddy-bot branches from the repository
+   */
+  async getBuddyBotBranches(): Promise<Array<{ name: string, sha: string, lastCommitDate: Date }>> {
+    try {
+      const branches = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/branches?per_page=100`)
+      const buddyBranches = branches.filter((branch: any) => branch.name.startsWith('buddy-bot/'))
+
+      // Get detailed info for each branch including last commit date
+      const branchDetails = await Promise.all(
+        buddyBranches.map(async (branch: any) => {
+          try {
+            const commit = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/commits/${branch.commit.sha}`)
+            return {
+              name: branch.name,
+              sha: branch.commit.sha,
+              lastCommitDate: new Date(commit.commit.committer.date),
+            }
+          }
+          catch (error) {
+            console.warn(`⚠️ Failed to get commit info for branch ${branch.name}:`, error)
+            return {
+              name: branch.name,
+              sha: branch.commit.sha,
+              lastCommitDate: new Date(0), // Fallback to epoch
+            }
+          }
+        }),
+      )
+
+      return branchDetails
+    }
+    catch (error) {
+      console.warn('⚠️ Failed to fetch buddy-bot branches:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get all buddy-bot branches that don't have associated open PRs
+   */
+  async getOrphanedBuddyBotBranches(): Promise<Array<{ name: string, sha: string, lastCommitDate: Date }>> {
+    try {
+      const [buddyBranches, openPRs] = await Promise.all([
+        this.getBuddyBotBranches(),
+        this.getPullRequests('open'),
+      ])
+
+      // Filter out branches that have active PRs
+      const prBranches = new Set(openPRs.map(pr => pr.head))
+      const orphanedBranches = buddyBranches.filter(branch => !prBranches.has(branch.name))
+
+      return orphanedBranches
+    }
+    catch (error) {
+      console.warn('⚠️ Failed to identify orphaned branches:', error)
+      return []
+    }
+  }
+
+  /**
+   * Clean up stale buddy-bot branches
+   */
+  async cleanupStaleBranches(olderThanDays = 7, dryRun = false): Promise<{ deleted: string[], failed: string[] }> {
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
+
+    const orphanedBranches = await this.getOrphanedBuddyBotBranches()
+    const staleBranches = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
+
+    console.log(`🔍 Found ${staleBranches.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
+
+    if (staleBranches.length === 0) {
+      return { deleted: [], failed: [] }
+    }
+
+    if (dryRun) {
+      console.log('🔍 [DRY RUN] Would delete the following branches:')
+      staleBranches.forEach(branch => {
+        console.log(`  - ${branch.name} (last commit: ${branch.lastCommitDate.toISOString()})`)
+      })
+      return { deleted: staleBranches.map(b => b.name), failed: [] }
+    }
+
+    const deleted: string[] = []
+    const failed: string[] = []
+
+    console.log(`🧹 Cleaning up ${staleBranches.length} stale branches...`)
+
+    for (const branch of staleBranches) {
+      try {
+        await this.deleteBranch(branch.name)
+        deleted.push(branch.name)
+        console.log(`✅ Deleted stale branch: ${branch.name}`)
+      }
+      catch (error) {
+        failed.push(branch.name)
+        console.warn(`❌ Failed to delete branch ${branch.name}:`, error)
+      }
+    }
+
+    return { deleted, failed }
+  }
+
+  /**
    * Make authenticated API request to GitHub
    */
   private async apiRequest(endpoint: string, data?: any): Promise<any> {
