@@ -17,8 +17,25 @@ describe('PackageScanner IgnorePaths Integration', () => {
   })
 
   afterEach(async () => {
-    process.chdir(originalCwd)
-    await fs.rm(testDir, { recursive: true, force: true })
+    try {
+      // Change back to original directory first, before deleting the test directory
+      process.chdir(originalCwd)
+    } catch (error) {
+      // If we can't change back to original directory, try to change to a safe directory
+      try {
+        process.chdir(tmpdir())
+      } catch {
+        // If all else fails, change to root
+        process.chdir('/')
+      }
+    }
+
+    try {
+      await fs.rm(testDir, { recursive: true, force: true })
+    } catch (error) {
+      // Ignore cleanup errors - the temp directory will be cleaned up by the OS eventually
+      console.warn(`Failed to clean up test directory ${testDir}:`, error)
+    }
   })
 
   describe('Real-world scenarios', () => {

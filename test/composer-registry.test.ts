@@ -29,6 +29,26 @@ describe('RegistryClient - Composer Integration', () => {
 
     registryClient = new RegistryClient('/test/project', mockLogger, mockConfig)
 
+    // Mock file system operations
+    spyOn(fs, 'existsSync').mockReturnValue(true)
+    spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({
+      require: {
+        'php': '^8.1',
+        'laravel/framework': '^10.0',
+        'guzzlehttp/guzzle': '^7.0',
+        'symfony/console': '^6.0',
+        'monolog/monolog': '^3.0',
+        'doctrine/dbal': '^3.0',
+      },
+      'require-dev': {
+        'phpunit/phpunit': '^10.0',
+        'mockery/mockery': '^1.5',
+        'fakerphp/faker': '^1.20',
+        'laravel/pint': '^1.0',
+        'nunomaduro/collision': '^7.0',
+      },
+    }))
+
     // Mock the runCommand method
     runCommandSpy = spyOn(registryClient as any, 'runCommand')
 
@@ -69,11 +89,8 @@ describe('RegistryClient - Composer Integration', () => {
         return ''
       }) as any)
 
-      // Mock Composer being available
-      runCommandSpy.mockResolvedValueOnce('Composer version 2.5.8') // composer --version
-
       // Mock composer outdated output
-      const mockOutdatedOutput = JSON.stringify({
+      const mockOutdatedOutput = {
         installed: [
           {
             'name': 'laravel/framework',
@@ -88,9 +105,12 @@ describe('RegistryClient - Composer Integration', () => {
             'required-by': [],
           },
         ],
-      })
+      }
 
-      runCommandSpy.mockResolvedValueOnce(mockOutdatedOutput)
+      // Mock composer --version call
+      runCommandSpy.mockResolvedValueOnce('Composer version 2.5.8')
+      // Mock composer outdated call
+      runCommandSpy.mockResolvedValueOnce(JSON.stringify(mockOutdatedOutput))
 
       // Mock package metadata calls
       const mockMetadata = {
@@ -154,7 +174,7 @@ describe('RegistryClient - Composer Integration', () => {
     it('should respect ignore configuration', async () => {
       runCommandSpy.mockResolvedValueOnce('Composer version 2.5.8')
 
-      const mockOutdatedOutput = JSON.stringify({
+      const mockOutdatedOutput = {
         installed: [
           {
             'name': 'ignored/package',
@@ -169,9 +189,9 @@ describe('RegistryClient - Composer Integration', () => {
             'required-by': ['test/project'],
           },
         ],
-      })
+      }
 
-      runCommandSpy.mockResolvedValueOnce(mockOutdatedOutput)
+      runCommandSpy.mockResolvedValueOnce(JSON.stringify(mockOutdatedOutput))
       spyOn(registryClient, 'getComposerPackageMetadata').mockResolvedValue({
         name: 'ignored/package',
         latestVersion: '2.0.0',

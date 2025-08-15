@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/* eslint-disable no-cond-assign */
 
 import type { BuddyBotConfig } from '../src/types'
 import fs from 'node:fs'
@@ -837,6 +838,53 @@ cli
     }
   })
 
+// Helper function to extract file paths from PR body
+function extractFilePathsFromPRBody(prBody: string): string[] {
+  const filePaths: string[] = []
+
+  // Look for file paths in the PR body table (File column)
+  // Format: | [package](url) | version | **file** | status |
+  const tableRowRegex = /\|\s*\[[^\]]+\]\([^)]*\)\s*\|[^|]*\|\s*\*\*([^*]+)\*\*\s*\|/g
+  let match
+  while ((match = tableRowRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    if (filePath && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  // Also look for bold file paths without full table structure
+  const boldFileRegex = /\*\*([^*]+\.(?:json|yaml|yml|lock))\*\*/g
+  while ((match = boldFileRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    if (filePath && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  // Also look for file paths in a simpler format
+  // Format: | package | version | file | status |
+  const simpleTableRowRegex = /\|[^|]+\|[^|]+\|([^|]+)\|[^|]*\|/g
+  while ((match = simpleTableRowRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    // Only consider paths that look like file paths (contain / or end with common extensions)
+    if (filePath && (filePath.includes('/') || /\.(?:json|yaml|yml|lock)$/.test(filePath)) && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  // Look for file mentions in release notes or other sections
+  const filePathRegex = /(?:^|\s)([\w-]+(?:\/[\w.-]+)*\/[\w.-]+\.(?:json|yaml|yml|lock))(?:\s|$)/gm
+  while ((match = filePathRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    if (filePath && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  return filePaths
+}
+
 // Helper function to extract package updates from PR body
 async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ name: string, currentVersion: string, newVersion: string }>> {
   const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
@@ -847,7 +895,7 @@ async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ na
   const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[?`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]?/g
 
   let match
-  // eslint-disable-next-line no-cond-assign
+
   while ((match = tableRowRegex.exec(body)) !== null) {
     const [, packageName, currentVersion, newVersion] = match
     updates.push({
@@ -936,9 +984,38 @@ cli
 
             try {
               // Add a comment explaining why the PR was closed
-              const comment = `🤖 **Auto-closed by Buddy Bot**
+              let comment = `🤖 **Auto-closed by Buddy Bot**
 
-This PR was automatically closed because it contains updates for packages with dynamic version indicators (like \`*\`, \`latest\`, etc.) that are now filtered out by the \`respectLatest\` configuration.
+This PR was automatically closed due to configuration changes.`
+
+              // Check if it's a respectLatest issue
+              const respectLatest = config.packages?.respectLatest ?? true
+              const prBody = pr.body.toLowerCase()
+              const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+              const hasDynamicVersions = dynamicIndicators.some(indicator => prBody.includes(indicator))
+
+              // Check if it's an ignorePaths issue
+              const ignorePaths = config.packages?.ignorePaths || []
+              const filePaths = extractFilePathsFromPRBody(pr.body)
+              // eslint-disable-next-line ts/no-require-imports
+              const { Glob } = require('bun')
+              const ignoredFiles = filePaths.filter((filePath) => {
+                const normalizedPath = filePath.replace(/^\.\//, '')
+                return ignorePaths.some((pattern) => {
+                  try {
+                    const glob = new Glob(pattern)
+                    return glob.match(normalizedPath)
+                  }
+                  catch {
+                    return false
+                  }
+                })
+              })
+
+              if (respectLatest && hasDynamicVersions) {
+                comment += `
+
+**Reason:** Contains updates for packages with dynamic version indicators (like \`*\`, \`latest\`, etc.) that are now filtered out by the \`respectLatest\` configuration.
 
 **Affected packages:** ${packageNames.join(', ')}
 
@@ -949,6 +1026,31 @@ If you need to update these packages to specific versions, you can:
 2. Or manually update the dependency files to use specific versions instead of dynamic indicators
 
 This helps maintain the intended behavior of dynamic version indicators while preventing unwanted updates.`
+              }
+              else if (ignoredFiles.length > 0) {
+                comment += `
+
+**Reason:** Contains updates for files that are now excluded by the \`ignorePaths\` configuration.
+
+**Affected files:** ${ignoredFiles.join(', ')}
+
+The \`ignorePaths\` setting now excludes these file paths from dependency updates. This PR was created before these paths were ignored.
+
+If you need to include these files again, you can:
+1. Remove or modify the relevant patterns in \`ignorePaths\` in your \`buddy-bot.config.ts\`
+2. Or manually manage dependencies in these paths
+
+Current ignore patterns: ${ignorePaths.join(', ')}`
+              }
+              else {
+                comment += `
+
+**Reason:** Configuration changes have made this PR obsolete.
+
+**Affected packages:** ${packageNames.join(', ')}
+
+Please check your \`buddy-bot.config.ts\` configuration for recent changes to \`respectLatest\` or \`ignorePaths\` settings.`
+              }
 
               await gitProvider.createComment(pr.number, comment)
               await gitProvider.closePullRequest(pr.number)

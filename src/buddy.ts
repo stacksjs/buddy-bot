@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console, no-cond-assign */
 import type {
   BuddyBotConfig,
   DashboardData,
@@ -920,7 +920,7 @@ export class Buddy {
     const existingUpdates = new Map<string, { from: string, to: string }>()
 
     let match
-    // eslint-disable-next-line no-cond-assign
+
     while ((match = packageRegex.exec(existingPRBody)) !== null) {
       const [, packageName, fromVersion, toVersion] = match
       existingUpdates.set(packageName, { from: fromVersion, to: toVersion })
@@ -995,11 +995,31 @@ export class Buddy {
   }
 
   /**
-   * Check if a PR should be auto-closed due to respectLatest config changes
-   * This handles cases where old PRs were created with respectLatest: false
-   * but now the config is respectLatest: true, making those updates invalid
+   * Check if a PR should be auto-closed due to configuration changes
+   * This handles cases where:
+   * 1. respectLatest config changed from false to true, making dynamic version updates invalid
+   * 2. ignorePaths config changed to exclude paths that existing PRs contain updates for
    */
-  private shouldAutoClosePR(existingPR: PullRequest, newUpdates: PackageUpdate[]): boolean {
+  private shouldAutoClosePR(existingPR: PullRequest, _newUpdates: PackageUpdate[]): boolean {
+    // Check for respectLatest config changes
+    const shouldCloseForRespectLatest = this.shouldAutoCloseForRespectLatest(existingPR)
+    if (shouldCloseForRespectLatest) {
+      return true
+    }
+
+    // Check for ignorePaths config changes
+    const shouldCloseForIgnorePaths = this.shouldAutoCloseForIgnorePaths(existingPR)
+    if (shouldCloseForIgnorePaths) {
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Check if a PR should be auto-closed due to respectLatest config changes
+   */
+  private shouldAutoCloseForRespectLatest(existingPR: PullRequest): boolean {
     const respectLatest = this.config.packages?.respectLatest ?? true
 
     // Only auto-close if respectLatest is true (the new default behavior)
@@ -1021,20 +1041,11 @@ export class Buddy {
       return false
     }
 
-    // Check if the new updates don't include the same packages that were in the old PR
-    // This indicates the packages were filtered out due to respectLatest
+    // Check if any packages in the PR have dynamic versions
     const oldPRPackages = this.extractPackagesFromPRBody(existingPR.body)
-    const newUpdatePackages = newUpdates.map(update => update.name)
 
-    // If old PR had packages that are not in new updates, and those packages had dynamic versions
-    const missingPackages = oldPRPackages.filter(pkg => !newUpdatePackages.includes(pkg))
-
-    if (missingPackages.length === 0) {
-      return false
-    }
-
-    // Check if the missing packages had dynamic versions in the old PR
-    const missingPackagesWithDynamicVersions = missingPackages.filter((pkg) => {
+    // Check if any of the packages had dynamic versions in the old PR
+    const packagesWithDynamicVersions = oldPRPackages.filter((pkg) => {
       // Look for the package in the PR body table format: | [package](url) | version → newVersion |
       const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
       const match = existingPR.body.match(packagePattern)
@@ -1059,7 +1070,99 @@ export class Buddy {
       return dynamicIndicators.includes(currentVersion)
     })
 
-    return missingPackagesWithDynamicVersions.length > 0
+    return packagesWithDynamicVersions.length > 0
+  }
+
+  /**
+   * Check if a PR should be auto-closed due to ignorePaths config changes
+   */
+  private shouldAutoCloseForIgnorePaths(existingPR: PullRequest): boolean {
+    const ignorePaths = this.config.packages?.ignorePaths
+    if (!ignorePaths || ignorePaths.length === 0) {
+      return false
+    }
+
+    // Extract file paths from the PR body
+    const filePaths = this.extractFilePathsFromPRBody(existingPR.body)
+    if (filePaths.length === 0) {
+      return false
+    }
+
+    // Check if any of the files in the PR are now in ignored paths
+    // eslint-disable-next-line ts/no-require-imports
+    const { Glob } = require('bun')
+
+    const ignoredFiles = filePaths.filter((filePath) => {
+      // Normalize the file path (remove leading ./ if present)
+      const normalizedPath = filePath.replace(/^\.\//, '')
+
+      return ignorePaths.some((pattern) => {
+        try {
+          const glob = new Glob(pattern)
+          return glob.match(normalizedPath)
+        }
+        catch (error) {
+          this.logger.debug(`Failed to match path ${normalizedPath} against pattern ${pattern}: ${error}`)
+          return false
+        }
+      })
+    })
+
+    if (ignoredFiles.length > 0) {
+      this.logger.debug(`PR #${existingPR.number} contains files now in ignorePaths: ${ignoredFiles.join(', ')}`)
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Extract file paths from PR body
+   */
+  private extractFilePathsFromPRBody(prBody: string): string[] {
+    const filePaths: string[] = []
+
+    // Look for file paths in the PR body table (File column)
+    // Format: | [package](url) | version | **file** | status |
+    const tableRowRegex = /\|\s*\[[^\]]+\]\([^)]*\)\s*\|[^|]*\|\s*\*\*([^*]+)\*\*\s*\|/g
+    let match
+    while ((match = tableRowRegex.exec(prBody)) !== null) {
+      const filePath = match[1].trim()
+      if (filePath && !filePaths.includes(filePath)) {
+        filePaths.push(filePath)
+      }
+    }
+
+    // Also look for bold file paths without full table structure
+    const boldFileRegex = /\*\*([^*]+\.(?:json|yaml|yml|lock))\*\*/g
+    while ((match = boldFileRegex.exec(prBody)) !== null) {
+      const filePath = match[1].trim()
+      if (filePath && !filePaths.includes(filePath)) {
+        filePaths.push(filePath)
+      }
+    }
+
+    // Also look for file paths in a simpler format
+    // Format: | package | version | file | status |
+    const simpleTableRowRegex = /\|[^|]+\|[^|]+\|([^|]+)\|[^|]*\|/g
+    while ((match = simpleTableRowRegex.exec(prBody)) !== null) {
+      const filePath = match[1].trim()
+      // Only consider paths that look like file paths (contain / or end with common extensions)
+      if (filePath && (filePath.includes('/') || /\.(?:json|yaml|yml|lock)$/.test(filePath)) && !filePaths.includes(filePath)) {
+        filePaths.push(filePath)
+      }
+    }
+
+    // Look for file mentions in release notes or other sections
+    const filePathRegex = /(?:^|\s)([\w-]+(?:\/[\w.-]+)*\/[\w.-]+\.(?:json|yaml|yml|lock))(?:\s|$)/gm
+    while ((match = filePathRegex.exec(prBody)) !== null) {
+      const filePath = match[1].trim()
+      if (filePath && !filePaths.includes(filePath)) {
+        filePaths.push(filePath)
+      }
+    }
+
+    return filePaths
   }
 
   /**

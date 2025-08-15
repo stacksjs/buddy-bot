@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import fs from 'node:fs'
+import * as fs from 'node:fs'
 import { generateComposerUpdates } from '../src/utils/composer-parser'
 
 describe('Composer Individual Updates', () => {
@@ -20,9 +20,8 @@ describe('Composer Individual Updates', () => {
   const mockComposerJsonString = JSON.stringify(mockComposerJson, null, 2)
 
   beforeEach(() => {
-    // Mock fs.readFileSync to return our test composer.json
+    // Mock readFileSync to return our test composer.json
     spyOn(fs, 'readFileSync').mockReturnValue(mockComposerJsonString)
-    spyOn(fs, 'existsSync').mockReturnValue(true)
   })
 
   it('should update ONLY the target package for individual major updates', async () => {

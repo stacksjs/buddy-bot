@@ -1,3 +1,4 @@
+/* eslint-disable no-cond-assign */
 import type { Dependency, PackageFile, PackageUpdate, UpdateGroup } from '../types'
 import type { Logger } from './logger'
 import { isDependencyFile, parseDependencyFile } from './dependency-file-parser'
@@ -410,11 +411,31 @@ export function extractPackageNamesFromPRBody(body: string): string[] {
 }
 
 /**
- * Check if a PR should be auto-closed due to respectLatest config changes
- * This handles cases where old PRs were created with respectLatest: false
- * but now the config is respectLatest: true, making those updates invalid
+ * Check if a PR should be auto-closed due to configuration changes
+ * This handles cases where:
+ * 1. respectLatest config changed from false to true, making dynamic version updates invalid
+ * 2. ignorePaths config changed to exclude paths that existing PRs contain updates for
  */
 export async function checkForAutoClose(pr: any, config: any, logger: Logger): Promise<boolean> {
+  // Check for respectLatest config changes
+  const shouldCloseForRespectLatest = await checkForAutoCloseRespectLatest(pr, config, logger)
+  if (shouldCloseForRespectLatest) {
+    return true
+  }
+
+  // Check for ignorePaths config changes
+  const shouldCloseForIgnorePaths = await checkForAutoCloseIgnorePaths(pr, config, logger)
+  if (shouldCloseForIgnorePaths) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Check if a PR should be auto-closed due to respectLatest config changes
+ */
+async function checkForAutoCloseRespectLatest(pr: any, config: any, logger: Logger): Promise<boolean> {
   const respectLatest = config.packages?.respectLatest ?? true
 
   // Only auto-close if respectLatest is true (the new default behavior)
@@ -480,4 +501,101 @@ export async function checkForAutoClose(pr: any, config: any, logger: Logger): P
   logger.debug(`🔍 PR #${pr.number}: Should auto-close: ${shouldClose}`)
 
   return shouldClose
+}
+
+/**
+ * Check if a PR should be auto-closed due to ignorePaths config changes
+ */
+async function checkForAutoCloseIgnorePaths(pr: any, config: any, logger: Logger): Promise<boolean> {
+  const ignorePaths = config.packages?.ignorePaths
+  if (!ignorePaths || ignorePaths.length === 0) {
+    logger.debug(`🔍 PR #${pr.number}: No ignorePaths configured, skipping auto-close`)
+    return false
+  }
+
+  // Extract file paths from the PR body
+  const filePaths = extractFilePathsFromPRBody(pr.body)
+  if (filePaths.length === 0) {
+    logger.debug(`🔍 PR #${pr.number}: No file paths found in PR body`)
+    return false
+  }
+
+  logger.debug(`🔍 PR #${pr.number}: Found file paths: ${filePaths.join(', ')}`)
+
+  // Check if any of the files in the PR are now in ignored paths
+  // eslint-disable-next-line ts/no-require-imports
+  const { Glob } = require('bun')
+
+  const ignoredFiles = filePaths.filter((filePath) => {
+    // Normalize the file path (remove leading ./ if present)
+    const normalizedPath = filePath.replace(/^\.\//, '')
+
+    return ignorePaths.some((pattern: string) => {
+      try {
+        const glob = new Glob(pattern)
+        return glob.match(normalizedPath)
+      }
+      catch (error) {
+        logger.debug(`Failed to match path ${normalizedPath} against pattern ${pattern}: ${error}`)
+        return false
+      }
+    })
+  })
+
+  if (ignoredFiles.length > 0) {
+    logger.debug(`🔍 PR #${pr.number}: Contains files now in ignorePaths: ${ignoredFiles.join(', ')}`)
+    return true
+  }
+
+  logger.debug(`🔍 PR #${pr.number}: No files match ignorePaths patterns`)
+  return false
+}
+
+/**
+ * Extract file paths from PR body
+ */
+function extractFilePathsFromPRBody(prBody: string): string[] {
+  const filePaths: string[] = []
+
+  // Look for file paths in the PR body table (File column)
+  // Format: | [package](url) | version | **file** | status |
+  const tableRowRegex = /\|\s*\[[^\]]+\]\([^)]*\)\s*\|[^|]*\|\s*\*\*([^*]+)\*\*\s*\|/g
+  let match
+  while ((match = tableRowRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    if (filePath && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  // Also look for bold file paths without full table structure
+  const boldFileRegex = /\*\*([^*]+\.(?:json|yaml|yml|lock))\*\*/g
+  while ((match = boldFileRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    if (filePath && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  // Also look for file paths in a simpler format
+  // Format: | package | version | file | status |
+  const simpleTableRowRegex = /\|[^|]+\|[^|]+\|([^|]+)\|[^|]*\|/g
+  while ((match = simpleTableRowRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    // Only consider paths that look like file paths (contain / or end with common extensions)
+    if (filePath && (filePath.includes('/') || /\.(?:json|yaml|yml|lock)$/.test(filePath)) && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  // Look for file mentions in release notes or other sections
+  const filePathRegex = /(?:^|\s)([\w-]+(?:\/[\w.-]+)*\/[\w.-]+\.(?:json|yaml|yml|lock))(?:\s|$)/gm
+  while ((match = filePathRegex.exec(prBody)) !== null) {
+    const filePath = match[1].trim()
+    if (filePath && !filePaths.includes(filePath)) {
+      filePaths.push(filePath)
+    }
+  }
+
+  return filePaths
 }
