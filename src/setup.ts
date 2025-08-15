@@ -1307,6 +1307,19 @@ ${generateComposerSetupSteps()}
           GITHUB_TOKEN: ${tokenEnv}
           BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
+      - name: Clean up stale branches
+        if: \${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "🧹 Cleaning up stale buddy-bot branches..."
+          echo "This will remove branches older than 7 days that don't have associated open PRs"
+
+          # Run cleanup automatically (with confirmation disabled in CI)
+          bunx buddy-bot cleanup --days 7 --force --verbose
+
+        env:
+          GITHUB_TOKEN: ${tokenEnv}
+          BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
+
       - name: Create check summary
         if: always()
         run: |
@@ -1324,7 +1337,7 @@ ${generateComposerSetupSteps()}
           fi
 
           echo "" >> \$GITHUB_STEP_SUMMARY
-          echo "📋 View detailed logs above for check results (rebase requests and auto-closing)." >> \$GITHUB_STEP_SUMMARY
+          echo "📋 View detailed logs above for check results (rebase requests, auto-closing, and branch cleanup)." >> \$GITHUB_STEP_SUMMARY
 
   # Dependency update job
   dependency-update:

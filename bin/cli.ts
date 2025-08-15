@@ -1848,7 +1848,7 @@ cli
       }
 
       logger.info(`📊 Found ${staleBranches.length} stale branches to clean up:`)
-      staleBranches.forEach(branch => {
+      staleBranches.forEach((branch) => {
         const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
         logger.info(`  - ${branch.name} (${daysOld} days old)`)
       })
@@ -1977,7 +1977,7 @@ cli
       // Sort by last commit date (newest first)
       branches.sort((a, b) => b.lastCommitDate.getTime() - a.lastCommitDate.getTime())
 
-      branches.forEach(branch => {
+      branches.forEach((branch) => {
         const hasOpenPR = prBranches.has(branch.name)
         const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
         const isStale = branch.lastCommitDate < cutoffDate

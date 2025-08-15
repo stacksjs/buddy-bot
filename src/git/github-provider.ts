@@ -806,7 +806,7 @@ export class GitHubProvider implements GitProvider {
 
     if (dryRun) {
       console.log('🔍 [DRY RUN] Would delete the following branches:')
-      staleBranches.forEach(branch => {
+      staleBranches.forEach((branch) => {
         console.log(`  - ${branch.name} (last commit: ${branch.lastCommitDate.toISOString()})`)
       })
       return { deleted: staleBranches.map(b => b.name), failed: [] }
