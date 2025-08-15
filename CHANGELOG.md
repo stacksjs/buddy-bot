@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.7.10...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.10...main)
+
+### 🏡 Chore
+
+- Improve version handling ([64f72c3](https://github.com/stacksjs/buddy-bot/commit/64f72c3))
+- Adjust tests ([d78601c](https://github.com/stacksjs/buddy-bot/commit/d78601c))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.9...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.9...main)
