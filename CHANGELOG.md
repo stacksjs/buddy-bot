@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.7.12...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.12...main)
+
+### 🏡 Chore
+
+- Update `ts-pkgx` ([8dc1e42](https://github.com/stacksjs/buddy-bot/commit/8dc1e42))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.11...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.11...main)
