@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.8.5...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.5...main)
+
+### 🏡 Chore
+
+- Remove redundant output ([10c4c41](https://github.com/stacksjs/buddy-bot/commit/10c4c41))
+- Also handle stale branches from today ([01587b4](https://github.com/stacksjs/buddy-bot/commit/01587b4))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.8.4...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.4...main)
