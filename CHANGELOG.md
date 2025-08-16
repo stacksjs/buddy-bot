@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.8.4...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.4...main)
+
+### 🏡 Chore
+
+- Remove redundant fallback protection ([33958ec](https://github.com/stacksjs/buddy-bot/commit/33958ec))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.8.3...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.3...main)
