@@ -733,8 +733,33 @@ export class GitHubProvider implements GitProvider {
    */
   async getBuddyBotBranches(): Promise<Array<{ name: string, sha: string, lastCommitDate: Date }>> {
     try {
-      const branches = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/branches?per_page=100`)
-      const buddyBranches = branches.filter((branch: any) => branch.name.startsWith('buddy-bot/'))
+      // Fetch all branches with pagination
+      let allBranches: any[] = []
+      let page = 1
+      const perPage = 100
+
+      while (true) {
+        const branches = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/branches?per_page=${perPage}&page=${page}`)
+
+        if (!branches || branches.length === 0) {
+          break
+        }
+
+        allBranches = allBranches.concat(branches)
+
+        // If we got less than perPage results, we've reached the end
+        if (branches.length < perPage) {
+          break
+        }
+
+        page++
+      }
+
+      console.log(`🔍 Found ${allBranches.length} total branches in repository`)
+
+      // Filter for buddy-bot branches
+      const buddyBranches = allBranches.filter((branch: any) => branch.name.startsWith('buddy-bot/'))
+      console.log(`🤖 Found ${buddyBranches.length} buddy-bot branches`)
 
       // Get detailed info for each branch including last commit date
       const branchDetails = await Promise.all(
@@ -795,19 +820,36 @@ export class GitHubProvider implements GitProvider {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
 
-    const orphanedBranches = await this.getOrphanedBuddyBotBranches()
-    const staleBranches = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
+    console.log(`🔍 Looking for buddy-bot branches older than ${olderThanDays} days (before ${cutoffDate.toISOString()})`)
 
+    const orphanedBranches = await this.getOrphanedBuddyBotBranches()
+    console.log(`🔍 Found ${orphanedBranches.length} orphaned buddy-bot branches (no associated open PRs)`)
+
+    const staleBranches = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
     console.log(`🔍 Found ${staleBranches.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
 
+    // Show some examples of what we found
+    if (staleBranches.length > 0) {
+      console.log('📋 Sample of stale branches:')
+      staleBranches.slice(0, 5).forEach((branch) => {
+        const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
+        console.log(`  - ${branch.name} (${daysOld} days old)`)
+      })
+      if (staleBranches.length > 5) {
+        console.log(`  ... and ${staleBranches.length - 5} more`)
+      }
+    }
+
     if (staleBranches.length === 0) {
+      console.log('✅ No stale branches to clean up!')
       return { deleted: [], failed: [] }
     }
 
     if (dryRun) {
       console.log('🔍 [DRY RUN] Would delete the following branches:')
       staleBranches.forEach((branch) => {
-        console.log(`  - ${branch.name} (last commit: ${branch.lastCommitDate.toISOString()})`)
+        const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
+        console.log(`  - ${branch.name} (${daysOld} days old, last commit: ${branch.lastCommitDate.toISOString()})`)
       })
       return { deleted: staleBranches.map(b => b.name), failed: [] }
     }
@@ -817,16 +859,43 @@ export class GitHubProvider implements GitProvider {
 
     console.log(`🧹 Cleaning up ${staleBranches.length} stale branches...`)
 
-    for (const branch of staleBranches) {
-      try {
-        await this.deleteBranch(branch.name)
-        deleted.push(branch.name)
-        console.log(`✅ Deleted stale branch: ${branch.name}`)
+    // Delete branches in batches to avoid rate limiting
+    const batchSize = 10
+    for (let i = 0; i < staleBranches.length; i += batchSize) {
+      const batch = staleBranches.slice(i, i + batchSize)
+      const batchNumber = Math.floor(i / batchSize) + 1
+      const totalBatches = Math.ceil(staleBranches.length / batchSize)
+
+      console.log(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} branches)`)
+
+      await Promise.all(
+        batch.map(async (branch) => {
+          try {
+            await this.deleteBranch(branch.name)
+            deleted.push(branch.name)
+            console.log(`✅ Deleted: ${branch.name}`)
+          }
+          catch (error) {
+            failed.push(branch.name)
+            console.warn(`❌ Failed to delete ${branch.name}:`, error)
+          }
+        }),
+      )
+
+      // Small delay between batches to be nice to the API
+      if (i + batchSize < staleBranches.length) {
+        console.log('⏳ Waiting 1 second before next batch...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
-      catch (error) {
-        failed.push(branch.name)
-        console.warn(`❌ Failed to delete branch ${branch.name}:`, error)
-      }
+    }
+
+    console.log(`🎉 Cleanup complete!`)
+    console.log(`  ✅ Successfully deleted: ${deleted.length} branches`)
+    console.log(`  ❌ Failed to delete: ${failed.length} branches`)
+
+    if (failed.length > 0) {
+      console.log('❌ Failed branches:')
+      failed.forEach(branch => console.log(`  - ${branch}`))
     }
 
     return { deleted, failed }
