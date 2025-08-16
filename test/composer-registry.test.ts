@@ -32,7 +32,7 @@ describe('RegistryClient - Composer Integration', () => {
     // Mock file system operations
     spyOn(fs, 'existsSync').mockReturnValue(true)
     spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({
-      require: {
+      'require': {
         'php': '^8.1',
         'laravel/framework': '^10.0',
         'guzzlehttp/guzzle': '^7.0',
