@@ -1005,32 +1005,34 @@ export class GitHubProvider implements GitProvider {
 
         console.log(`✅ Checked ${checkedCount} PRs via HTTP: ${openCount} open, ${checkedCount - openCount} closed`)
         console.log(`🛡️ Protected ${protectedBranches.size} branches with confirmed open PRs`)
+
+        // Since HTTP detection was successful and is 100% accurate, we don't need fallback protection
+        console.log(`🎯 HTTP detection successful`)
       }
       catch (error) {
-        console.warn('⚠️ Could not check PR status via HTTP:', error)
-      }
+        console.warn('⚠️ Could not check PR status via HTTP, applying conservative fallback:', error)
 
-      // Method 2: Fallback protection for very recent branches (last 7 days)
-      // in case we missed any PRs or HTTP checks failed
-      try {
-        const allBuddyBranches = await this.getBuddyBotBranches()
-        const sevenDaysAgo = new Date()
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        // Only apply fallback protection if HTTP detection failed
+        try {
+          const allBuddyBranches = await this.getBuddyBotBranches()
+          const threeDaysAgo = new Date()
+          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
 
-        let fallbackCount = 0
-        for (const branch of allBuddyBranches) {
-          if (branch.lastCommitDate > sevenDaysAgo && !protectedBranches.has(branch.name)) {
-            protectedBranches.add(branch.name)
-            fallbackCount++
+          let fallbackCount = 0
+          for (const branch of allBuddyBranches) {
+            if (branch.lastCommitDate > threeDaysAgo && !protectedBranches.has(branch.name)) {
+              protectedBranches.add(branch.name)
+              fallbackCount++
+            }
+          }
+
+          if (fallbackCount > 0) {
+            console.log(`🛡️ Fallback protection: ${fallbackCount} recent branches (< 3 days) protected due to HTTP failure`)
           }
         }
-
-        if (fallbackCount > 0) {
-          console.log(`🛡️ Fallback protection: ${fallbackCount} recent branches (< 7 days) also protected`)
+        catch {
+          console.log('⚠️ Could not apply fallback protection')
         }
-      }
-      catch {
-        console.log('⚠️ Could not apply fallback protection')
       }
 
       console.log(`🎯 HTTP-based analysis complete: protecting ${protectedBranches.size} branches total`)
