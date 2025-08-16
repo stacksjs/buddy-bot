@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.8.0...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.0...main)
+
+### 🏡 Chore
+
+- Cleanup stale branches after 2 days ([5c88d62](https://github.com/stacksjs/buddy-bot/commit/5c88d62))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.13...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.13...main)
