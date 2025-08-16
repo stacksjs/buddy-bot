@@ -916,9 +916,12 @@ export class GitHubProvider implements GitProvider {
   /**
    * Get branches that have open PRs using HTTP requests to GitHub (no API auth needed)
    */
+  private httpDetectionSuccessful = false
+
   private async getOpenPRBranchesViaGit(): Promise<Set<string>> {
     try {
       const protectedBranches = new Set<string>()
+      this.httpDetectionSuccessful = false
 
       console.log('🔍 Using HTTP requests to check actual PR status (no API auth needed)...')
 
@@ -1005,33 +1008,32 @@ export class GitHubProvider implements GitProvider {
 
         console.log(`✅ Checked ${checkedCount} PRs via HTTP: ${openCount} open, ${checkedCount - openCount} closed`)
         console.log(`🛡️ Protected ${protectedBranches.size} branches with confirmed open PRs`)
-
-        // Since HTTP detection was successful and is 100% accurate, we don't need fallback protection
-        console.log(`🎯 HTTP detection successful`)
+        console.log(`🎯 HTTP detection successful - no age-based protection needed`)
+        this.httpDetectionSuccessful = true
       }
       catch (error) {
         console.warn('⚠️ Could not check PR status via HTTP, applying conservative fallback:', error)
 
-        // Only apply fallback protection if HTTP detection failed
+        // Only apply fallback protection if HTTP detection completely failed
         try {
           const allBuddyBranches = await this.getBuddyBotBranches()
-          const threeDaysAgo = new Date()
-          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+          const oneDayAgo = new Date()
+          oneDayAgo.setDate(oneDayAgo.getDate() - 1)
 
           let fallbackCount = 0
           for (const branch of allBuddyBranches) {
-            if (branch.lastCommitDate > threeDaysAgo && !protectedBranches.has(branch.name)) {
+            if (branch.lastCommitDate > oneDayAgo && !protectedBranches.has(branch.name)) {
               protectedBranches.add(branch.name)
               fallbackCount++
             }
           }
 
           if (fallbackCount > 0) {
-            console.log(`🛡️ Fallback protection: ${fallbackCount} recent branches (< 3 days) protected due to HTTP failure`)
+            console.log(`🛡️ Emergency fallback: ${fallbackCount} very recent branches (< 1 day) protected due to HTTP failure`)
           }
         }
         catch {
-          console.log('⚠️ Could not apply fallback protection')
+          console.log('⚠️ Could not apply emergency fallback protection')
         }
       }
 
@@ -1067,36 +1069,50 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Clean up stale buddy-bot branches
+   * Clean up orphaned buddy-bot branches (with optional age filter for fallback scenarios)
    */
   async cleanupStaleBranches(olderThanDays = 7, dryRun = false): Promise<{ deleted: string[], failed: string[] }> {
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
-
-    console.log(`🔍 Looking for buddy-bot branches older than ${olderThanDays} days (before ${cutoffDate.toISOString()})`)
+    console.log(`🔍 Looking for buddy-bot branches without open PRs...`)
 
     const orphanedBranches = await this.getOrphanedBuddyBotBranches()
     console.log(`🔍 Found ${orphanedBranches.length} orphaned buddy-bot branches (no associated open PRs)`)
 
-    const staleBranches = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
-    console.log(`🔍 Found ${staleBranches.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
+    // Since we have 100% accurate HTTP-based PR detection, we can clean up ALL orphaned branches
+    // Only apply age filter if HTTP detection failed (indicated by very conservative protection)
+    let branchesToDelete = orphanedBranches
+
+    // Use the HTTP detection success flag to determine cleanup strategy
+    if (this.httpDetectionSuccessful) {
+      // HTTP detection worked perfectly - clean up ALL orphaned branches regardless of age
+      console.log(`🎯 HTTP detection successful - cleaning up ALL ${branchesToDelete.length} orphaned branches (any age)`)
+    }
+    else {
+      // HTTP detection failed - apply conservative age filter
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
+      branchesToDelete = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
+      console.log(`⚠️ HTTP detection failed - only deleting branches older than ${olderThanDays} days`)
+      console.log(`🔍 Found ${branchesToDelete.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
+    }
 
     // Show some examples of what we found
-    if (staleBranches.length > 0) {
-      console.log('📋 Sample of stale branches:')
-      staleBranches.slice(0, 5).forEach((branch) => {
+    if (branchesToDelete.length > 0) {
+      console.log('📋 Sample of branches to delete:')
+      branchesToDelete.slice(0, 5).forEach((branch) => {
         const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
         console.log(`  - ${branch.name} (${daysOld} days old)`)
       })
-      if (staleBranches.length > 5) {
-        console.log(`  ... and ${staleBranches.length - 5} more`)
+      if (branchesToDelete.length > 5) {
+        console.log(`  ... and ${branchesToDelete.length - 5} more`)
       }
     }
 
-    if (staleBranches.length === 0) {
-      console.log('✅ No stale branches to clean up!')
+    if (branchesToDelete.length === 0) {
+      console.log('✅ No branches to clean up!')
       return { deleted: [], failed: [] }
     }
+
+    const staleBranches = branchesToDelete
 
     if (dryRun) {
       console.log('🔍 [DRY RUN] Would delete the following branches:')

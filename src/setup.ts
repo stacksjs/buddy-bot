@@ -1307,19 +1307,6 @@ ${generateComposerSetupSteps()}
           GITHUB_TOKEN: ${tokenEnv}
           BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
-      - name: Clean up stale branches
-        if: \${{ github.event.inputs.dry_run != 'true' }}
-        run: |
-          echo "🧹 Cleaning up stale buddy-bot branches..."
-          echo "This will remove branches older than 2 days that don't have associated open PRs"
-
-          # Run cleanup automatically (with confirmation disabled in CI)
-          bunx buddy-bot cleanup --days 2 --force --verbose
-
-        env:
-          GITHUB_TOKEN: ${tokenEnv}
-          BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
-
       - name: Create check summary
         if: always()
         run: |
