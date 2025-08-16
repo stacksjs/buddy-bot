@@ -1,6 +1,8 @@
 import type { BuddyBotConfig, PackageUpdate } from '../src/types'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Buddy } from '../src/buddy'
 import { isDependencyFile, parseDependencyFile, updateDependencyFile } from '../src/utils/dependency-file-parser'
 
@@ -10,7 +12,9 @@ describe('Dependency Files Integration Tests', () => {
     packages: { strategy: 'all' },
   }
 
-  const testDepsFile = 'test-deps.yaml'
+  let testDir: string
+  let testDepsFile: string
+  let originalCwd: string
   const testDepsContent = `dependencies:
   lodash: ^4.17.20
   react: ^17.0.0
@@ -19,14 +23,21 @@ devDependencies:
   typescript: ^4.9.0`
 
   beforeAll(() => {
+    // Create a temporary directory for test files
+    testDir = mkdtempSync(join(tmpdir(), 'buddy-deps-test-'))
+    originalCwd = process.cwd()
+    process.chdir(testDir)
+
+    testDepsFile = 'test-deps.yaml'
     // Create a test dependency file
     writeFileSync(testDepsFile, testDepsContent)
   })
 
   afterAll(() => {
-    // Clean up test files
-    if (existsSync(testDepsFile)) {
-      unlinkSync(testDepsFile)
+    // Change back to original directory and clean up
+    process.chdir(originalCwd)
+    if (existsSync(testDir)) {
+      rmSync(testDir, { recursive: true, force: true })
     }
   })
 
