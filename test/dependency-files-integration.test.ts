@@ -1,6 +1,6 @@
 import type { BuddyBotConfig, PackageUpdate } from '../src/types'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { existsSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Buddy } from '../src/buddy'

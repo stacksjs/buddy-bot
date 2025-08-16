@@ -23,11 +23,13 @@ describe('Configuration Migration & Import System', () => {
     // Change back to original directory and clean up
     try {
       process.chdir(originalCwd)
-    } catch {
+    }
+    catch {
       // If we can't change back, try a safe directory
       try {
         process.chdir(tmpdir())
-      } catch {
+      }
+      catch {
         process.chdir('/')
       }
     }
