@@ -703,26 +703,28 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Delete a branch
+   * Delete a branch using pure git commands (no API calls)
    */
   async deleteBranch(branchName: string): Promise<void> {
     try {
-      // Try to delete using GitHub CLI first (corrected command)
-      try {
-        await this.runCommand('gh', ['api', `repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`, '-X', 'DELETE'])
-        return
-      }
-      catch (cliError) {
-        // Fall back to API if CLI fails
-        console.log(`⚠️ CLI branch deletion failed, trying API: ${cliError}`)
-      }
-
-      // Fall back to API with retry logic for rate limiting
-      await this.apiRequestWithRetry(`DELETE /repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`)
+      // Use pure git to delete the remote branch (no API calls!)
+      await this.runCommand('git', ['push', 'origin', '--delete', branchName])
+      console.log(`✅ Deleted branch ${branchName} via git`)
     }
     catch (error) {
-      // Don't throw error for branch deletion failures - they're not critical
-      console.warn(`⚠️ Failed to delete branch ${branchName}:`, error)
+      // If git push fails, it might be because the branch doesn't exist remotely
+      // or we don't have push permissions. Try to delete locally and ignore errors.
+      try {
+        // Also delete local tracking branch if it exists
+        await this.runCommand('git', ['branch', '-D', branchName])
+        console.log(`✅ Deleted local branch ${branchName}`)
+      }
+      catch {
+        // Ignore local deletion errors - branch might not exist locally
+      }
+
+      console.warn(`⚠️ Failed to delete remote branch ${branchName}:`, error)
+      // Don't throw - branch deletion failures are not critical
     }
   }
 
@@ -878,52 +880,187 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Get branches that have open PRs using local git commands
+   * Check if a PR is open by making HTTP request to GitHub PR page (no API auth needed)
+   */
+  private async isPROpen(prNumber: number): Promise<boolean> {
+    try {
+      const url = `https://github.com/${this.owner}/${this.repo}/pull/${prNumber}`
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'buddy-bot/1.0',
+        },
+      })
+
+      if (!response.ok) {
+        // If we can't fetch the PR page, assume it might be open (be conservative)
+        return true
+      }
+
+      const html = await response.text()
+
+      // Look for PR status indicators in the HTML
+      // Open PRs have: class="State State--open"
+      // Closed PRs have: class="State State--closed" or class="State State--merged"
+      const isOpen = html.includes('State--open') && !html.includes('State--closed') && !html.includes('State--merged')
+
+      return isOpen
+    }
+    catch (error) {
+      // If HTTP request fails, be conservative and assume PR might be open
+      console.warn(`⚠️ Could not check PR #${prNumber} status via HTTP:`, error)
+      return true
+    }
+  }
+
+  /**
+   * Get branches that have open PRs using HTTP requests to GitHub (no API auth needed)
    */
   private async getOpenPRBranchesViaGit(): Promise<Set<string>> {
     try {
-      // Use GitHub CLI to get open PRs if available
+      const protectedBranches = new Set<string>()
+
+      console.log('🔍 Using HTTP requests to check actual PR status (no API auth needed)...')
+
+      // Method 1: Get PR numbers from GitHub PR refs and check their status via HTTP
       try {
-        const prOutput = await this.runCommand('gh', ['pr', 'list', '--state', 'open', '--json', 'headRefName'])
-        const prs = JSON.parse(prOutput)
-        const prBranches = new Set<string>()
+        const prRefsOutput = await this.runCommand('git', ['ls-remote', 'origin', 'refs/pull/*/head'])
+        const prNumbers: number[] = []
+        const prBranchMap = new Map<number, string[]>() // PR number -> branch names
 
-        for (const pr of prs) {
-          if (pr.headRefName && pr.headRefName.startsWith('buddy-bot/')) {
-            prBranches.add(pr.headRefName)
-          }
-        }
+        for (const line of prRefsOutput.split('\n')) {
+          if (line.trim()) {
+            // Extract PR number from ref: "sha refs/pull/123/head"
+            const parts = line.trim().split('\t')
+            if (parts.length === 2) {
+              const ref = parts[1] // refs/pull/123/head
+              const sha = parts[0]
+              const prMatch = ref.match(/refs\/pull\/(\d+)\/head/)
 
-        console.log(`🔍 Found ${prBranches.size} open PR branches using GitHub CLI`)
-        return prBranches
-      }
-      catch {
-        console.warn('⚠️ GitHub CLI not available or failed, trying alternative method')
+              if (prMatch) {
+                const prNumber = Number.parseInt(prMatch[1])
+                prNumbers.push(prNumber)
 
-        // Alternative: check if branches exist in refs/pull/ (GitHub's PR refs)
-        try {
-          const pullRefsOutput = await this.runCommand('git', ['ls-remote', '--heads', 'origin'])
-          const prBranches = new Set<string>()
+                // Find which buddy-bot branch has this SHA
+                try {
+                  const branchOutput = await this.runCommand('git', ['branch', '-r', '--contains', sha])
+                  const branches: string[] = []
 
-          for (const line of pullRefsOutput.split('\n')) {
-            const match = line.match(/refs\/heads\/(buddy-bot\/\S+)/)
-            if (match) {
-              // This is a buddy-bot branch, but we can't easily tell if it has an open PR
-              // without API calls, so we'll be conservative and assume it might
-              prBranches.add(match[1])
+                  for (const branchLine of branchOutput.split('\n')) {
+                    const branchName = branchLine.trim().replace(/^origin\//, '')
+                    if (branchName.startsWith('buddy-bot/')) {
+                      branches.push(branchName)
+                    }
+                  }
+
+                  if (branches.length > 0) {
+                    prBranchMap.set(prNumber, branches)
+                  }
+                }
+                catch {
+                  // Ignore errors finding branches for specific SHAs
+                }
+              }
             }
           }
-
-          console.log(`🔍 Found ${prBranches.size} potential PR branches using git ls-remote`)
-          return prBranches
         }
-        catch (gitError) {
-          throw new Error(`Both GitHub CLI and git ls-remote failed: ${gitError}`)
+
+        console.log(`📋 Found ${prNumbers.length} PR refs, checking their status via HTTP...`)
+
+        // Check each PR's status via HTTP (in batches to be nice to GitHub)
+        const batchSize = 5
+        let checkedCount = 0
+        let openCount = 0
+
+        for (let i = 0; i < prNumbers.length; i += batchSize) {
+          const batch = prNumbers.slice(i, i + batchSize)
+
+          // Process batch with small delay between requests
+          const batchPromises = batch.map(async (prNumber, index) => {
+            // Small delay to avoid overwhelming GitHub
+            await new Promise(resolve => setTimeout(resolve, index * 100))
+
+            const isOpen = await this.isPROpen(prNumber)
+            checkedCount++
+
+            if (isOpen) {
+              openCount++
+              // Protect all branches associated with this open PR
+              const branches = prBranchMap.get(prNumber) || []
+              for (const branch of branches) {
+                protectedBranches.add(branch)
+              }
+            }
+
+            return { prNumber, isOpen }
+          })
+
+          await Promise.all(batchPromises)
+
+          // Small delay between batches
+          if (i + batchSize < prNumbers.length) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+          }
+        }
+
+        console.log(`✅ Checked ${checkedCount} PRs via HTTP: ${openCount} open, ${checkedCount - openCount} closed`)
+        console.log(`🛡️ Protected ${protectedBranches.size} branches with confirmed open PRs`)
+      }
+      catch (error) {
+        console.warn('⚠️ Could not check PR status via HTTP:', error)
+      }
+
+      // Method 2: Fallback protection for very recent branches (last 7 days)
+      // in case we missed any PRs or HTTP checks failed
+      try {
+        const allBuddyBranches = await this.getBuddyBotBranches()
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+        let fallbackCount = 0
+        for (const branch of allBuddyBranches) {
+          if (branch.lastCommitDate > sevenDaysAgo && !protectedBranches.has(branch.name)) {
+            protectedBranches.add(branch.name)
+            fallbackCount++
+          }
+        }
+
+        if (fallbackCount > 0) {
+          console.log(`🛡️ Fallback protection: ${fallbackCount} recent branches (< 7 days) also protected`)
         }
       }
+      catch {
+        console.log('⚠️ Could not apply fallback protection')
+      }
+
+      console.log(`🎯 HTTP-based analysis complete: protecting ${protectedBranches.size} branches total`)
+
+      return protectedBranches
     }
     catch (error) {
-      throw new Error(`Failed to get open PR branches via git: ${error}`)
+      console.warn('⚠️ HTTP-based analysis failed, using conservative fallback:', error)
+
+      // Conservative fallback: protect branches less than 30 days old
+      try {
+        const allBuddyBranches = await this.getBuddyBotBranches()
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+        const conservativeBranches = new Set<string>()
+        for (const branch of allBuddyBranches) {
+          if (branch.lastCommitDate > thirtyDaysAgo) {
+            conservativeBranches.add(branch.name)
+          }
+        }
+
+        console.log(`🛡️ Conservative fallback: protecting ${conservativeBranches.size} branches newer than 30 days`)
+        return conservativeBranches
+      }
+      catch {
+        // Ultimate fallback: protect everything
+        console.log('🛡️ Ultimate fallback: protecting all branches')
+        return new Set<string>()
+      }
     }
   }
 

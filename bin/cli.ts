@@ -30,7 +30,6 @@ import {
   validateRepositoryAccess,
   validateWorkflowGeneration,
 } from '../src/setup'
-import { checkForAutoClose, extractPackageNamesFromPRBody } from '../src/utils/helpers'
 import { Logger } from '../src/utils/logger'
 
 const cli = new CAC('buddy-bot')
@@ -838,53 +837,6 @@ cli
     }
   })
 
-// Helper function to extract file paths from PR body
-function extractFilePathsFromPRBody(prBody: string): string[] {
-  const filePaths: string[] = []
-
-  // Look for file paths in the PR body table (File column)
-  // Format: | [package](url) | version | **file** | status |
-  const tableRowRegex = /\|\s*\[[^\]]+\]\([^)]*\)\s*\|[^|]*\|\s*\*\*([^*]+)\*\*\s*\|/g
-  let match
-  while ((match = tableRowRegex.exec(prBody)) !== null) {
-    const filePath = match[1].trim()
-    if (filePath && !filePaths.includes(filePath)) {
-      filePaths.push(filePath)
-    }
-  }
-
-  // Also look for bold file paths without full table structure
-  const boldFileRegex = /\*\*([^*]+\.(?:json|yaml|yml|lock))\*\*/g
-  while ((match = boldFileRegex.exec(prBody)) !== null) {
-    const filePath = match[1].trim()
-    if (filePath && !filePaths.includes(filePath)) {
-      filePaths.push(filePath)
-    }
-  }
-
-  // Also look for file paths in a simpler format
-  // Format: | package | version | file | status |
-  const simpleTableRowRegex = /\|[^|]+\|[^|]+\|([^|]+)\|[^|]*\|/g
-  while ((match = simpleTableRowRegex.exec(prBody)) !== null) {
-    const filePath = match[1].trim()
-    // Only consider paths that look like file paths (contain / or end with common extensions)
-    if (filePath && (filePath.includes('/') || /\.(?:json|yaml|yml|lock)$/.test(filePath)) && !filePaths.includes(filePath)) {
-      filePaths.push(filePath)
-    }
-  }
-
-  // Look for file mentions in release notes or other sections
-  const filePathRegex = /(?:^|\s)([\w-]+(?:\/[\w.-]+)*\/[\w.-]+\.(?:json|yaml|yml|lock))(?:\s|$)/gm
-  while ((match = filePathRegex.exec(prBody)) !== null) {
-    const filePath = match[1].trim()
-    if (filePath && !filePaths.includes(filePath)) {
-      filePaths.push(filePath)
-    }
-  }
-
-  return filePaths
-}
-
 // Helper function to extract package updates from PR body
 async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ name: string, currentVersion: string, newVersion: string }>> {
   const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
@@ -944,280 +896,131 @@ cli
         hasWorkflowPermissions,
       )
 
-      // Get buddy-bot PRs using GitHub CLI to avoid API rate limits
-      let buddyPRs: any[] = []
-      try {
-        // Try GitHub CLI first (much faster and doesn't count against API limits)
-        const prOutput = await gitProvider.runCommand('gh', [
-          'pr',
-          'list',
-          '--state',
-          'open',
-          '--json',
-          'number,title,body,headRefName,author,url,createdAt,updatedAt',
-        ])
-        const allPRs = JSON.parse(prOutput)
-
-        buddyPRs = allPRs.filter((pr: any) =>
-          pr.headRefName?.startsWith('buddy-bot/')
-          || pr.author?.login === 'github-actions[bot]'
-          || pr.author?.login?.includes('buddy'),
-        ).map((pr: any) => ({
-          number: pr.number,
-          title: pr.title,
-          body: pr.body || '',
-          head: pr.headRefName,
-          author: pr.author?.login || 'unknown',
-          url: pr.url,
-          createdAt: new Date(pr.createdAt),
-          updatedAt: new Date(pr.updatedAt),
-        }))
-
-        console.log(`🔍 Found ${buddyPRs.length} buddy-bot PRs using GitHub CLI (no API calls)`)
-      }
-      catch (cliError) {
-        console.warn('⚠️ GitHub CLI failed, falling back to API:', cliError)
-        // Fallback to API method
-        const prs = await gitProvider.getPullRequests('open')
-        buddyPRs = prs.filter(pr =>
-          pr.head.startsWith('buddy-bot/')
-          || pr.author === 'github-actions[bot]'
-          || pr.author.includes('buddy'),
-        )
-      }
-
-      if (buddyPRs.length === 0) {
-        logger.info('📋 No buddy-bot PRs found')
-        return
-      }
-
-      logger.info(`📋 Found ${buddyPRs.length} buddy-bot PR(s)`)
+      // Step 1: Check for rebase checkboxes using HTTP (no API auth needed)
+      logger.info('🔍 Checking for PRs with rebase checkbox enabled...')
 
       let rebasedCount = 0
-      let closedCount = 0
+      let checkedPRs = 0
 
-      for (const pr of buddyPRs) {
-        // First, check if this PR should be auto-closed due to respectLatest config changes
-        const shouldAutoClose = await checkForAutoClose(pr, config, logger)
-        if (shouldAutoClose) {
-          if (options.dryRun) {
-            logger.info(`🔍 [DRY RUN] Would auto-close PR #${pr.number} (contains dynamic versions that are now filtered)`)
+      try {
+        // Get PR numbers from git refs
+        const prRefsOutput = await gitProvider.runCommand('git', ['ls-remote', 'origin', 'refs/pull/*/head'])
+        const prNumbers: number[] = []
 
-            // Extract package names for logging
-            const packageNames = extractPackageNamesFromPRBody(pr.body)
-            logger.info(`📋 PR contains packages: ${packageNames.join(', ')}`)
-            closedCount++
-            continue
+        for (const line of prRefsOutput.split('\n')) {
+          if (line.trim()) {
+            const parts = line.trim().split('\t')
+            if (parts.length === 2) {
+              const ref = parts[1] // refs/pull/123/head
+              const prMatch = ref.match(/refs\/pull\/(\d+)\/head/)
+              if (prMatch) {
+                prNumbers.push(Number.parseInt(prMatch[1]))
+              }
+            }
           }
-          else {
-            logger.info(`🔒 Auto-closing PR #${pr.number} (contains dynamic versions that are now filtered by respectLatest config)`)
+        }
 
-            // Extract package names for logging
-            const packageNames = extractPackageNamesFromPRBody(pr.body)
-            logger.info(`📋 PR contains packages: ${packageNames.join(', ')}`)
+        logger.info(`📋 Found ${prNumbers.length} PRs to check for rebase requests`)
 
+        // Check each PR for rebase checkbox (in small batches)
+        const batchSize = 3 // Smaller batches for PR content fetching
+        for (let i = 0; i < prNumbers.length && i < 20; i += batchSize) { // Limit to first 20 PRs
+          const batch = prNumbers.slice(i, i + batchSize)
+
+          for (const prNumber of batch) {
             try {
-              // Add a comment explaining why the PR was closed
-              let comment = `🤖 **Auto-closed by Buddy Bot**
-
-This PR was automatically closed due to configuration changes.`
-
-              // Check if it's a respectLatest issue
-              const respectLatest = config.packages?.respectLatest ?? true
-              const prBody = pr.body.toLowerCase()
-              const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
-              const hasDynamicVersions = dynamicIndicators.some(indicator => prBody.includes(indicator))
-
-              // Check if it's an ignorePaths issue
-              const ignorePaths = config.packages?.ignorePaths || []
-              const filePaths = extractFilePathsFromPRBody(pr.body)
-              // eslint-disable-next-line ts/no-require-imports
-              const { Glob } = require('bun')
-              const ignoredFiles = filePaths.filter((filePath) => {
-                const normalizedPath = filePath.replace(/^\.\//, '')
-                return ignorePaths.some((pattern) => {
-                  try {
-                    const glob = new Glob(pattern)
-                    return glob.match(normalizedPath)
-                  }
-                  catch {
-                    return false
-                  }
-                })
+              // Fetch PR page HTML to check for rebase checkbox
+              const url = `https://github.com/${config.repository.owner}/${config.repository.name}/pull/${prNumber}`
+              const response = await fetch(url, {
+                headers: { 'User-Agent': 'buddy-bot/1.0' },
               })
 
-              if (respectLatest && hasDynamicVersions) {
-                comment += `
+              if (response.ok) {
+                const html = await response.text()
+                checkedPRs++
 
-**Reason:** Contains updates for packages with dynamic version indicators (like \`*\`, \`latest\`, etc.) that are now filtered out by the \`respectLatest\` configuration.
+                // Check if PR is open and has rebase checkbox checked
+                const isOpen = html.includes('State--open') && !html.includes('State--closed') && !html.includes('State--merged')
+                const hasRebaseChecked = checkRebaseCheckbox(html)
 
-**Affected packages:** ${packageNames.join(', ')}
+                if (isOpen && hasRebaseChecked) {
+                  logger.info(`🔄 PR #${prNumber} has rebase checkbox checked`)
 
-The \`respectLatest\` setting (default: \`true\`) prevents updates to packages that use dynamic version indicators, as these are typically meant to always use the latest version and shouldn't be pinned to specific versions.
+                  if (options.dryRun) {
+                    logger.info(`🔍 [DRY RUN] Would rebase PR #${prNumber}`)
+                    rebasedCount++
+                  }
+                  else {
+                    logger.info(`🔄 Rebasing PR #${prNumber} via rebase command...`)
 
-If you need to update these packages to specific versions, you can:
-1. Set \`respectLatest: false\` in your \`buddy-bot.config.ts\`
-2. Or manually update the dependency files to use specific versions instead of dynamic indicators
+                    try {
+                      // Use the existing rebase command logic
+                      const { spawn } = await import('node:child_process')
+                      const rebaseProcess = spawn('bunx', ['buddy-bot', 'rebase', prNumber.toString()], {
+                        stdio: 'inherit',
+                        cwd: process.cwd(),
+                      })
 
-This helps maintain the intended behavior of dynamic version indicators while preventing unwanted updates.`
+                      await new Promise((resolve, reject) => {
+                        rebaseProcess.on('close', (code) => {
+                          if (code === 0) {
+                            rebasedCount++
+                            resolve(code)
+                          }
+                          else {
+                            reject(new Error(`Rebase failed with code ${code}`))
+                          }
+                        })
+                      })
+
+                      logger.success(`✅ Successfully rebased PR #${prNumber}`)
+                    }
+                    catch (rebaseError) {
+                      logger.error(`❌ Failed to rebase PR #${prNumber}:`, rebaseError)
+                    }
+                  }
+                }
               }
-              else if (ignoredFiles.length > 0) {
-                comment += `
 
-**Reason:** Contains updates for files that are now excluded by the \`ignorePaths\` configuration.
-
-**Affected files:** ${ignoredFiles.join(', ')}
-
-The \`ignorePaths\` setting now excludes these file paths from dependency updates. This PR was created before these paths were ignored.
-
-If you need to include these files again, you can:
-1. Remove or modify the relevant patterns in \`ignorePaths\` in your \`buddy-bot.config.ts\`
-2. Or manually manage dependencies in these paths
-
-Current ignore patterns: ${ignorePaths.join(', ')}`
-              }
-              else {
-                comment += `
-
-**Reason:** Configuration changes have made this PR obsolete.
-
-**Affected packages:** ${packageNames.join(', ')}
-
-Please check your \`buddy-bot.config.ts\` configuration for recent changes to \`respectLatest\` or \`ignorePaths\` settings.`
-              }
-
-              await gitProvider.createComment(pr.number, comment)
-              await gitProvider.closePullRequest(pr.number)
-              logger.success(`✅ Successfully closed PR #${pr.number} (contains dynamic versions that are now filtered by respectLatest configuration)`)
-              closedCount++
-              continue
+              // Small delay between requests
+              await new Promise(resolve => setTimeout(resolve, 200))
             }
             catch (error) {
-              logger.error(`❌ Failed to close PR #${pr.number}:`, error)
+              logger.warn(`⚠️ Could not check PR #${prNumber}:`, error)
             }
+          }
+
+          // Delay between batches
+          if (i + batchSize < Math.min(prNumbers.length, 20)) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
           }
         }
 
-        // Check if rebase checkbox is checked
-        const isRebaseChecked = checkRebaseCheckbox(pr.body)
-
-        if (isRebaseChecked) {
-          logger.info(`🔄 PR #${pr.number} has rebase checkbox checked: ${pr.title}`)
-
-          if (options.dryRun) {
-            logger.info('🔍 [DRY RUN] Would rebase this PR')
-            rebasedCount++
-          }
-          else {
-            logger.info(`🔄 Rebasing PR #${pr.number}...`)
-
-            try {
-              // Extract package updates from PR body
-              const packageUpdates = await extractPackageUpdatesFromPRBody(pr.body)
-
-              if (packageUpdates.length === 0) {
-                logger.warn(`⚠️ Could not extract package updates from PR #${pr.number}, skipping`)
-                continue
-              }
-
-              // Update the existing PR with latest updates (true rebase)
-              const buddy = new Buddy({
-                ...config,
-                verbose: options.verbose ?? config.verbose,
-              })
-
-              const scanResult = await buddy.scanForUpdates()
-              if (scanResult.updates.length === 0) {
-                logger.info('✅ All dependencies are now up to date!')
-                continue
-              }
-
-              // Find the matching update group - must match exactly
-              const group = scanResult.groups.find(g =>
-                g.updates.length === packageUpdates.length
-                && g.updates.every(u => packageUpdates.some(pu => pu.name === u.name))
-                && packageUpdates.every(pu => g.updates.some(u => u.name === pu.name)),
-              )
-
-              if (!group) {
-                logger.warn(`⚠️ Could not find matching update group for PR #${pr.number}. This likely means the package grouping has changed.`)
-                logger.info(`📋 PR packages: ${packageUpdates.map(p => p.name).join(', ')}`)
-                logger.info(`📋 Available groups: ${scanResult.groups.map(g => `${g.name} (${g.updates.length} packages)`).join(', ')}`)
-                logger.info(`💡 Skipping rebase - close this PR manually and let buddy-bot create new ones with correct grouping`)
-                continue
-              }
-
-              // Generate new file changes (package.json, dependency files, GitHub Actions)
-              const packageJsonUpdates = await buddy.generateAllFileUpdates(group.updates)
-
-              // Update the branch with new commits
-              await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates)
-              logger.info(`✅ Updated branch ${pr.head} with latest changes`)
-
-              // Generate new PR content
-              const { PullRequestGenerator } = await import('../src/pr/pr-generator')
-              const prGenerator = new PullRequestGenerator({ verbose: options.verbose })
-              const newBody = await prGenerator.generateBody(group)
-
-              // Update the PR with new title/body (and uncheck the rebase box)
-              const updatedBody = newBody.replace(
-                /- \[x\] <!-- rebase-check -->/g,
-                '- [ ] <!-- rebase-check -->',
-              )
-
-              await gitProvider.updatePullRequest(pr.number, {
-                title: group.title,
-                body: updatedBody,
-              })
-
-              logger.success(`🔄 Successfully rebased PR #${pr.number} in place!`)
-              rebasedCount++
-            }
-            catch (error) {
-              logger.error(`❌ Failed to rebase PR #${pr.number}:`, error)
-            }
-          }
+        if (rebasedCount > 0) {
+          logger.success(`✅ ${options.dryRun ? 'Would rebase' : 'Successfully rebased'} ${rebasedCount} PR(s)`)
         }
-        else {
-          logger.info(`📋 PR #${pr.number}: No rebase requested`)
+        else if (checkedPRs > 0) {
+          logger.info('📋 No PRs have rebase checkbox enabled')
         }
       }
-
-      if (closedCount > 0) {
-        logger.success(`🔒 ${options.dryRun ? 'Would close' : 'Successfully closed'} ${closedCount} PR(s) with dynamic versions`)
+      catch (error) {
+        logger.warn('⚠️ Could not check for rebase requests:', error)
       }
 
-      if (rebasedCount > 0) {
-        logger.success(`✅ ${options.dryRun ? 'Would rebase' : 'Successfully rebased'} ${rebasedCount} PR(s)`)
+      // Step 2: Run branch cleanup (uses local git commands, no API calls)
+      logger.info('\n🧹 Running branch cleanup...')
+      const result = await gitProvider.cleanupStaleBranches(2, !!options.dryRun)
+
+      if (options.dryRun) {
+        logger.info(`🔍 [DRY RUN] Would delete ${result.deleted.length} stale branches`)
+      }
+      else {
+        logger.success(`🎉 Cleanup complete: ${result.deleted.length} branches deleted, ${result.failed.length} failed`)
       }
 
-      if (closedCount === 0 && rebasedCount === 0) {
-        logger.info('✅ No PRs need attention')
-      }
-
-      // Automatic cleanup of stale branches after processing PRs
-      if (!options.dryRun) {
-        logger.info('\n🧹 Checking for stale branches to clean up...')
-        try {
-          const cleanupResult = await gitProvider.cleanupStaleBranches(7, false) // Clean branches older than 7 days
-
-          if (cleanupResult.deleted.length > 0) {
-            logger.success(`🧹 Automatically cleaned up ${cleanupResult.deleted.length} stale branch(es)`)
-            if (options.verbose) {
-              cleanupResult.deleted.forEach(branch => logger.info(`  ✅ Deleted: ${branch}`))
-            }
-          }
-
-          if (cleanupResult.failed.length > 0) {
-            logger.warn(`⚠️ Failed to clean up ${cleanupResult.failed.length} branch(es)`)
-            if (options.verbose) {
-              cleanupResult.failed.forEach(branch => logger.warn(`  ❌ Failed: ${branch}`))
-            }
-          }
-        }
-        catch (cleanupError) {
-          logger.warn('⚠️ Branch cleanup failed:', cleanupError)
-        }
+      // Summary
+      if (rebasedCount > 0 || result.deleted.length > 0) {
+        logger.success(`\n🎉 Update-check complete: ${rebasedCount} PR(s) rebased, ${result.deleted.length} branches cleaned`)
       }
     }
     catch (error) {
