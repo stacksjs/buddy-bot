@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.8.1...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.1...main)
+
+### 🏡 Chore
+
+- Improve cleanup ([515eef9](https://github.com/stacksjs/buddy-bot/commit/515eef9))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.8.0...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.0...main)
