@@ -871,8 +871,6 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
 
     try {
-      logger.info('🔍 Checking for PRs with rebase checkbox enabled...')
-
       // Check if repository is configured
       if (!config.repository) {
         logger.error('❌ Repository configuration required for PR operations')
