@@ -1,28 +1,42 @@
 import type { MigrationResult } from '../src/setup'
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import fs from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { ConfigurationMigrator } from '../src/setup'
 
 describe('Configuration Migration & Import System', () => {
   let migrator: ConfigurationMigrator
+  let testDir: string
+  let originalCwd: string
 
   beforeEach(() => {
+    // Create a temporary directory for each test
+    testDir = fs.mkdtempSync(join(tmpdir(), 'buddy-config-test-'))
+    originalCwd = process.cwd()
+    process.chdir(testDir)
+
     migrator = new ConfigurationMigrator()
   })
 
   afterEach(() => {
-    // Clean up test files - DO NOT DELETE the real package.json!
-    const testFiles = ['renovate.json', '.renovaterc', 'test-package.json', '.github/dependabot.yml']
-    testFiles.forEach((file) => {
-      if (fs.existsSync(file)) {
-        try {
-          fs.unlinkSync(file)
-        }
-        catch {
-          // Ignore cleanup errors
-        }
+    // Change back to original directory and clean up
+    try {
+      process.chdir(originalCwd)
+    }
+    catch {
+      // If we can't change back, try a safe directory
+      try {
+        process.chdir(tmpdir())
       }
-    })
+      catch {
+        process.chdir('/')
+      }
+    }
+
+    if (fs.existsSync(testDir)) {
+      fs.rmSync(testDir, { recursive: true, force: true })
+    }
   })
 
   describe('Tool Detection', () => {
