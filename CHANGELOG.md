@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.8.2...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.2...main)
+
+### 🏡 Chore
+
+- Improve git interactions ([90310fa](https://github.com/stacksjs/buddy-bot/commit/90310fa))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.8.1...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.1...main)
