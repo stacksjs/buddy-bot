@@ -5,10 +5,10 @@
       "name": "buddy-bot",
       "dependencies": {
         "@types/prompts": "^2.4.9",
-        "bunfig": "^0.10.1",
+        "bunfig": "^0.14.1",
         "cac": "6.7.14",
         "prompts": "^2.4.2",
-        "ts-pkgx": "0.4.38",
+        "ts-pkgx": "0.4.39",
       },
       "devDependencies": {
         "@stacksjs/docs": "^0.70.23",
@@ -789,7 +789,7 @@
 
     "bun-types": ["bun-types@1.2.20", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-pxTnQYOrKvdOwyiyd/7sMt9yFOenN004Y6O4lCcCUoKVej48FS5cvTw9geRaEcB9TsDZaJKAxPTVvi8tFsVuXA=="],
 
-    "bunfig": ["bunfig@0.10.1", "", { "bin": { "bunfig": "bin/cli.js" } }, "sha512-4IB0Te+W0Jk8LcaCK9PhZqH9KHbYBJuTr70kVPRpnCDEq2WMixRPWSzOYNOihnSJBUBse8WIi9V5Ym2cyK+MDA=="],
+    "bunfig": ["bunfig@0.14.1", "", { "bin": { "bunfig": "bin/cli.js" } }, "sha512-KxblKbteHmlDgbEv6L9AYghcU+6mpoJhbmNa1cbfn1LuS99+1UGAcTG1u4u4zcjT4JHVff5cblSKjZmOw5+I7w=="],
 
     "cac": ["cac@6.7.14", "", {}, "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ=="],
 
@@ -1713,7 +1713,7 @@
 
     "ts-declaration-location": ["ts-declaration-location@1.0.7", "", { "dependencies": { "picomatch": "^4.0.2" }, "peerDependencies": { "typescript": ">=4.0.0" } }, "sha512-EDyGAwH1gO0Ausm9gV6T2nUvBgXT5kGoCMJPllOaooZ+4VvJiKBdZE7wK18N1deEowhcUptS+5GXZK8U/fvpwA=="],
 
-    "ts-pkgx": ["ts-pkgx@0.4.38", "", { "dependencies": { "chromium-bidi": "^7.2.0", "electron": "^37.2.4", "js-yaml": "^4.1.0", "playwright": "^1.54.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-UJA8LikwMv+w66ZfMvLn0f6NuG1OZ49jifMaTWn2VjUe68RV8H1nzkO0ZB/QhlhRh5tKs1Htd+YVQNnOWpc7Bw=="],
+    "ts-pkgx": ["ts-pkgx@0.4.39", "", { "dependencies": { "chromium-bidi": "^7.2.0", "electron": "^37.2.4", "js-yaml": "^4.1.0", "playwright": "^1.54.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-V8BMKo4T+cHGcVqD+lc0YV5JWjzCIIQPS3eaRMoOVAMkxrlP3/RaS/QKORRWp6q+TA62nXV8/FbkCw9zz5yLiA=="],
 
     "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
