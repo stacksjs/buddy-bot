@@ -1,6 +1,25 @@
 # Changelog
 
 
+## v0.7.13...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.13...main)
+
+### 🚀 Enhancements
+
+- Add `cleanup` & `list-branches` ([922ce2b](https://github.com/stacksjs/buddy-bot/commit/922ce2b))
+- Auto clean up stale branches ([910502c](https://github.com/stacksjs/buddy-bot/commit/910502c))
+- Auto close prs that have been ignored ([88f690e](https://github.com/stacksjs/buddy-bot/commit/88f690e))
+
+### 🏡 Chore
+
+- Test ([ec20bfa](https://github.com/stacksjs/buddy-bot/commit/ec20bfa))
+- Adjust tests ([9fc23e2](https://github.com/stacksjs/buddy-bot/commit/9fc23e2))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.7.12...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.7.12...main)
