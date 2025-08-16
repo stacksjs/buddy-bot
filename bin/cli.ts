@@ -944,13 +944,47 @@ cli
         hasWorkflowPermissions,
       )
 
-      // Get all open PRs
-      const prs = await gitProvider.getPullRequests('open')
-      const buddyPRs = prs.filter(pr =>
-        pr.head.startsWith('buddy-bot/')
-        || pr.author === 'github-actions[bot]'
-        || pr.author.includes('buddy'),
-      )
+      // Get buddy-bot PRs using GitHub CLI to avoid API rate limits
+      let buddyPRs: any[] = []
+      try {
+        // Try GitHub CLI first (much faster and doesn't count against API limits)
+        const prOutput = await gitProvider.runCommand('gh', [
+          'pr',
+          'list',
+          '--state',
+          'open',
+          '--json',
+          'number,title,body,headRefName,author,url,createdAt,updatedAt',
+        ])
+        const allPRs = JSON.parse(prOutput)
+
+        buddyPRs = allPRs.filter((pr: any) =>
+          pr.headRefName?.startsWith('buddy-bot/')
+          || pr.author?.login === 'github-actions[bot]'
+          || pr.author?.login?.includes('buddy'),
+        ).map((pr: any) => ({
+          number: pr.number,
+          title: pr.title,
+          body: pr.body || '',
+          head: pr.headRefName,
+          author: pr.author?.login || 'unknown',
+          url: pr.url,
+          createdAt: new Date(pr.createdAt),
+          updatedAt: new Date(pr.updatedAt),
+        }))
+
+        console.log(`🔍 Found ${buddyPRs.length} buddy-bot PRs using GitHub CLI (no API calls)`)
+      }
+      catch (cliError) {
+        console.warn('⚠️ GitHub CLI failed, falling back to API:', cliError)
+        // Fallback to API method
+        const prs = await gitProvider.getPullRequests('open')
+        buddyPRs = prs.filter(pr =>
+          pr.head.startsWith('buddy-bot/')
+          || pr.author === 'github-actions[bot]'
+          || pr.author.includes('buddy'),
+        )
+      }
 
       if (buddyPRs.length === 0) {
         logger.info('📋 No buddy-bot PRs found')

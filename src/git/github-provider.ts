@@ -477,7 +477,7 @@ export class GitHubProvider implements GitProvider {
   /**
    * Run a command and return its output
    */
-  private async runCommand(command: string, args: string[]): Promise<string> {
+  async runCommand(command: string, args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: 'pipe',
@@ -707,20 +707,18 @@ export class GitHubProvider implements GitProvider {
    */
   async deleteBranch(branchName: string): Promise<void> {
     try {
-      // Try to delete using GitHub CLI first
+      // Try to delete using GitHub CLI first (corrected command)
       try {
-        await this.runCommand('gh', ['api', 'repos', this.owner, this.repo, 'git/refs/heads', branchName, '-X', 'DELETE'])
-        console.log(`✅ Deleted branch ${branchName} via CLI`)
+        await this.runCommand('gh', ['api', `repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`, '-X', 'DELETE'])
         return
       }
       catch (cliError) {
-        // Fall back to API
+        // Fall back to API if CLI fails
         console.log(`⚠️ CLI branch deletion failed, trying API: ${cliError}`)
       }
 
-      // Fall back to API
-      await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`)
-      console.log(`✅ Deleted branch ${branchName} via API`)
+      // Fall back to API with retry logic for rate limiting
+      await this.apiRequestWithRetry(`DELETE /repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`)
     }
     catch (error) {
       // Don't throw error for branch deletion failures - they're not critical
@@ -729,9 +727,68 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Get all buddy-bot branches from the repository
+   * Get all buddy-bot branches from the repository using local git commands
    */
   async getBuddyBotBranches(): Promise<Array<{ name: string, sha: string, lastCommitDate: Date }>> {
+    try {
+      // Use local git to get all remote branches
+      const remoteBranchesOutput = await this.runCommand('git', ['branch', '-r', '--format=%(refname:short) %(objectname) %(committerdate:iso8601)'])
+
+      const branches: Array<{ name: string, sha: string, lastCommitDate: Date }> = []
+
+      for (const line of remoteBranchesOutput.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed)
+          continue
+
+        const parts = trimmed.split(' ')
+        if (parts.length < 3)
+          continue
+
+        const fullBranchName = parts[0] // e.g., "origin/buddy-bot/update-deps"
+        const sha = parts[1]
+        const dateStr = parts.slice(2).join(' ') // Join back in case date has spaces
+
+        // Extract just the branch name without remote prefix
+        const branchName = fullBranchName.replace(/^origin\//, '')
+
+        // Only include buddy-bot branches
+        if (!branchName.startsWith('buddy-bot/'))
+          continue
+
+        try {
+          const lastCommitDate = new Date(dateStr)
+          branches.push({
+            name: branchName,
+            sha,
+            lastCommitDate,
+          })
+        }
+        catch {
+          console.warn(`⚠️ Failed to parse date for branch ${branchName}: ${dateStr}`)
+          branches.push({
+            name: branchName,
+            sha,
+            lastCommitDate: new Date(0), // Fallback to epoch
+          })
+        }
+      }
+
+      console.log(`🔍 Found ${branches.length} buddy-bot branches using local git`)
+      return branches
+    }
+    catch (error) {
+      console.warn('⚠️ Failed to fetch buddy-bot branches via git, falling back to API:', error)
+
+      // Fallback to API method if git fails
+      return this.getBuddyBotBranchesViaAPI()
+    }
+  }
+
+  /**
+   * Fallback method to get buddy-bot branches via API (original implementation)
+   */
+  private async getBuddyBotBranchesViaAPI(): Promise<Array<{ name: string, sha: string, lastCommitDate: Date }>> {
     try {
       // Fetch all branches with pagination
       let allBranches: any[] = []
@@ -796,13 +853,20 @@ export class GitHubProvider implements GitProvider {
    */
   async getOrphanedBuddyBotBranches(): Promise<Array<{ name: string, sha: string, lastCommitDate: Date }>> {
     try {
-      const [buddyBranches, openPRs] = await Promise.all([
-        this.getBuddyBotBranches(),
-        this.getPullRequests('open'),
-      ])
+      const buddyBranches = await this.getBuddyBotBranches()
+
+      // Try to get PR branches using local git first
+      let prBranches: Set<string>
+      try {
+        prBranches = await this.getOpenPRBranchesViaGit()
+      }
+      catch (error) {
+        console.warn('⚠️ Failed to get PR branches via git, falling back to API:', error)
+        const openPRs = await this.getPullRequests('open')
+        prBranches = new Set(openPRs.map(pr => pr.head))
+      }
 
       // Filter out branches that have active PRs
-      const prBranches = new Set(openPRs.map(pr => pr.head))
       const orphanedBranches = buddyBranches.filter(branch => !prBranches.has(branch.name))
 
       return orphanedBranches
@@ -810,6 +874,56 @@ export class GitHubProvider implements GitProvider {
     catch (error) {
       console.warn('⚠️ Failed to identify orphaned branches:', error)
       return []
+    }
+  }
+
+  /**
+   * Get branches that have open PRs using local git commands
+   */
+  private async getOpenPRBranchesViaGit(): Promise<Set<string>> {
+    try {
+      // Use GitHub CLI to get open PRs if available
+      try {
+        const prOutput = await this.runCommand('gh', ['pr', 'list', '--state', 'open', '--json', 'headRefName'])
+        const prs = JSON.parse(prOutput)
+        const prBranches = new Set<string>()
+
+        for (const pr of prs) {
+          if (pr.headRefName && pr.headRefName.startsWith('buddy-bot/')) {
+            prBranches.add(pr.headRefName)
+          }
+        }
+
+        console.log(`🔍 Found ${prBranches.size} open PR branches using GitHub CLI`)
+        return prBranches
+      }
+      catch {
+        console.warn('⚠️ GitHub CLI not available or failed, trying alternative method')
+
+        // Alternative: check if branches exist in refs/pull/ (GitHub's PR refs)
+        try {
+          const pullRefsOutput = await this.runCommand('git', ['ls-remote', '--heads', 'origin'])
+          const prBranches = new Set<string>()
+
+          for (const line of pullRefsOutput.split('\n')) {
+            const match = line.match(/refs\/heads\/(buddy-bot\/\S+)/)
+            if (match) {
+              // This is a buddy-bot branch, but we can't easily tell if it has an open PR
+              // without API calls, so we'll be conservative and assume it might
+              prBranches.add(match[1])
+            }
+          }
+
+          console.log(`🔍 Found ${prBranches.size} potential PR branches using git ls-remote`)
+          return prBranches
+        }
+        catch (gitError) {
+          throw new Error(`Both GitHub CLI and git ls-remote failed: ${gitError}`)
+        }
+      }
+    }
+    catch (error) {
+      throw new Error(`Failed to get open PR branches via git: ${error}`)
     }
   }
 
@@ -859,8 +973,8 @@ export class GitHubProvider implements GitProvider {
 
     console.log(`🧹 Cleaning up ${staleBranches.length} stale branches...`)
 
-    // Delete branches in batches to avoid rate limiting
-    const batchSize = 10
+    // Delete branches in smaller batches with longer delays to avoid rate limiting
+    const batchSize = 5 // Reduced from 10 to be more conservative
     for (let i = 0; i < staleBranches.length; i += batchSize) {
       const batch = staleBranches.slice(i, i + batchSize)
       const batchNumber = Math.floor(i / batchSize) + 1
@@ -868,24 +982,27 @@ export class GitHubProvider implements GitProvider {
 
       console.log(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} branches)`)
 
-      await Promise.all(
-        batch.map(async (branch) => {
-          try {
-            await this.deleteBranch(branch.name)
-            deleted.push(branch.name)
-            console.log(`✅ Deleted: ${branch.name}`)
-          }
-          catch (error) {
-            failed.push(branch.name)
-            console.warn(`❌ Failed to delete ${branch.name}:`, error)
-          }
-        }),
-      )
+      // Process branches sequentially within batch to avoid overwhelming the API
+      for (const branch of batch) {
+        try {
+          await this.deleteBranch(branch.name)
+          deleted.push(branch.name)
+          console.log(`✅ Deleted: ${branch.name}`)
+        }
+        catch (error) {
+          failed.push(branch.name)
+          console.warn(`❌ Failed to delete ${branch.name}:`, error)
+        }
 
-      // Small delay between batches to be nice to the API
+        // Small delay between individual deletions within batch
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+
+      // Longer delay between batches to be respectful of API limits
       if (i + batchSize < staleBranches.length) {
-        console.log('⏳ Waiting 1 second before next batch...')
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        const delay = 3000 // 3 seconds between batches
+        console.log(`⏳ Waiting ${delay / 1000} seconds before next batch...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
 
@@ -934,6 +1051,34 @@ export class GitHubProvider implements GitProvider {
     }
 
     return response.text()
+  }
+
+  /**
+   * Make authenticated API request to GitHub with retry logic for rate limiting
+   */
+  private async apiRequestWithRetry(endpoint: string, data?: any, maxRetries = 3): Promise<any> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.apiRequest(endpoint, data)
+      }
+      catch (error: any) {
+        const isRateLimit = error.message?.includes('403') && error.message?.includes('rate limit')
+
+        if (isRateLimit && attempt < maxRetries) {
+          // Extract retry-after from error or use exponential backoff
+          const baseDelay = 2 ** attempt * 1000 // 2s, 4s, 8s
+          const jitter = Math.random() * 1000 // Add up to 1s jitter
+          const delay = baseDelay + jitter
+
+          console.log(`⏳ Rate limited, waiting ${Math.round(delay / 1000)}s before retry ${attempt}/${maxRetries}...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+
+        // If not rate limit or max retries reached, throw the error
+        throw error
+      }
+    }
   }
 
   async createIssue(options: IssueOptions): Promise<Issue> {
