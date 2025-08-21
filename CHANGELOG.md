@@ -1,6 +1,30 @@
 # Changelog
 
 
+## v0.8.6...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.6...main)
+
+### 🏡 Chore
+
+- Add `sanitizeMentions` for our PR bodies ([262d4e7](https://github.com/stacksjs/buddy-bot/commit/262d4e7))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
+## v0.8.6...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.6...main)
+
+### 🏡 Chore
+
+- Add `sanitizeMentions` for our PR bodies ([262d4e7](https://github.com/stacksjs/buddy-bot/commit/262d4e7))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.8.5...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.5...main)
