@@ -925,12 +925,54 @@ export class PullRequestGenerator {
       .replace(/\n{3,}/g, '\n\n')
       .trim()
 
+    // Sanitize @mentions to avoid pinging real users in PRs
+    cleaned = this.sanitizeMentions(cleaned)
+
     // Limit to reasonable length for PR body
     if (cleaned.length > 1000) {
       cleaned = `${cleaned.substring(0, 1000)}...\n\n*[View full release notes]*`
     }
 
     return cleaned
+  }
+
+  /**
+   * Convert plain @mentions into non-pinging links.
+   * Examples:
+   *   @user -> [@user](https://github.com/user)
+   * Avoids matching emails and things inside code fences.
+   */
+  private sanitizeMentions(text: string): string {
+    // Protect fenced code blocks and inline code by temporarily replacing them
+    const fences: string[] = []
+    const placeholders: string[] = []
+
+    // Replace fenced code blocks ```...``` with placeholders
+    let protectedText = text.replace(/```[\s\S]*?```/g, (match) => {
+      fences.push(match)
+      return `__FENCE_PLACEHOLDER_${fences.length - 1}__`
+    })
+
+    // Replace inline code `...` with placeholders (do this after fences)
+    protectedText = protectedText.replace(/`[^`\n]+`/g, (match) => {
+      placeholders.push(match)
+      return `__INLINE_CODE_PLACEHOLDER_${placeholders.length - 1}__`
+    })
+
+    // Replace plain @mentions not part of emails/paths
+    // Negative lookbehind avoids letters, numbers, dot, slash, underscore before @ (emails/paths)
+    // Negative lookahead avoids treating trailing slash or part of longer tokens
+    protectedText = protectedText.replace(/(?<![\w./])@([A-Z0-9-]+)(?![A-Z0-9-])/gi, (_m, user: string) => {
+      return `[@${user}](https://github.com/${user})`
+    })
+
+    // Restore inline code placeholders
+    protectedText = protectedText.replace(/__INLINE_CODE_PLACEHOLDER_(\d+)__/g, (_m, i: string) => placeholders[Number(i)])
+
+    // Restore fenced code placeholders
+    protectedText = protectedText.replace(/__FENCE_PLACEHOLDER_(\d+)__/g, (_m, i: string) => fences[Number(i)])
+
+    return protectedText
   }
 
   /**
