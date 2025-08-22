@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.8.7...main
+
+[compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.7...main)
+
+### 🏡 Chore
+
+- Remove the @ symbol ([3000d50](https://github.com/stacksjs/buddy-bot/commit/3000d50))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.8.6...main
 
 [compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.6...main)
