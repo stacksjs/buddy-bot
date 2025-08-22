@@ -53,13 +53,13 @@ describe('PR mention sanitization', () => {
     const group = makeGroup()
     const body: string = await gen.generateBody(group)
 
-    // Plain mentions converted
-    expect(body).toContain('[@sokra](https://github.com/sokra)')
-    expect(body).toContain('[@mischnic](https://github.com/mischnic)')
+    // Plain mentions converted (without '@' in rendered text)
+    expect(body).toContain('[sokra](https://github.com/sokra)')
+    expect(body).toContain('[mischnic](https://github.com/mischnic)')
 
-    // No raw @mention should remain in non-code text for those users (allow inside markdown link [@user])
-    expect(body).not.toMatch(/(?<!\[)@sokra/)
-    expect(body).not.toMatch(/(?<!\[)@mischnic/)
+    // No raw @mention should remain anywhere in non-code text
+    expect(body).not.toMatch(/@sokra/)
+    expect(body).not.toMatch(/@mischnic/)
 
     // Inline code preserved
     expect(body).toContain('`doSomething(@nochange)`')

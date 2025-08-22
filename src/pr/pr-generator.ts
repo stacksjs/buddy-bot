@@ -567,7 +567,8 @@ export class PullRequestGenerator {
           }
 
           if (release.author) {
-            body += `*Released by [@${release.author}](https://github.com/${release.author}) on ${new Date(release.date).toLocaleDateString()}*\n\n`
+            // Strip '@' in rendered text to avoid accidental pings
+            body += `*Released by [${release.author}](https://github.com/${release.author}) on ${new Date(release.date).toLocaleDateString()}*\n\n`
           }
         }
       }
@@ -963,7 +964,8 @@ export class PullRequestGenerator {
     // Negative lookbehind avoids letters, numbers, dot, slash, underscore before @ (emails/paths)
     // Negative lookahead avoids treating trailing slash or part of longer tokens
     protectedText = protectedText.replace(/(?<![\w./])@([A-Z0-9-]+)(?![A-Z0-9-])/gi, (_m, user: string) => {
-      return `[@${user}](https://github.com/${user})`
+      // Strip '@' in rendered text to prevent any possibility of pings
+      return `[${user}](https://github.com/${user})`
     })
 
     // Restore inline code placeholders
