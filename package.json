@@ -55,7 +55,7 @@
     "bunfig": "^0.10.1",
     "cac": "6.7.14",
     "prompts": "^2.4.2",
-    "ts-pkgx": "0.4.38"
+    "ts-pkgx": "0.4.45"
   },
   "devDependencies": {
     "@stacksjs/docs": "^0.70.23",
