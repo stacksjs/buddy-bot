@@ -60,7 +60,7 @@
     "ts-pkgx": "0.4.38"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.1.13",
+    "@stacksjs/bumpx": "^0.1.17",
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@stacksjs/gitlint": "^0.1.5",
@@ -77,9 +77,9 @@
   "git-hooks": {
     "pre-commit": {
       "staged-lint": {
-        "*.{js,ts,json,yaml,yml,md}": "bun lint:fix"
+        "*.{js,ts,json,yaml,yml,md}": "bunx --bun eslint --fix"
       }
     },
-    "commit-msg": "bunx gitlint --edit $1"
+    "commit-msg": "bunx gitlint --edit .git/COMMIT_EDITMSG"
   }
 }
