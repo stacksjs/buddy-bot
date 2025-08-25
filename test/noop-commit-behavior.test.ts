@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test'
 import type { FileChange } from '../src/types'
+import { describe, expect, it } from 'bun:test'
 import { GitHubProvider } from '../src/git/github-provider'
 
 describe('No-op commit prevention', () => {
@@ -9,10 +9,11 @@ describe('No-op commit prevention', () => {
 
   it('does not commit/push when git status has no changes (Git path)', async () => {
     const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
-    const commands: Array<{ cmd: string; args: string[] }> = []
+    const commands: Array<{ cmd: string, args: string[] }> = []
     prov.runCommand = async (command: string, args: string[]) => {
       commands.push({ cmd: command, args })
-      if (command === 'git' && args[0] === 'status' && args[1] === '--porcelain') return ''
+      if (command === 'git' && args[0] === 'status' && args[1] === '--porcelain')
+        return ''
       return ''
     }
 
@@ -26,10 +27,11 @@ describe('No-op commit prevention', () => {
 
   it('commits and pushes when git status shows changes (Git path)', async () => {
     const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
-    const commands: Array<{ cmd: string; args: string[] }> = []
+    const commands: Array<{ cmd: string, args: string[] }> = []
     prov.runCommand = async (command: string, args: string[]) => {
       commands.push({ cmd: command, args })
-      if (command === 'git' && args[0] === 'status' && args[1] === '--porcelain') return ' M package.json'
+      if (command === 'git' && args[0] === 'status' && args[1] === '--porcelain')
+        return ' M package.json'
       return ''
     }
 
@@ -43,20 +45,28 @@ describe('No-op commit prevention', () => {
 
   it('skips API commit when new tree equals current tree (API fallback path)', async () => {
     const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
-    const apiCalls: Array<{ endpoint: string; data: any }> = []
+    const apiCalls: Array<{ endpoint: string, data: any }> = []
     // Force API path by making git fail
-    prov.runCommand = async () => { throw new Error('simulated git failure') }
+    prov.runCommand = async () => {
+      throw new Error('simulated git failure')
+    }
     prov.apiRequest = async (endpoint: string, data?: any) => {
       apiCalls.push({ endpoint, data })
-      if (endpoint.startsWith('GET /repos/') && endpoint.includes('/git/ref/heads/')) return { object: { sha: 'sha-current' } }
-      if (endpoint.startsWith('GET /repos/') && endpoint.includes('/git/commits/')) return { sha: 'sha-current', tree: { sha: 'tree-current' } }
+      if (endpoint.startsWith('GET /repos/') && endpoint.includes('/git/ref/heads/'))
+        return { object: { sha: 'sha-current' } }
+      if (endpoint.startsWith('GET /repos/') && endpoint.includes('/git/commits/'))
+        return { sha: 'sha-current', tree: { sha: 'tree-current' } }
       if (endpoint.startsWith('POST /repos/') && endpoint.includes('/git/trees')) {
-        if (data && Array.isArray(data.tree) && data.tree.length === 0) return { sha: 'tree-current' }
+        if (data && Array.isArray(data.tree) && data.tree.length === 0)
+          return { sha: 'tree-current' }
         return { sha: 'tree-new' }
       }
-      if (endpoint.startsWith('POST /repos/') && endpoint.includes('/git/blobs')) return { sha: 'blob-sha' }
-      if (endpoint.startsWith('POST /repos/') && endpoint.includes('/git/commits')) return { sha: 'commit-new' }
-      if (endpoint.startsWith('PATCH /repos/') && endpoint.includes('/git/refs/heads/')) return { object: { sha: 'sha-updated' } }
+      if (endpoint.startsWith('POST /repos/') && endpoint.includes('/git/blobs'))
+        return { sha: 'blob-sha' }
+      if (endpoint.startsWith('POST /repos/') && endpoint.includes('/git/commits'))
+        return { sha: 'commit-new' }
+      if (endpoint.startsWith('PATCH /repos/') && endpoint.includes('/git/refs/heads/'))
+        return { object: { sha: 'sha-updated' } }
       return {}
     }
 

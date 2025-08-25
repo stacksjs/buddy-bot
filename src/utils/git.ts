@@ -1,7 +1,6 @@
-/* eslint-disable no-console */
 import { spawn } from 'node:child_process'
 
-export type SimpleFileUpdate = { path: string; content: string }
+export interface SimpleFileUpdate { path: string, content: string }
 
 async function runGit(args: string[], cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -11,7 +10,8 @@ async function runGit(args: string[], cwd?: string): Promise<string> {
     child.stdout?.on('data', d => (stdout += d.toString()))
     child.stderr?.on('data', d => (stderr += d.toString()))
     child.on('close', (code) => {
-      if (code === 0) resolve(stdout)
+      if (code === 0)
+        resolve(stdout)
       else reject(new Error(stderr || `git exited with code ${code}`))
     })
     child.on('error', reject)
@@ -31,7 +31,8 @@ export async function hasBranchDifferences(fileUpdates: SimpleFileUpdate[], bran
     // Try local branch
     try {
       const localContent = await runGit(['show', `${branchName}:${cleanPath}`], cwd)
-      if (localContent !== update.content) return true
+      if (localContent !== update.content)
+        return true
       continue
     }
     catch {}
@@ -39,7 +40,8 @@ export async function hasBranchDifferences(fileUpdates: SimpleFileUpdate[], bran
     // Try remote branch
     try {
       const remoteContent = await runGit(['show', `origin/${branchName}:${cleanPath}`], cwd)
-      if (remoteContent !== update.content) return true
+      if (remoteContent !== update.content)
+        return true
       continue
     }
     catch {
