@@ -110,25 +110,31 @@ export class GitHubProvider implements GitProvider {
       // Fetch latest changes
       await this.runCommand('git', ['fetch', 'origin'])
 
-      // For rebase operations, reset the branch to main and apply changes fresh
-      // This prevents merge conflicts by starting with a clean slate
-      console.log(`🔄 Resetting ${branchName} to main for clean rebase...`)
-
-      // Checkout main first and reset working directory to clean state
-      await this.runCommand('git', ['checkout', 'main'])
-      await this.runCommand('git', ['reset', '--hard', 'HEAD'])
-      await this.runCommand('git', ['clean', '-fd'])
-
-      // Reset the branch to main (delete and recreate)
+      // Work on the target branch in place to avoid recreating identical commits
+      // 1) Try to checkout the branch tracking remote
       try {
-        await this.runCommand('git', ['branch', '-D', branchName])
+        await this.runCommand('git', ['checkout', branchName])
       }
       catch {
-        // Branch might not exist locally, that's ok
+        // If it doesn't exist locally, create it tracking the remote if present
+        try {
+          await this.runCommand('git', ['checkout', '-b', branchName, `origin/${branchName}`])
+        }
+        catch {
+          // As a last resort, create an empty local branch (caller is expected to have created the remote)
+          await this.runCommand('git', ['checkout', '-b', branchName])
+        }
       }
 
-      // Create fresh branch from main
-      await this.runCommand('git', ['checkout', '-b', branchName])
+      // Ensure working tree is clean and aligned with remote branch tip
+      try {
+        await this.runCommand('git', ['reset', '--hard', `origin/${branchName}`])
+      }
+      catch {
+        // If remote ref doesn't exist yet, align with current HEAD
+        await this.runCommand('git', ['reset', '--hard', 'HEAD'])
+      }
+      await this.runCommand('git', ['clean', '-fd'])
 
       // Apply file changes
       for (const file of files) {
@@ -158,14 +164,20 @@ export class GitHubProvider implements GitProvider {
         }
       }
 
-      // Check if there are changes to commit
+      // Check if there are changes to commit against the current branch tip
       const status = await this.runCommand('git', ['status', '--porcelain'])
       if (status.trim()) {
         // Commit changes
         await this.runCommand('git', ['commit', '-m', message])
 
-        // Force push changes to overwrite the existing branch
-        await this.runCommand('git', ['push', 'origin', branchName, '--force'])
+        // Push changes (no force unless absolutely necessary)
+        try {
+          await this.runCommand('git', ['push', 'origin', branchName])
+        }
+        catch {
+          // Fall back to a safe force push in CI edge cases
+          await this.runCommand('git', ['push', 'origin', branchName, '--force-with-lease'])
+        }
 
         console.log(`✅ Successfully rebased ${branchName} with fresh changes: ${message}`)
       }
@@ -247,6 +259,12 @@ export class GitHubProvider implements GitProvider {
         base_tree: currentTreeSha,
         tree,
       })
+
+      // If the resulting tree is the same as the current one, skip creating a commit
+      if (newTree.sha === currentTreeSha) {
+        console.log(`ℹ️ No changes detected for ${branchName} (API path) - skipping commit`)
+        return
+      }
 
       // Create new commit with explicit github-actions[bot] author
       const newCommit = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/git/commits`, {

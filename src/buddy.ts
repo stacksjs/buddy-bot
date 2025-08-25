@@ -245,11 +245,26 @@ export class Buddy {
               else {
                 this.logger.info(`📝 Regenerated ${packageJsonUpdates.length} file changes for existing PR ${existingPR.number}`)
 
-                // Commit the updated changes to the existing branch
-                // This will overwrite the old file content with the new versions
-                await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates)
+                // Compare against current branch content to avoid no-op commits
+                try {
+                  const { hasBranchDifferences } = await import('./utils/git')
+                  const changed = await hasBranchDifferences(packageJsonUpdates, existingBranchName)
 
-                this.logger.success(`✅ Updated files in branch ${existingBranchName} with latest dependency versions`)
+                  if (!changed) {
+                    this.logger.info(`ℹ️ No content differences for ${existingBranchName}; skipping commit`)
+                  }
+                  else {
+                    // Commit the updated changes to the existing branch
+                    await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates)
+                    this.logger.success(`✅ Updated files in branch ${existingBranchName} with latest dependency versions`)
+                  }
+                }
+                catch (cmpErr) {
+                  // If the comparison fails for any reason, fall back to committing (previous behavior)
+                  this.logger.warn(`⚠️ Failed to compare branch content, proceeding with commit:`, cmpErr)
+                  await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates)
+                  this.logger.success(`✅ Updated files in branch ${existingBranchName} with latest dependency versions`)
+                }
               }
 
               // Generate dynamic labels for the update
