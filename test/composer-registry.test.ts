@@ -370,7 +370,7 @@ describe('RegistryClient - Composer Integration', () => {
     it('should include Composer packages when composer.json exists', async () => {
       // Create a fresh registry client for this test to avoid interference
       const testRegistryClient = new RegistryClient('/test/project', mockLogger, mockConfig)
-      
+
       // Mock file system
       const existsSyncSpy = spyOn(fs, 'existsSync')
       existsSyncSpy.mockImplementation((path) => {

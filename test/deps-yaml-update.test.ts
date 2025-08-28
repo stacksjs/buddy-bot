@@ -20,7 +20,6 @@ describe('Bun deps.yaml Update Tests', () => {
   let config: BuddyBotConfig
 
   beforeAll(async () => {
-
     // Create a temporary directory for testing
     testDir = await mkdtemp(join(tmpdir(), 'buddy-test-'))
     originalCwd = process.cwd()
