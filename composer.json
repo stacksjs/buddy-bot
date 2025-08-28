@@ -22,7 +22,7 @@
     "mockery/mockery": "^1.5",
     "fakerphp/faker": "^1.20",
     "laravel/pint": "^1.0",
-    "nunomaduro/collision": "^v7.0.5"
+    "nunomaduro/collision": "^v8.8.2"
   },
   "autoload": {
     "psr-4": {
