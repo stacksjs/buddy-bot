@@ -13,7 +13,7 @@
     "php": "^8.1",
     "laravel/framework": "^v10.0.3",
     "guzzlehttp/guzzle": "^7.0",
-    "symfony/console": "^v6.0.19",
+    "symfony/console": "^v7.3.2",
     "monolog/monolog": "^3.0",
     "doctrine/dbal": "^3.10.1"
   },
