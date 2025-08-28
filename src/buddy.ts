@@ -398,6 +398,19 @@ export class Buddy {
   }
 
   /**
+   * Check if a version should be respected (like "*", "latest", etc.)
+   */
+  private shouldRespectVersion(version: string): boolean {
+    const respectLatest = this.config.packages?.respectLatest ?? true
+    if (!respectLatest)
+      return false
+
+    const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+    const cleanVersion = version.toLowerCase().trim()
+    return dynamicIndicators.includes(cleanVersion)
+  }
+
+  /**
    * Check dependency files for updates using ts-pkgx
    */
   private async checkDependencyFilesForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
@@ -417,18 +430,7 @@ export class Buddy {
         const resolved = await resolveDependencyFile(file.path)
 
         for (const dep of resolved.allDependencies || []) {
-          // Check if current version should be respected (like "*", "latest", etc.)
-          const shouldRespectVersion = (version: string): boolean => {
-            const respectLatest = this.config.packages?.respectLatest ?? true
-            if (!respectLatest)
-              return false
-
-            const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
-            const cleanVersion = version.toLowerCase().trim()
-            return dynamicIndicators.includes(cleanVersion)
-          }
-
-          if (shouldRespectVersion(dep.constraint)) {
+          if (this.shouldRespectVersion(dep.constraint)) {
             this.logger.debug(`Skipping ${dep.name} - version "${dep.constraint}" should be respected`)
             continue
           }
@@ -593,18 +595,7 @@ export class Buddy {
           try {
             this.logger.info(`Checking Docker image: ${dep.name}:${dep.currentVersion}`)
 
-            // Check if current version should be respected (like "latest", etc.)
-            const shouldRespectVersion = (version: string): boolean => {
-              const respectLatest = this.config.packages?.respectLatest ?? true
-              if (!respectLatest)
-                return false
-
-              const dynamicIndicators = ['latest', 'main', 'master', 'develop', 'dev', 'stable']
-              const cleanVersion = version.toLowerCase().trim()
-              return dynamicIndicators.includes(cleanVersion)
-            }
-
-            if (shouldRespectVersion(dep.currentVersion)) {
+            if (this.shouldRespectVersion(dep.currentVersion)) {
               this.logger.debug(`Skipping ${dep.name} - version "${dep.currentVersion}" should be respected`)
               continue
             }

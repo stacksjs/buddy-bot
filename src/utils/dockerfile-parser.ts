@@ -76,7 +76,7 @@ export async function parseDockerfile(filePath: string, content: string): Promis
         const command = runMatch[1]
 
         // Extract package installations from common package managers
-        const packageDeps = extractPackagesFromRunCommand(command, filePath)
+        const packageDeps = extractPackagesFromRunCommand()
         dependencies.push(...packageDeps)
       }
     }
