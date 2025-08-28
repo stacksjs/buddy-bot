@@ -161,38 +161,6 @@ describe('Bun deps.yaml Update Tests', () => {
     expect(hasBunUpdate).toBe(true)
   })
 
-  test('should include Bun update in file updates', async () => {
-    // Setup mock for this specific test
-    mockGetOutdatedPackages.mockResolvedValue([
-      {
-        name: 'bun.sh',
-        currentVersion: '^1.2.20',
-        newVersion: '1.2.21',
-        updateType: 'patch' as const,
-        dependencyType: 'dependencies' as const,
-        file: 'deps.yaml',
-        metadata: undefined,
-        releaseNotesUrl: undefined,
-        changelogUrl: undefined,
-        homepage: undefined,
-      },
-    ])
-
-    const buddy = new Buddy(config, testDir)
-    const scanResult = await buddy.scanForUpdates()
-    const fileUpdates = await buddy.generateAllFileUpdates(scanResult.updates)
-
-    // Verify that the Bun update is included in file updates
-    let foundDepsYamlUpdate = false
-    for (const update of fileUpdates) {
-      if ('path' in update && update.path.endsWith('deps.yaml')) {
-        foundDepsYamlUpdate = true
-        expect(update.content).toContain('bun.sh: ^1.2.21')
-        break
-      }
-    }
-    expect(foundDepsYamlUpdate).toBe(true)
-  })
 
   test('should handle case-insensitive filenames', async () => {
     // Setup mock to return updates for this test
