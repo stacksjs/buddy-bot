@@ -4,7 +4,7 @@ import { GitHubProvider } from '../src/git/github-provider'
 
 describe('No-op commit prevention', () => {
   const filesChanged: FileChange[] = [
-    { path: 'package.json', content: '{"name":"x"}', type: 'update' },
+    { path: 'test-package.json', content: '{"name":"test-package"}', type: 'update' },
   ]
 
   it('does not commit/push when git status has no changes (Git path)', async () => {
@@ -31,7 +31,7 @@ describe('No-op commit prevention', () => {
     prov.runCommand = async (command: string, args: string[]) => {
       commands.push({ cmd: command, args })
       if (command === 'git' && args[0] === 'status' && args[1] === '--porcelain')
-        return ' M package.json'
+        return ' M test-package.json'
       return ''
     }
 

@@ -17,3 +17,4 @@ qjs*
 bin/buddy
 bin/buddy-*
 vendor
+test-package.json

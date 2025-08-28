@@ -1,9 +1,9 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
-import fs from 'node:fs'
-import path from 'node:path'
-import { tmpdir } from 'node:os'
-import { Buddy } from '../src/buddy'
 import type { PackageUpdate } from '../src/types'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { Buddy } from '../src/buddy'
 
 describe('Package.json Script Update Bug', () => {
   let tempDir: string
@@ -21,15 +21,15 @@ describe('Package.json Script Update Bug', () => {
       version: '1.0.0',
       scripts: {
         prettier: 'bunx prettier --write .',
-        test: 'bun test'
+        test: 'bun test',
       },
       dependencies: {
         prettier: '^3.0.0',
-        typescript: '^5.0.0'
+        typescript: '^5.0.0',
       },
       devDependencies: {
-        '@types/node': '^20.0.0'
-      }
+        '@types/node': '^20.0.0',
+      },
     }
 
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
@@ -40,8 +40,8 @@ describe('Package.json Script Update Bug', () => {
         provider: 'github',
         owner: 'test',
         name: 'test-repo',
-        token: 'fake-token'
-      }
+        token: 'fake-token',
+      },
     })
   })
 
@@ -58,7 +58,7 @@ describe('Package.json Script Update Bug', () => {
       newVersion: '3.6.2',
       file: packageJsonPath,
       updateType: 'minor',
-      dependencyType: 'dependencies'
+      dependencyType: 'dependencies',
     }]
 
     // Generate file updates
@@ -94,7 +94,7 @@ describe('Package.json Script Update Bug', () => {
         newVersion: '3.6.2',
         file: packageJsonPath,
         updateType: 'minor',
-        dependencyType: 'dependencies'
+        dependencyType: 'dependencies',
       },
       {
         name: 'typescript',
@@ -102,8 +102,8 @@ describe('Package.json Script Update Bug', () => {
         newVersion: '5.3.0',
         file: packageJsonPath,
         updateType: 'minor',
-        dependencyType: 'dependencies'
-      }
+        dependencyType: 'dependencies',
+      },
     ]
 
     const fileUpdates = await buddy.generateAllFileUpdates(updates)
@@ -145,7 +145,7 @@ describe('Package.json Script Update Bug', () => {
       newVersion: '3.6.2',
       file: packageJsonPath,
       updateType: 'minor',
-      dependencyType: 'dependencies'
+      dependencyType: 'dependencies',
     }]
 
     const fileUpdates = await buddy.generateAllFileUpdates(updates)

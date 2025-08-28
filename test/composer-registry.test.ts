@@ -368,17 +368,22 @@ describe('RegistryClient - Composer Integration', () => {
 
   describe('Integration with main getOutdatedPackages', () => {
     it('should include Composer packages when composer.json exists', async () => {
+      // Create a fresh registry client for this test to avoid interference
+      const testRegistryClient = new RegistryClient('/test/project', mockLogger, mockConfig)
+      
       // Mock file system
       const existsSyncSpy = spyOn(fs, 'existsSync')
       existsSyncSpy.mockImplementation((path) => {
         return String(path).endsWith('composer.json')
       })
 
-      // Mock bun outdated (no npm packages)
-      runCommandSpy.mockResolvedValueOnce('[]') // Empty bun outdated
+      // Mock all methods that getOutdatedPackages calls to return empty arrays
+      spyOn(testRegistryClient, 'runBunOutdated' as any).mockResolvedValue([])
+      spyOn(testRegistryClient, 'getWorkspaceOutdatedPackages' as any).mockResolvedValue([])
+      spyOn(testRegistryClient, 'getPackageJsonOutdated' as any).mockResolvedValue([])
 
       // Mock Composer being available and having updates
-      spyOn(registryClient, 'getComposerOutdatedPackages').mockResolvedValue([
+      spyOn(testRegistryClient, 'getComposerOutdatedPackages').mockResolvedValue([
         {
           name: 'laravel/framework',
           currentVersion: '10.0.0',
@@ -390,10 +395,7 @@ describe('RegistryClient - Composer Integration', () => {
         },
       ])
 
-      // Mock other methods that getOutdatedPackages calls
-      spyOn(registryClient, 'getPackageJsonOutdated' as any).mockResolvedValue([])
-
-      const updates = await registryClient.getOutdatedPackages()
+      const updates = await testRegistryClient.getOutdatedPackages()
 
       expect(updates).toHaveLength(1)
       expect(updates[0].name).toBe('laravel/framework')
