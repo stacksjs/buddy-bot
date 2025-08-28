@@ -2,7 +2,7 @@
   "name": "buddy-bot",
   "type": "module",
   "version": "0.8.10",
-  "description": "The Stacks CLI.",
+  "description": "Automated & optimized dependency updates for JavaScript & TypeScript projects. Like Renovate & Dependabot.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
   "homepage": "https://github.com/stacksjs/buddy-bot",
@@ -14,8 +14,14 @@
     "url": "https://github.com/stacksjs/buddy-bot/issues"
   },
   "keywords": [
-    "buddy",
-    "stacks",
+    "buddy-bot",
+    "dependency-updates",
+    "dependency-management",
+    "dependency-updater",
+    "dependency-manager",
+    "renovate",
+    "dependabot",
+    "bot",
     "bun",
     "typescript",
     "javascript"
