@@ -73,7 +73,7 @@ export async function parseDockerfile(filePath: string, content: string): Promis
       // eslint-disable-next-line regexp/no-super-linear-backtracking
       const runMatch = line.match(/^RUN\s+(.+)$/i)
       if (runMatch) {
-        const command = runMatch[1]
+        // const command = runMatch[1]
 
         // Extract package installations from common package managers
         const packageDeps = extractPackagesFromRunCommand()
