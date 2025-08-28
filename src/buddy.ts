@@ -66,8 +66,11 @@ export class Buddy {
       // Get outdated GitHub Actions
       const githubActionsUpdates = await this.checkGitHubActionsForUpdates(packageFiles)
 
+      // Get outdated Docker images
+      const dockerUpdates = await this.checkDockerfilesForUpdates(packageFiles)
+
       // Merge all updates
-      let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates]
+      let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates, ...dockerUpdates]
 
       // Apply ignore filter to dependency file updates
       if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
@@ -565,6 +568,112 @@ export class Buddy {
   }
 
   /**
+   * Check Dockerfiles for updates
+   */
+  private async checkDockerfilesForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
+    const { isDockerfile } = await import('./utils/dockerfile-parser')
+    const { fetchLatestDockerImageVersion } = await import('./utils/dockerfile-parser')
+
+    const updates: PackageUpdate[] = []
+
+    // Filter to only Dockerfile files
+    const dockerfiles = packageFiles.filter(file => isDockerfile(file.path))
+
+    this.logger.info(`🔍 Found ${dockerfiles.length} Dockerfile(s)`)
+
+    for (const file of dockerfiles) {
+      try {
+        this.logger.info(`Checking Dockerfile: ${file.path}`)
+
+        // Get all Docker image dependencies from this file
+        const imageDeps = file.dependencies.filter(dep => dep.type === 'docker-image')
+        this.logger.info(`Found ${imageDeps.length} Docker images in ${file.path}`)
+
+        for (const dep of imageDeps) {
+          try {
+            this.logger.info(`Checking Docker image: ${dep.name}:${dep.currentVersion}`)
+
+            // Check if current version should be respected (like "latest", etc.)
+            const shouldRespectVersion = (version: string): boolean => {
+              const respectLatest = this.config.packages?.respectLatest ?? true
+              if (!respectLatest)
+                return false
+
+              const dynamicIndicators = ['latest', 'main', 'master', 'develop', 'dev', 'stable']
+              const cleanVersion = version.toLowerCase().trim()
+              return dynamicIndicators.includes(cleanVersion)
+            }
+
+            if (shouldRespectVersion(dep.currentVersion)) {
+              this.logger.debug(`Skipping ${dep.name} - version "${dep.currentVersion}" should be respected`)
+              continue
+            }
+
+            // Fetch latest version for this Docker image
+            const latestVersion = await fetchLatestDockerImageVersion(dep.name)
+
+            if (latestVersion) {
+              this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)
+
+              if (latestVersion !== dep.currentVersion) {
+                // Determine update type
+                const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
+
+                this.logger.info(`Update available: ${dep.name} ${dep.currentVersion} → ${latestVersion} (${updateType})`)
+
+                updates.push({
+                  name: dep.name,
+                  currentVersion: dep.currentVersion,
+                  newVersion: latestVersion,
+                  updateType,
+                  dependencyType: 'docker-image',
+                  file: file.path,
+                  metadata: undefined,
+                  releaseNotesUrl: `https://hub.docker.com/r/${dep.name}/tags`,
+                  changelogUrl: undefined,
+                  homepage: `https://hub.docker.com/r/${dep.name}`,
+                })
+              }
+              else {
+                this.logger.info(`No update needed for ${dep.name}: already at ${latestVersion}`)
+              }
+            }
+            else {
+              this.logger.warn(`Could not fetch latest version for Docker image ${dep.name}`)
+            }
+          }
+          catch (error) {
+            this.logger.warn(`Failed to check version for Docker image ${dep.name}:`, error)
+          }
+        }
+      }
+      catch (error) {
+        this.logger.error(`Failed to check Dockerfile ${file.path}:`, error)
+      }
+    }
+
+    this.logger.info(`Generated ${updates.length} Docker image updates`)
+
+    // Deduplicate updates by name, version, and file
+    const deduplicatedUpdates = updates.reduce((acc, update) => {
+      const existing = acc.find(u =>
+        u.name === update.name
+        && u.currentVersion === update.currentVersion
+        && u.newVersion === update.newVersion
+        && u.file === update.file,
+      )
+      if (!existing) {
+        acc.push(update)
+      }
+      return acc
+    }, [] as PackageUpdate[])
+
+    this.logger.info(`After deduplication: ${deduplicatedUpdates.length} unique Docker image updates`)
+
+    return deduplicatedUpdates
+  }
+
+  /**
    * Determine update type based on version comparison
    */
   private getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' {
@@ -675,11 +784,11 @@ export class Buddy {
               // This prevents accidentally updating scripts or other sections with the same package name
               const escapedPackageName = cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
               const escapedSectionName = section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-              
+
               // Match the section, then find the package within that section
               const sectionRegex = new RegExp(
                 `("${escapedSectionName}"\\s*:\\s*\\{[^}]*?)("${escapedPackageName}"\\s*:\\s*")([^"]+)(")([^}]*?\\})`,
-                'gs'
+                'gs',
               )
 
               // Preserve the original prefix when updating to new version
@@ -708,10 +817,14 @@ export class Buddy {
 
     // Handle dependency file updates (deps.yaml, dependencies.yaml, etc.)
     // Only process if we have dependency file updates to avoid unnecessary processing
-    const dependencyFileUpdates = updates.filter(update =>
-      (update.file.includes('.yaml') || update.file.includes('.yml'))
-      && !update.file.includes('.github/workflows/'),
-    )
+    const dependencyFileUpdates = updates.filter((update) => {
+      const fileName = update.file.toLowerCase()
+      const isDependencyFile = fileName.endsWith('deps.yaml')
+        || fileName.endsWith('deps.yml')
+        || fileName.endsWith('dependencies.yaml')
+        || fileName.endsWith('dependencies.yml')
+      return isDependencyFile && !update.file.includes('.github/workflows/')
+    })
     if (dependencyFileUpdates.length > 0) {
       try {
         const { generateDependencyFileUpdates } = await import('./utils/dependency-file-parser')
@@ -758,6 +871,24 @@ export class Buddy {
       catch (error) {
         this.logger.error('Failed to generate GitHub Actions updates:', error)
         // Continue with other updates even if GitHub Actions updates fail
+      }
+    }
+
+    // Handle Dockerfile updates
+    // Only process if we have Dockerfile updates to avoid unnecessary processing
+    const dockerfileUpdates = updates.filter(update =>
+      update.dependencyType === 'docker-image',
+    )
+    if (dockerfileUpdates.length > 0) {
+      try {
+        const { generateDockerfileUpdates } = await import('./utils/dockerfile-parser')
+        // Pass only the Dockerfile updates for this specific group
+        const dockerUpdates = await generateDockerfileUpdates(dockerfileUpdates)
+        fileUpdates.push(...dockerUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate Dockerfile updates:', error)
+        // Continue with other updates even if Dockerfile updates fail
       }
     }
 

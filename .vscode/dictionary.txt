@@ -15,6 +15,7 @@ davidanson
 degit
 deps
 destructurable
+Dockerfiles
 dtsx
 entrypoints
 findstr

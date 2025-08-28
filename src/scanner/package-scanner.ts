@@ -8,6 +8,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
+import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
 
 export class PackageScanner {
@@ -92,6 +93,20 @@ export class PackageScanner {
         const packageFile = await this.parseGitHubActionsFile(filePath)
         if (packageFile) {
           packageFiles.push(packageFile)
+        }
+      }
+
+      // Look for Dockerfiles
+      const dockerfiles = await this.findDockerfiles()
+      this.logger.info(`🔍 Found ${dockerfiles.length} Dockerfile(s): ${dockerfiles.join(', ')}`)
+      for (const filePath of dockerfiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
+        const packageFile = await this.parseDockerfile(filePath)
+        if (packageFile) {
+          packageFiles.push(packageFile)
+          this.logger.info(`📦 Parsed Dockerfile: ${filePath} with ${packageFile.dependencies.length} dependencies`)
         }
       }
 
@@ -251,6 +266,45 @@ export class PackageScanner {
   }
 
   /**
+   * Find Dockerfiles in the project
+   */
+  private async findDockerfiles(): Promise<string[]> {
+    const dockerfiles: string[] = []
+
+    try {
+      // Common Dockerfile names
+      const dockerfileNames = [
+        'Dockerfile',
+        'dockerfile',
+        'Dockerfile.dev',
+        'Dockerfile.prod',
+        'Dockerfile.production',
+        'Dockerfile.development',
+        'Dockerfile.test',
+        'Dockerfile.staging',
+      ]
+
+      for (const fileName of dockerfileNames) {
+        const files = await this.findFiles(fileName)
+        dockerfiles.push(...files)
+      }
+
+      // Also look for files that start with Dockerfile using pattern matching
+      const dockerfilePatterns = await this.findFilesByPattern('Dockerfile*')
+      for (const file of dockerfilePatterns) {
+        if (!dockerfiles.includes(file) && isDockerfile(file)) {
+          dockerfiles.push(file)
+        }
+      }
+    }
+    catch {
+      // Ignore if no Dockerfiles exist
+    }
+
+    return dockerfiles
+  }
+
+  /**
    * Parse a GitHub Actions workflow file
    */
   async parseGitHubActionsFile(filePath: string): Promise<PackageFile | null> {
@@ -262,6 +316,22 @@ export class PackageScanner {
     }
     catch (_error) {
       this.logger.warn(`Failed to parse GitHub Actions file ${filePath}:`, _error)
+      return null
+    }
+  }
+
+  /**
+   * Parse a Dockerfile
+   */
+  async parseDockerfile(filePath: string): Promise<PackageFile | null> {
+    try {
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
+      const result = await parseDockerfileUtil(filePath, content)
+      return result
+    }
+    catch (_error) {
+      this.logger.warn(`Failed to parse Dockerfile ${filePath}:`, _error)
       return null
     }
   }

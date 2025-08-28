@@ -38,7 +38,7 @@ cli.usage(`[command] [options]
 
 🤖 Buddy Bot - Your companion dependency manager
 
-Supports npm, Bun, yarn, pnpm, Composer, pkgx, Launchpad, and GitHub Actions
+Supports npm, Bun, yarn, pnpm, Composer, pkgx, Launchpad, GitHub Actions, and Dockerfiles
 Automatically migrates from Renovate and Dependabot
 
 DEPENDENCY MANAGEMENT:
@@ -70,7 +70,7 @@ CONFIGURATION & SETUP:
 Examples:
   buddy-bot setup                      # Interactive setup with migration
   buddy-bot setup --non-interactive    # Automated setup for CI/CD
-  buddy-bot scan --verbose             # Scan for updates (npm + Composer)
+  buddy-bot scan --verbose             # Scan for updates (npm + Composer + Dockerfiles)
   buddy-bot rebase 17                  # Rebase PR #17
   buddy-bot update-check               # Auto-rebase checked PRs
   buddy-bot cleanup                    # Clean up stale branches

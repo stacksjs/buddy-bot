@@ -26,37 +26,37 @@ FROM registry.example.com/myimage:v1.2.3
 `
 
       const result = await parseDockerfile('Dockerfile', dockerfileContent)
-      
+
       expect(result).not.toBeNull()
       expect(result?.dependencies).toHaveLength(4) // scratch should be skipped
-      
+
       const deps = result?.dependencies || []
       expect(deps[0]).toEqual({
         name: 'node',
         currentVersion: '18.17.0',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
-      
+
       expect(deps[1]).toEqual({
         name: 'alpine',
         currentVersion: '3.18',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
-      
+
       expect(deps[2]).toEqual({
         name: 'ubuntu',
         currentVersion: '22.04',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
-      
+
       expect(deps[3]).toEqual({
         name: 'registry.example.com/myimage',
         currentVersion: 'v1.2.3',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
     })
 
@@ -67,23 +67,23 @@ FROM alpine
 `
 
       const result = await parseDockerfile('Dockerfile', dockerfileContent)
-      
+
       expect(result).not.toBeNull()
       expect(result?.dependencies).toHaveLength(2)
-      
+
       const deps = result?.dependencies || []
       expect(deps[0]).toEqual({
         name: 'node',
         currentVersion: 'latest',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
-      
+
       expect(deps[1]).toEqual({
         name: 'alpine',
         currentVersion: 'latest',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
     })
 
@@ -95,16 +95,16 @@ FROM alpine:3.18
 `
 
       const result = await parseDockerfile('Dockerfile', dockerfileContent)
-      
+
       expect(result).not.toBeNull()
       expect(result?.dependencies).toHaveLength(1) // Only alpine should be parsed
-      
+
       const deps = result?.dependencies || []
       expect(deps[0]).toEqual({
         name: 'alpine',
         currentVersion: '3.18',
         type: 'docker-image',
-        file: 'Dockerfile'
+        file: 'Dockerfile',
       })
     })
   })
@@ -124,7 +124,7 @@ FROM ubuntu:22.04 as builder
           newVersion: '18.19.0',
           updateType: 'minor' as const,
           dependencyType: 'docker-image' as const,
-          file: 'Dockerfile'
+          file: 'Dockerfile',
         },
         {
           name: 'alpine',
@@ -132,12 +132,12 @@ FROM ubuntu:22.04 as builder
           newVersion: '3.19',
           updateType: 'minor' as const,
           dependencyType: 'docker-image' as const,
-          file: 'Dockerfile'
-        }
+          file: 'Dockerfile',
+        },
       ]
 
       const result = await updateDockerfile('Dockerfile', dockerfileContent, updates)
-      
+
       expect(result).toContain('FROM node:18.19.0')
       expect(result).toContain('FROM alpine:3.19')
       expect(result).toContain('FROM ubuntu:22.04 as builder') // Should remain unchanged
@@ -157,7 +157,7 @@ FROM ubuntu:22.04
           newVersion: '18.19.0',
           updateType: 'major' as const,
           dependencyType: 'docker-image' as const,
-          file: 'Dockerfile'
+          file: 'Dockerfile',
         },
         {
           name: 'alpine',
@@ -165,7 +165,7 @@ FROM ubuntu:22.04
           newVersion: '3.19',
           updateType: 'minor' as const,
           dependencyType: 'docker-image' as const,
-          file: 'Dockerfile'
+          file: 'Dockerfile',
         },
         {
           name: 'ubuntu',
@@ -173,12 +173,12 @@ FROM ubuntu:22.04
           newVersion: '24.04',
           updateType: 'major' as const,
           dependencyType: 'docker-image' as const,
-          file: 'Dockerfile'
-        }
+          file: 'Dockerfile',
+        },
       ]
 
       const result = await updateDockerfile('Dockerfile', dockerfileContent, updates)
-      
+
       // latest and stable should be respected (not updated)
       expect(result).toContain('FROM node:latest')
       expect(result).toContain('FROM alpine:stable')
@@ -199,12 +199,12 @@ FROM docker.io/library/node:18.17.0
           newVersion: 'v1.3.0',
           updateType: 'minor' as const,
           dependencyType: 'docker-image' as const,
-          file: 'Dockerfile'
-        }
+          file: 'Dockerfile',
+        },
       ]
 
       const result = await updateDockerfile('Dockerfile', dockerfileContent, updates)
-      
+
       expect(result).toContain('FROM registry.example.com/namespace/image:v1.3.0')
       expect(result).toContain('FROM docker.io/library/node:18.17.0') // Should remain unchanged
     })

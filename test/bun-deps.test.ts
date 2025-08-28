@@ -26,24 +26,6 @@ const mockResolveDependencyFile = mock(() => Promise.resolve({
   osSpecificDeps: {},
 }))
 
-// Mock the file system functions
-const mockReadFile = mock(async () => `dependencies:\n  bun.sh: 1.0.0\n  some-other-package: ^1.2.3\n`)
-
-// Mock the logger
-const mockLogger = {
-  info: mock(() => {}),
-  error: mock(() => {}),
-  debug: mock(() => {}),
-  warn: mock(() => {}),
-  log: mock(() => {}),
-  dir: mock(() => {}),
-  time: mock(() => {}),
-  timeEnd: mock(() => {}),
-  timeLog: mock(() => {}),
-  trace: mock(() => {}),
-  table: mock(() => {}),
-}
-
 describe('Bun deps.yaml Update Tests', () => {
   let testDir: string
   let originalCwd: string
