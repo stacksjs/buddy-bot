@@ -1,5 +1,9 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.8.10...HEAD)
 
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
 
 ## v0.8.7...main
 
@@ -900,7 +904,6 @@
 
 ## ...main
 
-
 ### 🏡 Chore
 
 - Initial commit ([8424696](https://github.com/stacksjs/buddy-bot/commit/8424696))
@@ -937,4 +940,3 @@
 
 - Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
 - Cab-mikee ([@cab-mikee](https://github.com/cab-mikee))
-
