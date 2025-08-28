@@ -671,16 +671,20 @@ export class Buddy {
               const versionPrefixMatch = currentVersionInFile.match(/^(\D*)/)
               const originalPrefix = versionPrefixMatch ? versionPrefixMatch[1] : ''
 
-              // Create regex to find the exact line with this package and version
-              // This handles various formatting styles like: "package": "version", "package":"version", etc.
-              const packageRegex = new RegExp(
-                `("${cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:\\s*")([^"]+)(")`,
-                'g',
+              // Create a more specific regex that only matches within the current dependency section
+              // This prevents accidentally updating scripts or other sections with the same package name
+              const escapedPackageName = cleanPackageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              const escapedSectionName = section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              
+              // Match the section, then find the package within that section
+              const sectionRegex = new RegExp(
+                `("${escapedSectionName}"\\s*:\\s*\\{[^}]*?)("${escapedPackageName}"\\s*:\\s*")([^"]+)(")([^}]*?\\})`,
+                'gs'
               )
 
               // Preserve the original prefix when updating to new version
               const newVersion = `${originalPrefix}${update.newVersion}`
-              packageJsonContent = packageJsonContent.replace(packageRegex, `$1${newVersion}$3`)
+              packageJsonContent = packageJsonContent.replace(sectionRegex, `$1$2${newVersion}$4$5`)
               packageFound = true
               break
             }
