@@ -35,7 +35,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "buddy-bot": "./dist/bin/cli.js"
+    "buddy-bot": "^0.8.10"
   },
   "files": [
     "README.md",
@@ -63,7 +63,7 @@
     "bunfig": "^0.10.1",
     "cac": "6.7.14",
     "prompts": "^2.4.2",
-    "ts-pkgx": "0.4.38"
+    "ts-pkgx": "0.4.51"
   },
   "devDependencies": {
     "@stacksjs/bumpx": "^0.1.17",
@@ -71,8 +71,8 @@
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@stacksjs/gitlint": "^0.1.5",
     "@stacksjs/logsmith": "^0.1.8",
-    "@types/bun": "^1.2.20",
-    "buddy-bot": "^0.8.8",
+    "@types/bun": "^1.2.21",
+    "buddy-bot": "^0.8.10",
     "bun-git-hooks": "^0.2.19",
     "bun-plugin-dtsx": "0.21.12",
     "typescript": "^5.9.2"
