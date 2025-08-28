@@ -54,8 +54,18 @@ describe('Bun deps.yaml Update Tests', () => {
 
   afterAll(async () => {
     // Clean up
-    process.chdir(originalCwd)
-    await rm(testDir, { recursive: true, force: true })
+    try {
+      if (process.cwd() === testDir) {
+        process.chdir(originalCwd)
+      }
+      if (testDir && testDir.startsWith(tmpdir())) {
+        await rm(testDir, { recursive: true, force: true }).catch(() => { /* Ignore errors during cleanup */ })
+      }
+    }
+    catch (error) {
+      // Ignore cleanup errors
+      console.warn('Cleanup warning:', error)
+    }
   })
 
   // Setup fresh mocks before each test
@@ -160,7 +170,6 @@ describe('Bun deps.yaml Update Tests', () => {
     }
     expect(hasBunUpdate).toBe(true)
   })
-
 
   test('should handle case-insensitive filenames', async () => {
     // Setup mock to return updates for this test
