@@ -1,4 +1,10 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.1...HEAD)
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.0...HEAD)
 
 ### Contributors
