@@ -1,4 +1,4 @@
-/* eslint-disable no-console, no-cond-assign */
+/* eslint-disable no-console, no-cond-assign, ts/no-require-imports */
 import type {
   BuddyBotConfig,
   DashboardData,
@@ -1140,6 +1140,7 @@ export class Buddy {
    * This handles cases where:
    * 1. respectLatest config changed from false to true, making dynamic version updates invalid
    * 2. ignorePaths config changed to exclude paths that existing PRs contain updates for
+   * 3. Dependency files (like composer.json) were removed from the project
    */
   private shouldAutoClosePR(existingPR: PullRequest, _newUpdates: PackageUpdate[]): boolean {
     // Check for respectLatest config changes
@@ -1151,6 +1152,12 @@ export class Buddy {
     // Check for ignorePaths config changes
     const shouldCloseForIgnorePaths = this.shouldAutoCloseForIgnorePaths(existingPR)
     if (shouldCloseForIgnorePaths) {
+      return true
+    }
+
+    // Check for removed dependency files
+    const shouldCloseForRemovedFiles = this.shouldAutoCloseForRemovedFiles(existingPR)
+    if (shouldCloseForRemovedFiles) {
       return true
     }
 
@@ -1230,7 +1237,7 @@ export class Buddy {
     }
 
     // Check if any of the files in the PR are now in ignored paths
-    // eslint-disable-next-line ts/no-require-imports
+
     const { Glob } = require('bun')
 
     const ignoredFiles = filePaths.filter((filePath) => {
@@ -1255,6 +1262,66 @@ export class Buddy {
     }
 
     return false
+  }
+
+  /**
+   * Check if a PR should be auto-closed due to removed dependency files
+   * This handles cases where dependency files like composer.json, package.json, etc.
+   * are completely removed from the project, making existing PRs obsolete
+   */
+  private shouldAutoCloseForRemovedFiles(existingPR: PullRequest): boolean {
+    try {
+      // Extract file paths from the PR body
+      const filePaths = this.extractFilePathsFromPRBody(existingPR.body)
+      if (filePaths.length === 0) {
+        return false
+      }
+
+      // Check if any of the dependency files mentioned in the PR no longer exist
+      const fs = require('node:fs')
+      const path = require('node:path')
+
+      const removedFiles = filePaths.filter((filePath) => {
+        const fullPath = path.join(this.projectPath, filePath)
+        return !fs.existsSync(fullPath)
+      })
+
+      if (removedFiles.length > 0) {
+        this.logger.info(`PR #${existingPR.number} references removed files: ${removedFiles.join(', ')}`)
+
+        // Special handling for composer files - if composer.json is removed, close all composer-related PRs
+        const hasRemovedComposerJson = removedFiles.some(file => file.endsWith('composer.json'))
+        if (hasRemovedComposerJson) {
+          this.logger.info(`composer.json was removed - PR #${existingPR.number} should be auto-closed`)
+          return true
+        }
+
+        // For other dependency files, check if the PR is specifically about those files
+        const prBodyLower = existingPR.body.toLowerCase()
+        const isComposerPR = prBodyLower.includes('composer')
+          || removedFiles.some(file => file.includes('composer'))
+        const isPackageJsonPR = prBodyLower.includes('package.json')
+          || removedFiles.some(file => file.includes('package.json'))
+        const isDependencyFilePR = removedFiles.some(file =>
+          file.endsWith('deps.yaml')
+          || file.endsWith('deps.yml')
+          || file.endsWith('dependencies.yaml')
+          || file.endsWith('dependencies.yml'),
+        )
+
+        // Auto-close if the PR is specifically about the removed dependency management system
+        if (isComposerPR || isPackageJsonPR || isDependencyFilePR) {
+          this.logger.info(`PR #${existingPR.number} is about removed dependency system - should be auto-closed`)
+          return true
+        }
+      }
+
+      return false
+    }
+    catch (error) {
+      this.logger.debug(`Failed to check for removed files in PR #${existingPR.number}: ${error}`)
+      return false
+    }
   }
 
   /**
@@ -1350,6 +1417,144 @@ export class Buddy {
    */
   getProjectPath(): string {
     return this.projectPath
+  }
+
+  /**
+   * Check for and auto-close obsolete PRs due to removed dependency files
+   * This is called during the update-check workflow to proactively clean up PRs
+   * when projects stop using certain dependency management systems (like Composer)
+   */
+  async checkAndCloseObsoletePRs(gitProvider: GitHubProvider, dryRun: boolean = false): Promise<void> {
+    try {
+      this.logger.info('🔍 Scanning for obsolete PRs due to removed dependency files...')
+
+      // Get all open PRs
+      const openPRs = await gitProvider.getPullRequests('open')
+
+      // Filter to buddy-bot PRs and dependency-related PRs
+      const dependencyPRs = openPRs.filter(pr =>
+        // Include buddy-bot PRs
+        (pr.head.startsWith('buddy-bot/') || pr.author === 'github-actions[bot]')
+        // Also include other dependency update PRs that might be obsolete
+        || pr.labels.includes('dependencies')
+        || pr.labels.includes('dependency')
+        || pr.title.toLowerCase().includes('update')
+        || pr.title.toLowerCase().includes('chore(deps)')
+        || pr.title.toLowerCase().includes('composer'),
+      )
+
+      this.logger.info(`Found ${dependencyPRs.length} dependency-related PRs to check`)
+
+      let closedCount = 0
+
+      for (const pr of dependencyPRs) {
+        try {
+          // Check if this PR should be auto-closed due to removed files
+          const shouldClose = this.shouldAutoCloseForRemovedFiles(pr)
+
+          if (shouldClose) {
+            this.logger.info(`🔒 PR #${pr.number} should be auto-closed: ${pr.title}`)
+
+            if (dryRun) {
+              this.logger.info(`🔍 [DRY RUN] Would auto-close PR #${pr.number}`)
+              closedCount++
+            }
+            else {
+              try {
+                // Close the PR with a helpful comment
+                const closeReason = this.generateCloseReason(pr)
+
+                // Add comment explaining why the PR is being closed
+                try {
+                  await gitProvider.createComment(pr.number, closeReason)
+                }
+                catch (commentError) {
+                  this.logger.warn(`⚠️ Could not add close reason comment to PR #${pr.number}:`, commentError)
+                }
+
+                await gitProvider.closePullRequest(pr.number)
+
+                // Try to delete the branch if it's a buddy-bot branch
+                if (pr.head.startsWith('buddy-bot/')) {
+                  try {
+                    await gitProvider.deleteBranch(pr.head)
+                    this.logger.success(`✅ Auto-closed PR #${pr.number} and deleted branch ${pr.head}`)
+                  }
+                  catch (branchError) {
+                    this.logger.warn(`⚠️ Auto-closed PR #${pr.number} but failed to delete branch: ${branchError}`)
+                  }
+                }
+                else {
+                  this.logger.success(`✅ Auto-closed PR #${pr.number}`)
+                }
+
+                closedCount++
+              }
+              catch (closeError) {
+                this.logger.error(`❌ Failed to auto-close PR #${pr.number}:`, closeError)
+              }
+            }
+          }
+        }
+        catch (error) {
+          this.logger.warn(`⚠️ Error checking PR #${pr.number}:`, error)
+        }
+      }
+
+      if (closedCount > 0) {
+        this.logger.success(`✅ ${dryRun ? 'Would auto-close' : 'Auto-closed'} ${closedCount} obsolete PR(s)`)
+      }
+      else {
+        this.logger.info('📋 No obsolete PRs found')
+      }
+    }
+    catch (error) {
+      this.logger.error('Failed to check for obsolete PRs:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Generate a helpful close reason comment for auto-closed PRs
+   */
+  private generateCloseReason(pr: PullRequest): string {
+    const filePaths = this.extractFilePathsFromPRBody(pr.body)
+    const removedFiles = filePaths.filter((filePath) => {
+      const fs = require('node:fs')
+      const path = require('node:path')
+      const fullPath = path.join(this.projectPath, filePath)
+      return !fs.existsSync(fullPath)
+    })
+
+    const hasRemovedComposer = removedFiles.some(file => file.includes('composer'))
+    const hasRemovedPackageJson = removedFiles.some(file => file.includes('package.json'))
+    const hasRemovedDeps = removedFiles.some(file =>
+      file.endsWith('deps.yaml') || file.endsWith('deps.yml')
+      || file.endsWith('dependencies.yaml') || file.endsWith('dependencies.yml'),
+    )
+
+    let reason = '🤖 **Auto-closing obsolete PR**\n\n'
+
+    if (hasRemovedComposer) {
+      reason += 'This PR was automatically closed because `composer.json` has been removed from the project, indicating that Composer is no longer used for dependency management.\n\n'
+    }
+    else if (hasRemovedPackageJson) {
+      reason += 'This PR was automatically closed because `package.json` has been removed from the project, indicating that npm/yarn/pnpm is no longer used for dependency management.\n\n'
+    }
+    else if (hasRemovedDeps) {
+      reason += 'This PR was automatically closed because the dependency files it references have been removed from the project.\n\n'
+    }
+    else {
+      reason += 'This PR was automatically closed because the dependency files it references are no longer present in the project.\n\n'
+    }
+
+    if (removedFiles.length > 0) {
+      reason += `**Removed files:**\n${removedFiles.map(file => `- \`${file}\``).join('\n')}\n\n`
+    }
+
+    reason += 'If this was closed in error, please reopen the PR and update the dependency files accordingly.'
+
+    return reason
   }
 
   /**
