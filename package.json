@@ -1,7 +1,7 @@
 {
   "name": "buddy-bot",
   "type": "module",
-  "version": "0.8.10",
+  "version": "0.9.0",
   "description": "Automated & optimized dependency updates for JavaScript & TypeScript projects. Like Renovate & Dependabot.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
