@@ -2,6 +2,7 @@ antfu
 biomejs
 booleanish
 bumpp
+bumpx
 bunfig
 bunx
 changelogen
@@ -21,11 +22,13 @@ entrypoints
 findstr
 foxundermoon
 getcwd
+gitlint
 heroicons
 HSTS
 iconify
 localtunnels
 lockb
+logsmith
 mkcert
 nosniff
 openweb
