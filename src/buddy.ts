@@ -1289,6 +1289,30 @@ export class Buddy {
       if (removedFiles.length > 0) {
         this.logger.info(`PR #${existingPR.number} references removed files: ${removedFiles.join(', ')}`)
 
+        // Check if the removed files are outside ignored paths - if so, don't auto-close
+        if (this.config.packages?.ignorePaths && this.config.packages.ignorePaths.length > 0) {
+          const { Glob } = require('bun')
+
+          const filesOutsideIgnoredPaths = removedFiles.filter((filePath) => {
+            return !this.config.packages!.ignorePaths!.some((pattern) => {
+              try {
+                const glob = new Glob(pattern)
+                return glob.match(filePath)
+              }
+              catch (error) {
+                this.logger.warn(`Invalid glob pattern '${pattern}':`, error)
+                return false
+              }
+            })
+          })
+
+          // If any removed files are outside ignored paths, don't auto-close
+          if (filesOutsideIgnoredPaths.length > 0) {
+            this.logger.info(`Some removed files are outside ignored paths - not auto-closing PR #${existingPR.number}`)
+            return false
+          }
+        }
+
         // Special handling for composer files - if composer.json is removed, close all composer-related PRs
         const hasRemovedComposerJson = removedFiles.some(file => file.endsWith('composer.json'))
         if (hasRemovedComposerJson) {
