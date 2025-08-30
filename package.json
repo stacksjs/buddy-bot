@@ -63,14 +63,14 @@
     "bunfig": "^0.14.1",
     "cac": "6.7.14",
     "prompts": "^2.4.2",
-    "ts-pkgx": "0.4.52"
+    "ts-pkgx": "0.4.53"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.1.18",
+    "@stacksjs/bumpx": "^0.1.33",
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@stacksjs/gitlint": "^0.1.5",
-    "@stacksjs/logsmith": "^0.1.8",
+    "@stacksjs/logsmith": "^0.1.14",
     "@types/bun": "^1.2.21",
     "bun-git-hooks": "^0.2.19",
     "bun-plugin-dtsx": "0.9.5",
