@@ -1,4 +1,27 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.3...HEAD)
+
+### 🧹 Chores
+
+- release v0.9.4 ([2b12ac3](https://github.com/stacksjs/buddy-bot/commit/2b12ac3))
+- update deps ([06100d9](https://github.com/stacksjs/buddy-bot/commit/06100d9))
+- improve readme ([035c7fd](https://github.com/stacksjs/buddy-bot/commit/035c7fd))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.3...HEAD)
+
+### 🧹 Chores
+
+- update deps ([06100d9](https://github.com/stacksjs/buddy-bot/commit/06100d9))
+- improve readme ([035c7fd](https://github.com/stacksjs/buddy-bot/commit/035c7fd))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.2...HEAD)
 
 ### Contributors
