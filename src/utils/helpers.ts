@@ -316,19 +316,49 @@ export function getUpdateType(currentVersion: string, newVersion: string): 'majo
     return 'patch'
   }
 
-  // Patch: within same minor series
   try {
-    if (Bun.semver.satisfies(cleanNew, `~${cleanCurrent}`))
-      return 'patch'
-  }
-  catch {}
+    // Parse version parts manually for more reliable comparison
+    const currentParts = cleanCurrent.split('.').map(n => parseInt(n, 10))
+    const newParts = cleanNew.split('.').map(n => parseInt(n, 10))
 
-  // Minor: within same major series
-  try {
-    if (Bun.semver.satisfies(cleanNew, `^${cleanCurrent}`))
+    // Ensure we have at least 3 parts (major.minor.patch)
+    while (currentParts.length < 3) currentParts.push(0)
+    while (newParts.length < 3) newParts.push(0)
+
+    const [currentMajor, currentMinor, currentPatch] = currentParts
+    const [newMajor, newMinor, newPatch] = newParts
+
+    // Major version change
+    if (newMajor > currentMajor) {
+      return 'major'
+    }
+
+    // Minor version change (same major, higher minor)
+    if (newMajor === currentMajor && newMinor > currentMinor) {
       return 'minor'
+    }
+
+    // Patch version change (same major and minor, higher patch)
+    if (newMajor === currentMajor && newMinor === currentMinor && newPatch > currentPatch) {
+      return 'patch'
+    }
   }
-  catch {}
+  catch {
+    // Fallback to semver satisfaction checks if parsing fails
+    try {
+      // Patch: within same minor series
+      if (Bun.semver.satisfies(cleanNew, `~${cleanCurrent}`))
+        return 'patch'
+    }
+    catch {}
+
+    try {
+      // Minor: within same major series
+      if (Bun.semver.satisfies(cleanNew, `^${cleanCurrent}`))
+        return 'minor'
+    }
+    catch {}
+  }
 
   // Otherwise major
   return 'major'

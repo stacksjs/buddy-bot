@@ -3,6 +3,7 @@ import type { PackageInfo, ReleaseNote } from '../services/release-notes-fetcher
 import type { BuddyBotConfig, PullRequest, UpdateGroup } from '../types'
 import process from 'node:process'
 import { ReleaseNotesFetcher } from '../services/release-notes-fetcher'
+import { getUpdateType } from '../utils/helpers'
 
 export class PullRequestGenerator {
   private releaseNotesFetcher = new ReleaseNotesFetcher()
@@ -453,7 +454,7 @@ export class PullRequestGenerator {
         const packageCell = `[${displayName}](${packageUrl})`
 
         // Enhanced version change display with update type and proper constraint format
-        const updateType = this.getUpdateType(update.currentVersion, update.newVersion)
+        const updateType = getUpdateType(update.currentVersion, update.newVersion)
         const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
         const change = this.formatVersionChange(update.currentVersion, update.newVersion)
 
@@ -492,7 +493,7 @@ export class PullRequestGenerator {
         const actionCell = `[${update.name}](${actionUrl})`
 
         // Enhanced version change display with update type and proper constraint format
-        const updateType = this.getUpdateType(update.currentVersion, update.newVersion)
+        const updateType = getUpdateType(update.currentVersion, update.newVersion)
         const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
         const change = this.formatVersionChange(update.currentVersion, update.newVersion)
 
@@ -1005,30 +1006,6 @@ export class PullRequestGenerator {
     return result
   }
 
-  /**
-   * Determine update type between two versions
-   */
-  private getUpdateType(currentVersion: string, newVersion: string): 'major' | 'minor' | 'patch' {
-    // Remove any prefixes like ^, ~, >=, v, @, etc.
-    const cleanCurrent = currentVersion.replace(/^[v^~>=<@]+/, '')
-    const cleanNew = newVersion.replace(/^[v^~>=<@]+/, '')
-
-    try {
-      if (Bun.semver.order(cleanNew, cleanCurrent) <= 0)
-        return 'patch'
-
-      if (Bun.semver.satisfies(cleanNew, `~${cleanCurrent}`))
-        return 'patch'
-
-      if (Bun.semver.satisfies(cleanNew, `^${cleanCurrent}`))
-        return 'minor'
-    }
-    catch {
-      return 'patch'
-    }
-
-    return 'major'
-  }
 
   /**
    * Format version change preserving constraint prefixes

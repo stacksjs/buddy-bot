@@ -1,6 +1,7 @@
 import type { UpdateGroup } from '../src/types'
-import { beforeEach, describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
+import { ReleaseNotesFetcher } from '../src/services/release-notes-fetcher'
 
 describe('Composer Non-Major PR', () => {
   let prGenerator: PullRequestGenerator
@@ -14,6 +15,66 @@ describe('Composer Non-Major PR', () => {
       },
     }
     prGenerator = new PullRequestGenerator()
+    
+    // Mock the fetchComposerPackageInfo to avoid real network calls
+    spyOn(ReleaseNotesFetcher.prototype, 'fetchComposerPackageInfo').mockImplementation(async (packageName: string) => {
+      // Return mock data based on package name
+      const mockPackageInfos: Record<string, any> = {
+        'monolog/monolog': {
+          name: 'monolog/monolog',
+          description: 'Sends your logs to files, sockets, inboxes, databases and various web services',
+          homepage: 'https://github.com/Seldaek/monolog',
+          repository: { url: 'https://github.com/Seldaek/monolog' },
+          license: 'MIT'
+        },
+        'phpunit/phpunit': {
+          name: 'phpunit/phpunit',
+          description: 'The PHP Unit Testing framework',
+          homepage: 'https://phpunit.de/',
+          repository: { url: 'https://github.com/sebastianbergmann/phpunit' },
+          license: 'BSD-3-Clause'
+        },
+        'psr/log': {
+          name: 'psr/log',
+          description: 'Common interface for logging libraries',
+          homepage: 'https://github.com/php-fig/log',
+          repository: { url: 'https://github.com/php-fig/log' },
+          license: 'MIT'
+        },
+        'symfony/http-foundation': {
+          name: 'symfony/http-foundation',
+          description: 'Defines an object-oriented layer for the HTTP specification',
+          homepage: 'https://symfony.com',
+          repository: { url: 'https://github.com/symfony/http-foundation' },
+          license: 'MIT'
+        },
+        'phpstan/phpstan': {
+          name: 'phpstan/phpstan',
+          description: 'PHP Static Analysis Tool',
+          homepage: 'https://phpstan.org/',
+          repository: { url: 'https://github.com/phpstan/phpstan' },
+          license: 'MIT'
+        }
+      }
+      
+      return mockPackageInfos[packageName] || {
+        name: packageName,
+        description: `Mock package ${packageName}`,
+        homepage: `https://packagist.org/packages/${packageName}`,
+        repository: { url: `https://github.com/mock/${packageName.split('/')[1]}` },
+        license: 'MIT'
+      }
+    })
+    
+    // Mock generateComposerBadges to avoid any additional network calls
+    spyOn(ReleaseNotesFetcher.prototype, 'generateComposerBadges').mockImplementation(() => {
+      return {
+        age: '[![age](https://developer.mend.io/api/mc/badges/age/packagist/mock/mock/3.7.0?slim=true)](https://docs.renovatebot.com/merge-confidence/)',
+        adoption: '[![adoption](https://developer.mend.io/api/mc/badges/adoption/packagist/mock/mock/3.7.0?slim=true)](https://docs.renovatebot.com/merge-confidence/)',
+        passing: '[![passing](https://developer.mend.io/api/mc/badges/compatibility/packagist/mock/mock/3.7.0/3.8.0?slim=true)](https://docs.renovatebot.com/merge-confidence/)',
+        confidence: '[![confidence](https://developer.mend.io/api/mc/badges/confidence/packagist/mock/mock/3.7.0/3.8.0?slim=true)](https://docs.renovatebot.com/merge-confidence/)'
+      }
+    })
   })
 
   it('should include Composer updates in non-major grouped PR', async () => {
