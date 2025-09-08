@@ -7,7 +7,7 @@ await Bun.build({
   outdir: './dist',
   format: 'esm',
   target: 'bun',
-  minify: false,
+  minify: true,
   // @ts-expect-error splitting is a valid property
   splitting: true,
   sourcemap: 'external',
