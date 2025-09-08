@@ -1,7 +1,7 @@
 {
   "name": "buddy-bot",
   "type": "module",
-  "version": "0.9.3",
+  "version": "0.9.5",
   "description": "Automated & optimized dependency updates for JavaScript & TypeScript projects. Like Renovate & Dependabot.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
@@ -51,7 +51,7 @@
     "lint:fix": "bunx --bun eslint . --fix",
     "changelog": "bunx logsmith --verbose",
     "changelog:generate": "bunx logsmith --output CHANGELOG.md",
-    "release": "bun run changelog:generate && bunx bumpx -r --commit --tag --push",
+    "release": "bunx --bun bumpx -r --all",
     "postinstall": "bunx git-hooks",
     "typecheck": "bunx tsc --noEmit",
     "dev:docs": "bun --bun vitepress dev docs",
@@ -60,20 +60,19 @@
   },
   "dependencies": {
     "@types/prompts": "^2.4.9",
-    "bunfig": "^0.14.1",
+    "bunfig": "^0.15.0",
     "cac": "6.7.14",
     "prompts": "^2.4.2",
-    "ts-pkgx": "0.4.56"
+    "ts-pkgx": "0.4.63"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.1.61",
+    "@stacksjs/bumpx": "^0.1.78",
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@stacksjs/gitlint": "^0.1.5",
-    "@stacksjs/logsmith": "^0.1.18",
     "@types/bun": "^1.2.21",
     "bun-git-hooks": "^0.2.19",
-    "bun-plugin-dtsx": "0.9.5",
+    "bun-plugin-dtsx": "0.21.12",
     "typescript": "^5.9.2"
   },
   "overrides": {
