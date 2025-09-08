@@ -1,4 +1,17 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.4...v0.9.5)
+
+### 🧹 Chores
+
+- release v0.9.5 ([fa04837](https://github.com/stacksjs/buddy-bot/commit/fa04837))
+- adjust release script ([6c4cfb8](https://github.com/stacksjs/buddy-bot/commit/6c4cfb8))
+- minify build ([a0c6976](https://github.com/stacksjs/buddy-bot/commit/a0c6976))
+- wip ([fa15aad](https://github.com/stacksjs/buddy-bot/commit/fa15aad))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.3...HEAD)
 
 ### 🧹 Chores

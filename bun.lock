@@ -11,11 +11,10 @@
         "ts-pkgx": "0.4.52",
       },
       "devDependencies": {
-        "@stacksjs/bumpx": "^0.1.61",
+        "@stacksjs/bumpx": "^0.1.78",
         "@stacksjs/docs": "^0.70.23",
         "@stacksjs/eslint-config": "^4.14.0-beta.3",
         "@stacksjs/gitlint": "^0.1.5",
-        "@stacksjs/logsmith": "^0.1.18",
         "@types/bun": "^1.2.21",
         "bun-git-hooks": "^0.2.19",
         "bun-plugin-dtsx": "0.9.5",
@@ -501,7 +500,7 @@
 
     "@sindresorhus/is": ["@sindresorhus/is@4.6.0", "", {}, "sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw=="],
 
-    "@stacksjs/bumpx": ["@stacksjs/bumpx@0.1.61", "", { "dependencies": { "@stacksjs/clapp": "^0.1.16", "@stacksjs/logsmith": "^0.1.15", "bunfig": "^0.14.1" }, "bin": { "bumpx": "dist/bin/cli.js" } }, "sha512-rkI1CWuIdtnFtnI8v2VXczVTjuCAjgrpYWYz/pQTkFrAnR8Aacy4QajJPVYrApmfflPDzGpn41/jKUei1pP4+w=="],
+    "@stacksjs/bumpx": ["@stacksjs/bumpx@0.1.78", "", { "dependencies": { "@stacksjs/clapp": "^0.1.16", "@stacksjs/logsmith": "^0.1.15", "bunfig": "^0.14.1" }, "bin": { "bumpx": "dist/bin/cli.js" } }, "sha512-lLPd3vQSk3H6s60s7TtJiopmykVCJ0ZSU2C5zRPaHDbdL7XZv1+PBCPOMDxfO04xOZsX3NmCZumHz511kVqFqg=="],
 
     "@stacksjs/clapp": ["@stacksjs/clapp@0.1.16", "", { "bin": { "clapp": "dist/bin/cli.js", "@stacksjs/clapp": "dist/bin/cli.js" } }, "sha512-BDmYu9Rk/HHIVc4vQjgQO6MzXNMJvPG6ZGiiEAPQT8EAidx3/6S6O7kyY2UdfJSksiCd5SKFK+WYd1uAs88BrQ=="],
 
