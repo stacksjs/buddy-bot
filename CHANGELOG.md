@@ -1,4 +1,14 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.5...v0.9.6)
+
+### 🧹 Chores
+
+- release v0.9.6 ([9efd28c](https://github.com/stacksjs/buddy-bot/commit/9efd28c))
+
+### Contributors
+
+- Adelino Ngomacha <adelinob335@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.4...v0.9.5)
 
 ### 🧹 Chores
