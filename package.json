@@ -63,7 +63,7 @@
     "bunfig": "^0.15.0",
     "cac": "6.7.14",
     "prompts": "^2.4.2",
-    "ts-pkgx": "0.4.67"
+    "ts-pkgx": "0.4.68"
   },
   "devDependencies": {
     "@stacksjs/bumpx": "^0.1.84",
