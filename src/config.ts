@@ -32,6 +32,8 @@ export const defaultConfig: BuddyBotConfig = {
     includePrerelease: false,
     excludeMajor: false,
     respectLatest: true,
+    minimumReleaseAge: 0,
+    minimumReleaseAgeExclude: [],
   },
 }
 

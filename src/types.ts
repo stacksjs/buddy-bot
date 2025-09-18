@@ -43,6 +43,10 @@ export interface BuddyBotConfig {
     excludeMajor?: boolean
     /** Respect "latest" and "*" version indicators (default: true) */
     respectLatest?: boolean
+    /** Minimum age in minutes that a package version must have before installation (default: 0) */
+    minimumReleaseAge?: number
+    /** Package names to exclude from minimum release age requirement */
+    minimumReleaseAgeExclude?: string[]
   }
 
   /** PR generation settings */
