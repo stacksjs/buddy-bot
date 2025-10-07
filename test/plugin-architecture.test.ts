@@ -106,7 +106,21 @@ describe('Integration Ecosystem & Plugin Architecture', () => {
     })
 
     // Restore original working directory and clean up temp directory
-    process.chdir(originalCwd)
+    // Check if originalCwd still exists before trying to change to it
+    try {
+      if (fs.existsSync(originalCwd)) {
+        process.chdir(originalCwd)
+      }
+      else {
+        // If originalCwd doesn't exist, change to OS temp directory as a safe fallback
+        // eslint-disable-next-line ts/no-require-imports
+        process.chdir(require('node:os').tmpdir())
+      }
+    }
+    catch {
+      // If we can't change directory, just continue with cleanup
+    }
+
     try {
       fs.rmSync(tempDir, { recursive: true, force: true })
     }
