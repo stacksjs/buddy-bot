@@ -1,4 +1,26 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.7...v0.9.8)
+
+### 🚀 Features
+
+- add Minimum Release Age options ([91e5d18](https://github.com/stacksjs/buddy-bot/commit/91e5d18))
+
+### 🧹 Chores
+
+- release v0.9.8 ([eef0eec](https://github.com/stacksjs/buddy-bot/commit/eef0eec))
+- resolve test error ([ba45081](https://github.com/stacksjs/buddy-bot/commit/ba45081))
+- adjust test for ci ([3a60a4b](https://github.com/stacksjs/buddy-bot/commit/3a60a4b))
+- wip ([3e9dca9](https://github.com/stacksjs/buddy-bot/commit/3e9dca9))
+- lint ([ab22d6b](https://github.com/stacksjs/buddy-bot/commit/ab22d6b))
+- update lockfile ([9394d75](https://github.com/stacksjs/buddy-bot/commit/9394d75))
+- adjust deps ([0edb7f5](https://github.com/stacksjs/buddy-bot/commit/0edb7f5))
+- remove ts-expect-error ([fe315a5](https://github.com/stacksjs/buddy-bot/commit/fe315a5))
+- **deps**: update all non-major dependencies (#216) ([29fd7c7](https://github.com/stacksjs/buddy-bot/commit/29fd7c7)) ([#216](https://github.com/stacksjs/buddy-bot/issues/216), [#216](https://github.com/stacksjs/buddy-bot/issues/216))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.6...v0.9.7)
 
 ### 🧹 Chores
