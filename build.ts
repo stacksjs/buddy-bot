@@ -8,7 +8,6 @@ await Bun.build({
   format: 'esm',
   target: 'bun',
   minify: true,
-  // @ts-expect-error splitting is a valid property
   splitting: true,
   sourcemap: 'external',
   plugins: [dts()],
