@@ -83,8 +83,8 @@ jobs:
     const buddy = new Buddy(config, testDir)
 
     // Test the configuration is properly loaded
-    expect(buddy.config.packages?.minimumReleaseAge).toBe(1440)
-    expect(buddy.config.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
+    expect((buddy as any).config.packages?.minimumReleaseAge).toBe(1440)
+    expect((buddy as any).config.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
 
     console.log('\n✅ Configuration loaded successfully')
     console.log('📋 Test project structure created with:')
@@ -94,18 +94,18 @@ jobs:
 
     // The actual scanning would require network calls, so we'll just verify
     // that the filtering logic is properly integrated
-    const registryClient = buddy.registryClient
+    const registryClient = (buddy as any).registryClient
 
     // Test that the registry client has the correct configuration
-    expect(registryClient.config?.packages?.minimumReleaseAge).toBe(1440)
-    expect(registryClient.config?.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
+    expect((registryClient as any).config?.packages?.minimumReleaseAge).toBe(1440)
+    expect((registryClient as any).config?.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
 
     console.log('\n🔧 Registry client configured with minimum release age settings')
     console.log('🛡️  Security feature active: packages must be 24+ hours old')
     console.log('⚡ Trusted packages (webpack, actions/checkout) bypass the requirement')
 
     // Test the filtering method exists and works
-    const filterMethod = buddy.filterUpdatesByMinimumReleaseAge
+    const filterMethod = (buddy as any).filterUpdatesByMinimumReleaseAge
     expect(typeof filterMethod).toBe('function')
 
     console.log('\n✅ Integration test completed successfully!')

@@ -213,8 +213,8 @@ describe('Minimum Release Age Functionality', () => {
       const buddy = new Buddy(config, testDir)
 
       // Mock the registry client's meetsMinimumReleaseAge method
-      const originalMethod = buddy.registryClient.meetsMinimumReleaseAge
-      buddy.registryClient.meetsMinimumReleaseAge = mock(async (packageName: string, _version: string, _dependencyType?: string) => {
+      const originalMethod = (buddy as any).registryClient.meetsMinimumReleaseAge
+      ;(buddy as any).registryClient.meetsMinimumReleaseAge = mock(async (packageName: string, _version: string, _dependencyType?: string) => {
         // Simulate different packages with different ages
         if (packageName === 'old-package')
           return true
@@ -253,14 +253,14 @@ describe('Minimum Release Age Functionality', () => {
       ]
 
       // Call the private method using bracket notation
-      const filteredUpdates = await buddy.filterUpdatesByMinimumReleaseAge(mockUpdates)
+      const filteredUpdates = await (buddy as any).filterUpdatesByMinimumReleaseAge(mockUpdates)
 
       // Should only include old-package and trusted-package
       expect(filteredUpdates).toHaveLength(2)
-      expect(filteredUpdates.map(u => u.name)).toEqual(['old-package', 'trusted-package'])
+      expect(filteredUpdates.map((u: PackageUpdate) => u.name)).toEqual(['old-package', 'trusted-package'])
 
       // Restore original method
-      buddy.registryClient.meetsMinimumReleaseAge = originalMethod
+      ;(buddy as any).registryClient.meetsMinimumReleaseAge = originalMethod
     })
 
     it('should return all updates when minimumReleaseAge is 0', async () => {
@@ -292,7 +292,7 @@ describe('Minimum Release Age Functionality', () => {
         },
       ]
 
-      const filteredUpdates = await buddy.filterUpdatesByMinimumReleaseAge(mockUpdates)
+      const filteredUpdates = await (buddy as any).filterUpdatesByMinimumReleaseAge(mockUpdates)
 
       // Should return all updates when disabled
       expect(filteredUpdates).toHaveLength(2)
@@ -310,7 +310,7 @@ describe('Minimum Release Age Functionality', () => {
       const buddy = new Buddy(config, testDir)
 
       // Mock the registry client to simulate different behaviors for different types
-      buddy.registryClient.meetsMinimumReleaseAge = mock(async (packageName: string, version: string, dependencyType?: string) => {
+      ;(buddy as any).registryClient.meetsMinimumReleaseAge = mock(async (packageName: string, version: string, dependencyType?: string) => {
         // Simulate that npm packages are too new, but GitHub Actions are old enough
         if (dependencyType === 'dependencies')
           return false
@@ -348,11 +348,11 @@ describe('Minimum Release Age Functionality', () => {
         },
       ]
 
-      const filteredUpdates = await buddy.filterUpdatesByMinimumReleaseAge(mockUpdates)
+      const filteredUpdates = await (buddy as any).filterUpdatesByMinimumReleaseAge(mockUpdates)
 
       // Should only include GitHub Actions and Composer packages
       expect(filteredUpdates).toHaveLength(2)
-      expect(filteredUpdates.map(u => u.name)).toEqual(['actions/checkout', 'laravel/framework'])
+      expect(filteredUpdates.map((u: PackageUpdate) => u.name)).toEqual(['actions/checkout', 'laravel/framework'])
     })
   })
 
@@ -381,7 +381,7 @@ describe('Minimum Release Age Functionality', () => {
       const buddy = new Buddy(config, testDir)
 
       // Mock the registry client methods to avoid actual network calls
-      buddy.registryClient.getOutdatedPackages = mock(async () => [
+      ;(buddy as any).registryClient.getOutdatedPackages = mock(async () => [
         {
           name: 'react',
           currentVersion: '17.0.0',
@@ -401,12 +401,12 @@ describe('Minimum Release Age Functionality', () => {
       ])
 
       // Mock other update checking methods to return empty arrays
-      buddy.checkDependencyFilesForUpdates = mock(async () => [])
-      buddy.checkGitHubActionsForUpdates = mock(async () => [])
-      buddy.checkDockerfilesForUpdates = mock(async () => [])
+      ;(buddy as any).checkDependencyFilesForUpdates = mock(async () => [])
+      ;(buddy as any).checkGitHubActionsForUpdates = mock(async () => [])
+      ;(buddy as any).checkDockerfilesForUpdates = mock(async () => [])
 
       // Mock minimum release age checking
-      buddy.registryClient.meetsMinimumReleaseAge = mock(async (packageName: string) => {
+      ;(buddy as any).registryClient.meetsMinimumReleaseAge = mock(async (packageName: string) => {
         // Only allow typescript (simulate react being too new)
         return packageName === 'typescript'
       })
