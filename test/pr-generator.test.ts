@@ -494,7 +494,9 @@ describe('PullRequestGenerator', () => {
 
   describe('formatVersionChange', () => {
     // Access the private method for testing
-    const formatVersionChange = (generator as any).formatVersionChange.bind(generator)
+    const formatVersionChange = (currentVersion: string, newVersion: string) => {
+      return (generator as any).formatVersionChange(currentVersion, newVersion)
+    }
 
     describe('constraint prefixes', () => {
       it('should preserve caret constraint prefix', () => {
