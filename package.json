@@ -52,14 +52,12 @@
     "changelog": "bunx logsmith --verbose",
     "changelog:generate": "bunx logsmith --output CHANGELOG.md",
     "release": "bunx --bun bumpx -r --all",
-    "postinstall": "bunx git-hooks",
     "typecheck": "bunx tsc --noEmit",
     "dev:docs": "bun --bun vitepress dev docs",
     "build:docs": "bun --bun vitepress build docs",
     "preview:docs": "bun --bun vitepress preview docs"
   },
   "dependencies": {
-    "@types/prompts": "^2.4.9",
     "bunfig": "^0.15.0",
     "cac": "6.7.14",
     "prompts": "^2.4.2",
@@ -71,8 +69,9 @@
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@stacksjs/gitlint": "^0.1.5",
     "@types/bun": "^1.2.23",
+    "@types/prompts": "^2.4.9",
     "bun-git-hooks": "^0.3.1",
-    "bun-plugin-dtsx": "0.21.12",
+    "bun-plugin-dtsx": "0.9.5",
     "typescript": "^5.9.3"
   },
   "overrides": {
