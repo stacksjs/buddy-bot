@@ -318,8 +318,8 @@ export function getUpdateType(currentVersion: string, newVersion: string): 'majo
 
   try {
     // Parse version parts manually for more reliable comparison
-    const currentParts = cleanCurrent.split('.').map(n => parseInt(n, 10))
-    const newParts = cleanNew.split('.').map(n => parseInt(n, 10))
+    const currentParts = cleanCurrent.split('.').map(n => Number.parseInt(n, 10))
+    const newParts = cleanNew.split('.').map(n => Number.parseInt(n, 10))
 
     // Ensure we have at least 3 parts (major.minor.patch)
     while (currentParts.length < 3) currentParts.push(0)

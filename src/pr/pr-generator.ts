@@ -1006,7 +1006,6 @@ export class PullRequestGenerator {
     return result
   }
 
-
   /**
    * Format version change preserving constraint prefixes
    */

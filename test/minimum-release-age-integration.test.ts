@@ -28,12 +28,12 @@ describe('Minimum Release Age Integration Tests', () => {
       name: 'test-project',
       version: '1.0.0',
       dependencies: {
-        'react': '^17.0.0',
-        'lodash': '^4.17.20',
+        react: '^17.0.0',
+        lodash: '^4.17.20',
       },
       devDependencies: {
-        'typescript': '^4.9.0',
-        'webpack': '^5.75.0',
+        typescript: '^4.9.0',
+        webpack: '^5.75.0',
       },
     }, null, 2))
 
@@ -56,8 +56,8 @@ jobs:
     // Create Composer file
     const composerJsonPath = path.join(testDir, 'composer.json')
     fs.writeFileSync(composerJsonPath, JSON.stringify({
-      name: 'test/project',
-      require: {
+      'name': 'test/project',
+      'require': {
         'laravel/framework': '^9.0',
         'guzzlehttp/guzzle': '^7.0',
       },
@@ -83,8 +83,8 @@ jobs:
     const buddy = new Buddy(config, testDir)
 
     // Test the configuration is properly loaded
-    expect(buddy['config'].packages?.minimumReleaseAge).toBe(1440)
-    expect(buddy['config'].packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
+    expect(buddy.config.packages?.minimumReleaseAge).toBe(1440)
+    expect(buddy.config.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
 
     console.log('\n✅ Configuration loaded successfully')
     console.log('📋 Test project structure created with:')
@@ -94,18 +94,18 @@ jobs:
 
     // The actual scanning would require network calls, so we'll just verify
     // that the filtering logic is properly integrated
-    const registryClient = buddy['registryClient']
-    
+    const registryClient = buddy.registryClient
+
     // Test that the registry client has the correct configuration
-    expect(registryClient['config']?.packages?.minimumReleaseAge).toBe(1440)
-    expect(registryClient['config']?.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
+    expect(registryClient.config?.packages?.minimumReleaseAge).toBe(1440)
+    expect(registryClient.config?.packages?.minimumReleaseAgeExclude).toEqual(['webpack', 'actions/checkout'])
 
     console.log('\n🔧 Registry client configured with minimum release age settings')
     console.log('🛡️  Security feature active: packages must be 24+ hours old')
     console.log('⚡ Trusted packages (webpack, actions/checkout) bypass the requirement')
 
     // Test the filtering method exists and works
-    const filterMethod = buddy['filterUpdatesByMinimumReleaseAge']
+    const filterMethod = buddy.filterUpdatesByMinimumReleaseAge
     expect(typeof filterMethod).toBe('function')
 
     console.log('\n✅ Integration test completed successfully!')
@@ -114,7 +114,7 @@ jobs:
 
   it('should show configuration examples for different use cases', () => {
     console.log('\n📚 Configuration Examples for Minimum Release Age:')
-    
+
     // Example 1: Conservative security (24 hours)
     const conservativeConfig: BuddyBotConfig = {
       packages: {
@@ -123,11 +123,11 @@ jobs:
         minimumReleaseAgeExclude: ['webpack', 'react'], // Trust these packages
       },
     }
-    
+
     console.log('\n1️⃣  Conservative Security (24 hours):')
     console.log('   minimumReleaseAge: 1440')
     console.log('   minimumReleaseAgeExclude: ["webpack", "react"]')
-    
+
     // Example 2: Moderate security (4 hours)
     const moderateConfig: BuddyBotConfig = {
       packages: {
@@ -136,11 +136,11 @@ jobs:
         minimumReleaseAgeExclude: ['@types/*'], // Trust TypeScript definitions
       },
     }
-    
+
     console.log('\n2️⃣  Moderate Security (4 hours):')
     console.log('   minimumReleaseAge: 240')
     console.log('   minimumReleaseAgeExclude: ["@types/*"]')
-    
+
     // Example 3: Quick security (1 hour)
     const quickConfig: BuddyBotConfig = {
       packages: {
@@ -149,11 +149,11 @@ jobs:
         minimumReleaseAgeExclude: [], // No exceptions
       },
     }
-    
+
     console.log('\n3️⃣  Quick Security (1 hour):')
     console.log('   minimumReleaseAge: 60')
     console.log('   minimumReleaseAgeExclude: []')
-    
+
     // Example 4: Disabled (default)
     const disabledConfig: BuddyBotConfig = {
       packages: {
@@ -161,10 +161,10 @@ jobs:
         minimumReleaseAge: 0, // Disabled
       },
     }
-    
+
     console.log('\n4️⃣  Disabled (default behavior):')
     console.log('   minimumReleaseAge: 0')
-    
+
     console.log('\n💡 Pro Tips:')
     console.log('   • Most malicious packages are discovered within 1-2 hours')
     console.log('   • Consider excluding trusted organizations (@types/*, @babel/*, etc.)')

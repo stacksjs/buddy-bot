@@ -953,30 +953,32 @@ export class Buddy {
    */
   private async filterUpdatesByMinimumReleaseAge(updates: PackageUpdate[]): Promise<PackageUpdate[]> {
     const minimumReleaseAge = this.config.packages?.minimumReleaseAge ?? 0
-    
+
     // If no minimum age is set, return all updates
     if (minimumReleaseAge === 0) {
       return updates
     }
 
     this.logger.info(`Applying minimum release age filter (${minimumReleaseAge} minutes)...`)
-    
+
     const filteredUpdates: PackageUpdate[] = []
-    
+
     for (const update of updates) {
       try {
         const meetsRequirement = await this.registryClient.meetsMinimumReleaseAge(
-          update.name, 
-          update.newVersion, 
-          update.dependencyType
+          update.name,
+          update.newVersion,
+          update.dependencyType,
         )
-        
+
         if (meetsRequirement) {
           filteredUpdates.push(update)
-        } else {
+        }
+        else {
           this.logger.debug(`Filtered out ${update.name}@${update.newVersion} (${update.dependencyType}) due to minimum release age requirement`)
         }
-      } catch (error) {
+      }
+      catch (error) {
         // If there's an error checking the release age, be conservative and include the update
         this.logger.warn(`Error checking release age for ${update.name}@${update.newVersion} (${update.dependencyType}), including update:`, error)
         filteredUpdates.push(update)

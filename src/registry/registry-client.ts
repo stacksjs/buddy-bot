@@ -1322,18 +1322,18 @@ export class RegistryClient {
       // First try using bun info to get package metadata
       const result = await this.runCommand('bun', ['info', `${packageName}@${version}`, '--json'])
       const data = JSON.parse(result)
-      
+
       // Check if the package data has time information
       if (data.time && typeof data.time === 'string') {
         return new Date(data.time)
       }
-      
+
       // If bun doesn't provide time info, fall back to npm registry API
       if (!data.time) {
         try {
           const npmResult = await this.runCommand('npm', ['view', `${packageName}@${version}`, 'time', '--json'])
           const timeData = JSON.parse(npmResult)
-          
+
           if (timeData && typeof timeData === 'string') {
             return new Date(timeData)
           }
@@ -1342,7 +1342,7 @@ export class RegistryClient {
           this.logger.debug(`npm fallback failed for ${packageName}@${version}:`, npmError)
         }
       }
-      
+
       return null
     }
     catch (error) {
@@ -1365,15 +1365,15 @@ export class RegistryClient {
 
       // Use GitHub API to get release information
       const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/tags/${version}`
-      
+
       // Use curl to fetch the release data
       const result = await this.runCommand('curl', ['-s', '-H', 'Accept: application/vnd.github.v3+json', apiUrl])
       const releaseData = JSON.parse(result)
-      
+
       if (releaseData.published_at) {
         return new Date(releaseData.published_at)
       }
-      
+
       return null
     }
     catch (error) {
@@ -1389,17 +1389,17 @@ export class RegistryClient {
     try {
       // Use Packagist API for Composer packages
       const apiUrl = `https://packagist.org/packages/${packageName}.json`
-      
+
       const result = await this.runCommand('curl', ['-s', apiUrl])
       const packageData = JSON.parse(result)
-      
+
       if (packageData.package && packageData.package.versions && packageData.package.versions[version]) {
         const versionData = packageData.package.versions[version]
         if (versionData.time) {
           return new Date(versionData.time)
         }
       }
-      
+
       return null
     }
     catch (error) {
@@ -1445,7 +1445,7 @@ export class RegistryClient {
 
     // Get the release date based on dependency type
     let releaseDate: Date | null = null
-    
+
     switch (dependencyType) {
       case 'github-actions':
         releaseDate = await this.getGitHubActionReleaseDate(packageName, version)
@@ -1462,7 +1462,7 @@ export class RegistryClient {
         releaseDate = await this.getPackageVersionReleaseDate(packageName, version)
         break
     }
-    
+
     if (!releaseDate) {
       // If we can't get the release date, be conservative and allow the update
       // This prevents blocking updates when registry data is unavailable
@@ -1475,7 +1475,7 @@ export class RegistryClient {
     const ageInMinutes = (now.getTime() - releaseDate.getTime()) / (1000 * 60)
 
     const meetsRequirement = ageInMinutes >= minimumReleaseAge
-    
+
     if (!meetsRequirement) {
       this.logger.info(`Package ${packageName}@${version} (${dependencyType || 'unknown type'}) is too new (${Math.round(ageInMinutes)} minutes old, minimum: ${minimumReleaseAge} minutes)`)
     }
