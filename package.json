@@ -62,7 +62,7 @@
     "cac": "6.7.14",
     "jiti": "^2.6.1",
     "prompts": "^2.4.2",
-    "ts-pkgx": "0.4.91"
+    "ts-pkgx": "0.4.92"
   },
   "devDependencies": {
     "@stacksjs/bumpx": "^0.1.86",
