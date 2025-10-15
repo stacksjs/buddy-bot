@@ -4,7 +4,7 @@
 import type { BuddyBotConfig } from '../src/types'
 import fs from 'node:fs'
 import process from 'node:process'
-import { CAC } from 'cac'
+import { CLI } from '@stacksjs/clapp'
 import prompts from 'prompts'
 import { version } from '../package.json'
 import { Buddy } from '../src/buddy'
@@ -32,7 +32,7 @@ import {
 } from '../src/setup'
 import { Logger } from '../src/utils/logger'
 
-const cli = new CAC('buddy-bot')
+const cli = new CLI('buddy-bot')
 
 cli.usage(`[command] [options]
 
