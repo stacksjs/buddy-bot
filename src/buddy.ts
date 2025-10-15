@@ -1653,20 +1653,24 @@ export class Buddy {
             continue
           }
 
-          // Check if all packages in the PR are already at target version or newer
+          // Check if all packages in the PR are already satisfied
+          // A package is "satisfied" if:
+          // 1. It's no longer a direct dependency (moved to peer/removed)
+          // 2. It's already at the target version or newer
           const satisfied = prUpdates.every((prUpdate) => {
             const currentUpdate = currentUpdatesMap.get(prUpdate.name)
 
             // If package not in current scan, it means it's either:
             // 1. Already at the target version or newer
-            // 2. No longer a dependency
+            // 2. No longer a direct dependency (moved to peer dep, transitive, or removed)
+            // In both cases, the PR is no longer needed
             if (!currentUpdate) {
-              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} not in current scan (likely satisfied)`)
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} not in current scan (satisfied - no longer needs direct update)`)
               return true
             }
 
-            // If the PR's target version matches or is older than what we currently need,
-            // the PR is not satisfied
+            // If the PR's target version matches what we currently need,
+            // the PR is still relevant
             if (currentUpdate.newVersion === prUpdate.newVersion) {
               this.logger.debug(`PR #${pr.number}: ${prUpdate.name} still needs update to ${prUpdate.newVersion}`)
               return false
@@ -1697,9 +1701,37 @@ export class Buddy {
             }
             else {
               try {
-                // Close the PR with a helpful comment
-                const packageList = prUpdates.map(u => `- ${u.name}: ${u.currentVersion} → ${u.newVersion}`).join('\n')
-                const closeComment = `🤖 **Auto-closing satisfied PR**\n\nThis PR was automatically closed because all dependencies are already at the target version or newer.\n\n**Updates in this PR:**\n${packageList}\n\nIf this was closed in error, please reopen and add a comment explaining why.`
+                // Determine the reason for closing
+                const packagesNoLongerDirect = prUpdates.filter(u => !currentUpdatesMap.has(u.name))
+                const packagesAlreadyUpdated = prUpdates.filter(u => {
+                  const current = currentUpdatesMap.get(u.name)
+                  if (!current) return false
+                  try {
+                    return !this.isNewerVersion(current.currentVersion, u.newVersion)
+                  } catch {
+                    return false
+                  }
+                })
+
+                let closeComment = `🤖 **Auto-closing satisfied PR**\n\n`
+
+                if (packagesNoLongerDirect.length > 0) {
+                  closeComment += `This PR was automatically closed because the following packages are no longer direct dependencies (possibly moved to peer dependencies, transitive dependencies, or removed):\n\n`
+                  packagesNoLongerDirect.forEach(u => {
+                    closeComment += `- **${u.name}**: ${u.currentVersion} → ${u.newVersion}\n`
+                  })
+                  closeComment += `\n`
+                }
+
+                if (packagesAlreadyUpdated.length > 0) {
+                  closeComment += `The following packages are already at the target version or newer:\n\n`
+                  packagesAlreadyUpdated.forEach(u => {
+                    closeComment += `- **${u.name}**: ${u.currentVersion} → ${u.newVersion}\n`
+                  })
+                  closeComment += `\n`
+                }
+
+                closeComment += `If this was closed in error, please reopen and add a comment explaining why.`
 
                 try {
                   await gitProvider.createComment(pr.number, closeComment)

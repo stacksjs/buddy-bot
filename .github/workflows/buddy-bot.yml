@@ -187,7 +187,12 @@ jobs:
 
       - name: Check for PRs that need attention
         run: |
-          echo "🔍 Checking for PRs that need attention (rebase requests or auto-closing)..."
+          echo "🔍 Checking for PRs that need attention..."
+          echo "   - Rebase requests (checked checkbox)"
+          echo "   - Satisfied dependencies (already at target version)"
+          echo "   - Obsolete PRs (removed files)"
+          echo "   - Stale branches cleanup"
+          echo ""
           echo "🔧 Environment info:"
           echo "Current directory: $(pwd)"
           echo "GITHUB_TOKEN set: $([[ -n "$GITHUB_TOKEN" ]] && echo "Yes" || echo "No")"
@@ -224,7 +229,13 @@ jobs:
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📋 View detailed logs above for check results (rebase requests, auto-closing, and branch cleanup)." >> $GITHUB_STEP_SUMMARY
+          echo "📋 **What was checked:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Rebase requests (PRs with checked rebase checkbox)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Satisfied dependencies (PRs where versions are already installed)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Obsolete PRs (references to removed dependency files)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Stale branches cleanup (orphaned branches older than 7 days)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📋 View detailed logs above for check results." >> $GITHUB_STEP_SUMMARY
 
   # Dependency update job
   dependency-update:
