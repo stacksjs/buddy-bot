@@ -46,7 +46,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: stacksjs/action-releaser@v1.2.0
+        uses: stacksjs/action-releaser@v1.2.1
         with:
           files: |
             ./bin/buddy-bot-linux-x64.zip
