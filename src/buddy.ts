@@ -251,13 +251,18 @@ export class Buddy {
               else {
                 this.logger.info(`📝 Regenerated ${packageJsonUpdates.length} file changes for existing PR ${existingPR.number}`)
 
-                // Compare against current branch content to avoid no-op commits
+                // Always call commitChanges to ensure main is merged into PR branch
+                // This keeps the PR branch up-to-date even when file content is identical
                 try {
                   const { hasBranchDifferences } = await import('./utils/git')
                   const changed = await hasBranchDifferences(packageJsonUpdates, existingBranchName)
 
                   if (!changed) {
-                    this.logger.info(`ℹ️ No content differences for ${existingBranchName}; skipping commit`)
+                    this.logger.info(`ℹ️ No content differences for ${existingBranchName}; will merge main to keep branch up-to-date`)
+                    // Still call commitChanges with empty file list to trigger merge of main into PR branch
+                    // This prevents PR branches from falling behind and getting CONFLICTING status
+                    await gitProvider.commitChanges(existingBranchName, `chore: merge main to keep branch up-to-date`, [])
+                    this.logger.success(`✅ Merged main into ${existingBranchName} to keep it up-to-date`)
                   }
                   else {
                     // Commit the updated changes to the existing branch
