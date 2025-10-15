@@ -1013,7 +1013,7 @@ cli
         await buddy.checkAndCloseSatisfiedPRs(gitProvider, !!options.dryRun)
       }
       catch (error) {
-        logger.warn('⚠️ Could not check for satisfied PRs:', error)
+        logger.error('⚠️ Could not check for satisfied PRs:', error)
       }
 
       // Step 3: Check for obsolete PRs (composer files removed, etc.)
@@ -1024,7 +1024,7 @@ cli
         await buddy.checkAndCloseObsoletePRs(gitProvider, !!options.dryRun)
       }
       catch (error) {
-        logger.warn('⚠️ Could not check for obsolete PRs:', error)
+        logger.error('⚠️ Could not check for obsolete PRs:', error)
       }
 
       // Step 4: Run branch cleanup (uses local git commands, no API calls)
