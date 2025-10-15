@@ -8,6 +8,7 @@ bunx
 changelogen
 changelogithub
 chrisbbreuer
+clapp
 codecov
 commitlint
 commitlintrc
