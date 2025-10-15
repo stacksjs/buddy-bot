@@ -1,4 +1,20 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.9...v0.9.10)
+
+### 🚀 Features
+
+- enable changelog extraction in GitHub releases ([48d2dbb](https://github.com/stacksjs/buddy-bot/commit/48d2dbb))
+
+### 🧹 Chores
+
+- release v0.9.10 ([e5272c6](https://github.com/stacksjs/buddy-bot/commit/e5272c6))
+- upgrade action-releaser to v1.2.2 ([62fae18](https://github.com/stacksjs/buddy-bot/commit/62fae18))
+- upgrade action-releaser to v1.2.1 ([9116223](https://github.com/stacksjs/buddy-bot/commit/9116223))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.8...v0.9.9)
 
 ### 🐛 Bug Fixes
