@@ -1,4 +1,28 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.8...v0.9.9)
+
+### 🐛 Bug Fixes
+
+- use local buddy-bot build in dependency-update job ([ea0e1ae](https://github.com/stacksjs/buddy-bot/commit/ea0e1ae))
+- always merge main into PR branches to prevent CONFLICTING state ([b2b8b7a](https://github.com/stacksjs/buddy-bot/commit/b2b8b7a))
+- merge main into PR branch before applying updates ([4a0f31b](https://github.com/stacksjs/buddy-bot/commit/4a0f31b))
+- run local buddy-bot build in GitHub Actions instead of npm version ([1595ace](https://github.com/stacksjs/buddy-bot/commit/1595ace))
+- ensure satisfied PR check errors are visible in GitHub Actions ([673724e](https://github.com/stacksjs/buddy-bot/commit/673724e))
+
+### 🧹 Chores
+
+- release v0.9.9 ([659bdf6](https://github.com/stacksjs/buddy-bot/commit/659bdf6))
+- wip ([c9ae223](https://github.com/stacksjs/buddy-bot/commit/c9ae223))
+- wip ([84faf6b](https://github.com/stacksjs/buddy-bot/commit/84faf6b))
+- improve checking for satisfied PRs ([6d33d88](https://github.com/stacksjs/buddy-bot/commit/6d33d88))
+- add clapp to dictionary ([9e85f31](https://github.com/stacksjs/buddy-bot/commit/9e85f31))
+- wip ([d3712a6](https://github.com/stacksjs/buddy-bot/commit/d3712a6))
+- wip ([73a8526](https://github.com/stacksjs/buddy-bot/commit/73a8526))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.7...v0.9.8)
 
 ### 🚀 Features
