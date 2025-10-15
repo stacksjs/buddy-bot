@@ -136,6 +136,35 @@ export class GitHubProvider implements GitProvider {
       }
       await this.runCommand('git', ['clean', '-fd'])
 
+      // Merge main into the PR branch to resolve conflicts before applying updates
+      // This prevents the "hundreds of deleted PRs" problem by keeping PRs up-to-date with main
+      try {
+        console.log(`🔀 Merging main into ${branchName} to resolve any conflicts...`)
+        await this.runCommand('git', ['merge', 'origin/main', '--no-edit'])
+        console.log(`✅ Successfully merged main into ${branchName}`)
+      }
+      catch {
+        // If merge fails due to conflicts, use theirs strategy to accept main's changes
+        // Then our file updates will overwrite with the correct dependency versions
+        console.warn(`⚠️ Merge conflicts detected, resolving with strategy: accept main's changes, then apply updates`)
+
+        try {
+          // Abort the failed merge first
+          await this.runCommand('git', ['merge', '--abort'])
+
+          // Retry merge with strategy to accept main's changes for conflicts
+          // This ensures the PR branch is based on latest main
+          await this.runCommand('git', ['merge', 'origin/main', '-X', 'theirs', '--no-edit'])
+          console.log(`✅ Resolved conflicts by accepting main's changes`)
+        }
+        catch (strategyError) {
+          // If that still fails, log the error but continue
+          // The file updates we apply next will create the correct state
+          console.warn(`⚠️ Could not merge main into ${branchName}:`, strategyError)
+          console.warn(`⚠️ Continuing with file updates - PR may need manual conflict resolution`)
+        }
+      }
+
       // Apply file changes
       for (const file of files) {
         const cleanPath = file.path.replace(/^\.\//, '').replace(/^\/+/, '')
