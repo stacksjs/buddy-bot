@@ -272,6 +272,9 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build local buddy-bot
+        run: bun run build
+
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
@@ -303,15 +306,15 @@ jobs:
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              bunx buddy-bot update --packages "$PACKAGES" --verbose
+              bun run dist/bin/cli.js update --packages "$PACKAGES" --verbose
             else
-              bunx buddy-bot update --packages "$PACKAGES"
+              bun run dist/bin/cli.js update --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              bunx buddy-bot update --strategy "$STRATEGY" --verbose
+              bun run dist/bin/cli.js update --strategy "$STRATEGY" --verbose
             else
-              bunx buddy-bot update --strategy "$STRATEGY"
+              bun run dist/bin/cli.js update --strategy "$STRATEGY"
             fi
           fi
 
