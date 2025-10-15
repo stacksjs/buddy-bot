@@ -168,6 +168,9 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build local buddy-bot
+        run: bun run build
+
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
@@ -206,10 +209,10 @@ jobs:
 
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "📋 Running in DRY RUN mode..."
-            bunx buddy-bot update-check --dry-run --verbose
+            bun run dist/bin/cli.js update-check --dry-run --verbose
           else
             echo "🔄 Running in LIVE mode..."
-            bunx buddy-bot update-check --verbose
+            bun run dist/bin/cli.js update-check --verbose
           fi
 
       - name: Create check summary
