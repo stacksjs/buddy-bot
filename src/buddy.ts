@@ -1708,12 +1708,14 @@ export class Buddy {
               try {
                 // Determine the reason for closing
                 const packagesNoLongerDirect = prUpdates.filter(u => !currentUpdatesMap.has(u.name))
-                const packagesAlreadyUpdated = prUpdates.filter(u => {
+                const packagesAlreadyUpdated = prUpdates.filter((u) => {
                   const current = currentUpdatesMap.get(u.name)
-                  if (!current) return false
+                  if (!current)
+                    return false
                   try {
                     return !this.isNewerVersion(current.currentVersion, u.newVersion)
-                  } catch {
+                  }
+                  catch {
                     return false
                   }
                 })
@@ -1722,7 +1724,7 @@ export class Buddy {
 
                 if (packagesNoLongerDirect.length > 0) {
                   closeComment += `This PR was automatically closed because the following packages are no longer direct dependencies (possibly moved to peer dependencies, transitive dependencies, or removed):\n\n`
-                  packagesNoLongerDirect.forEach(u => {
+                  packagesNoLongerDirect.forEach((u) => {
                     closeComment += `- **${u.name}**: ${u.currentVersion} → ${u.newVersion}\n`
                   })
                   closeComment += `\n`
@@ -1730,7 +1732,7 @@ export class Buddy {
 
                 if (packagesAlreadyUpdated.length > 0) {
                   closeComment += `The following packages are already at the target version or newer:\n\n`
-                  packagesAlreadyUpdated.forEach(u => {
+                  packagesAlreadyUpdated.forEach((u) => {
                     closeComment += `- **${u.name}**: ${u.currentVersion} → ${u.newVersion}\n`
                   })
                   closeComment += `\n`
