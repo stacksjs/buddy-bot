@@ -46,7 +46,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: stacksjs/action-releaser@v1.1.0
+        uses: stacksjs/action-releaser@v1.2.2
         with:
           files: |
             ./bin/buddy-bot-linux-x64.zip
@@ -54,6 +54,7 @@ jobs:
             ./bin/buddy-bot-windows-x64.zip
             ./bin/buddy-bot-darwin-x64.zip
             ./bin/buddy-bot-darwin-arm64.zip
+          changelog: CHANGELOG.md
           # --- Homebrew tap update support ---
           # Path to your Homebrew formula template (update this path as needed)
           # homebrewFormula: .github/homebrew-formula.rb
