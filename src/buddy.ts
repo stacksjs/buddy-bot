@@ -1481,6 +1481,31 @@ export class Buddy {
   }
 
   /**
+   * Extract package updates with versions from PR body
+   */
+  private extractPackageUpdatesFromPRBody(body: string): Array<{ name: string, currentVersion: string, newVersion: string }> {
+    const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
+
+    // Match table rows with package updates - handles both npm and Composer formats
+    // npm format: | [package] | [`version` -> `version`] |
+    // Composer format: | [package](link) | `version` -> `version` | file | status |
+    const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[?`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]?/g
+
+    let match
+
+    while ((match = tableRowRegex.exec(body)) !== null) {
+      const [, packageName, currentVersion, newVersion] = match
+      updates.push({
+        name: packageName,
+        currentVersion,
+        newVersion,
+      })
+    }
+
+    return updates
+  }
+
+  /**
    * Get configuration summary
    */
   getConfig(): BuddyBotConfig {
@@ -1585,6 +1610,142 @@ export class Buddy {
     }
     catch (error) {
       this.logger.error('Failed to check for obsolete PRs:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Check for and auto-close PRs where dependencies are already at target version
+   * This handles cases like PR #125 where the update has already been applied
+   */
+  async checkAndCloseSatisfiedPRs(gitProvider: GitHubProvider, dryRun: boolean = false): Promise<void> {
+    try {
+      this.logger.info('🔍 Checking for PRs where dependencies are already at target version...')
+
+      // Get all open PRs
+      const openPRs = await gitProvider.getPullRequests('open')
+
+      // Filter to buddy-bot PRs and dependency-related PRs
+      const dependencyPRs = openPRs.filter(pr =>
+        pr.head.startsWith('buddy-bot/') || pr.author === 'github-actions[bot]'
+        || pr.labels.includes('dependencies')
+        || pr.labels.includes('dependency'),
+      )
+
+      this.logger.info(`Found ${dependencyPRs.length} dependency PRs to validate`)
+
+      let closedCount = 0
+
+      // Scan current project state once
+      const currentScanResult = await this.scanForUpdates()
+      const currentUpdatesMap = new Map<string, PackageUpdate>()
+      for (const update of currentScanResult.updates) {
+        currentUpdatesMap.set(update.name, update)
+      }
+
+      for (const pr of dependencyPRs) {
+        try {
+          // Extract package updates from PR body
+          const prUpdates = this.extractPackageUpdatesFromPRBody(pr.body)
+
+          if (prUpdates.length === 0) {
+            this.logger.debug(`PR #${pr.number}: Could not extract package updates, skipping`)
+            continue
+          }
+
+          // Check if all packages in the PR are already at target version or newer
+          const satisfied = prUpdates.every((prUpdate) => {
+            const currentUpdate = currentUpdatesMap.get(prUpdate.name)
+
+            // If package not in current scan, it means it's either:
+            // 1. Already at the target version or newer
+            // 2. No longer a dependency
+            if (!currentUpdate) {
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} not in current scan (likely satisfied)`)
+              return true
+            }
+
+            // If the PR's target version matches or is older than what we currently need,
+            // the PR is not satisfied
+            if (currentUpdate.newVersion === prUpdate.newVersion) {
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} still needs update to ${prUpdate.newVersion}`)
+              return false
+            }
+
+            // Check if current project version is already at or beyond PR target
+            try {
+              const prTargetNewer = this.isNewerVersion(currentUpdate.currentVersion, prUpdate.newVersion)
+              if (!prTargetNewer) {
+                this.logger.debug(`PR #${pr.number}: ${prUpdate.name} already at or beyond ${prUpdate.newVersion}`)
+                return true
+              }
+            }
+            catch {
+              // If we can't compare versions, be conservative and don't close
+              return false
+            }
+
+            return false
+          })
+
+          if (satisfied) {
+            this.logger.info(`✅ PR #${pr.number} is satisfied (dependencies at target version): ${pr.title}`)
+
+            if (dryRun) {
+              this.logger.info(`🔍 [DRY RUN] Would close PR #${pr.number}`)
+              closedCount++
+            }
+            else {
+              try {
+                // Close the PR with a helpful comment
+                const packageList = prUpdates.map(u => `- ${u.name}: ${u.currentVersion} → ${u.newVersion}`).join('\n')
+                const closeComment = `🤖 **Auto-closing satisfied PR**\n\nThis PR was automatically closed because all dependencies are already at the target version or newer.\n\n**Updates in this PR:**\n${packageList}\n\nIf this was closed in error, please reopen and add a comment explaining why.`
+
+                try {
+                  await gitProvider.createComment(pr.number, closeComment)
+                }
+                catch (commentError) {
+                  this.logger.warn(`⚠️ Could not add comment to PR #${pr.number}:`, commentError)
+                }
+
+                await gitProvider.closePullRequest(pr.number)
+
+                // Try to delete the branch if it's a buddy-bot branch
+                if (pr.head.startsWith('buddy-bot/')) {
+                  try {
+                    await gitProvider.deleteBranch(pr.head)
+                    this.logger.success(`✅ Closed PR #${pr.number} and deleted branch ${pr.head}`)
+                  }
+                  catch (branchError) {
+                    this.logger.warn(`⚠️ Closed PR #${pr.number} but failed to delete branch: ${branchError}`)
+                  }
+                }
+                else {
+                  this.logger.success(`✅ Closed PR #${pr.number}`)
+                }
+
+                closedCount++
+              }
+              catch (closeError) {
+                this.logger.error(`❌ Failed to close PR #${pr.number}:`, closeError)
+              }
+            }
+          }
+        }
+        catch (error) {
+          this.logger.warn(`⚠️ Error validating PR #${pr.number}:`, error)
+        }
+      }
+
+      if (closedCount > 0) {
+        this.logger.success(`✅ ${dryRun ? 'Would close' : 'Closed'} ${closedCount} satisfied PR(s)`)
+      }
+      else {
+        this.logger.info('📋 No satisfied PRs found')
+      }
+    }
+    catch (error) {
+      this.logger.error('Failed to check for satisfied PRs:', error)
       throw error
     }
   }

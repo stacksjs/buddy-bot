@@ -1005,7 +1005,18 @@ cli
         logger.warn('⚠️ Could not check for rebase requests:', error)
       }
 
-      // Step 2: Check for obsolete PRs (composer files removed, etc.)
+      // Step 2: Check for satisfied PRs (dependencies already at target version)
+      logger.info('\n✅ Checking for PRs with satisfied dependencies...')
+      try {
+        const { Buddy } = await import('../src/buddy')
+        const buddy = new Buddy(config)
+        await buddy.checkAndCloseSatisfiedPRs(gitProvider, !!options.dryRun)
+      }
+      catch (error) {
+        logger.warn('⚠️ Could not check for satisfied PRs:', error)
+      }
+
+      // Step 3: Check for obsolete PRs (composer files removed, etc.)
       logger.info('\n🔍 Checking for obsolete PRs due to removed dependency files...')
       try {
         const { Buddy } = await import('../src/buddy')
@@ -1016,7 +1027,7 @@ cli
         logger.warn('⚠️ Could not check for obsolete PRs:', error)
       }
 
-      // Step 3: Run branch cleanup (uses local git commands, no API calls)
+      // Step 4: Run branch cleanup (uses local git commands, no API calls)
       logger.info('\n🧹 Running branch cleanup...')
       const result = await gitProvider.cleanupStaleBranches(2, !!options.dryRun)
 
