@@ -84,6 +84,10 @@ export class PullRequestGenerator {
       u.file.endsWith('composer.json') || u.file.endsWith('composer.lock'),
     ).length
 
+    const zigCount = group.updates.filter(u =>
+      u.file.endsWith('build.zig.zon'),
+    ).length
+
     const systemCount = group.updates.filter(u =>
       (u.file.includes('.yaml') || u.file.includes('.yml')) && !u.file.includes('.github/workflows/'),
     ).length
@@ -97,6 +101,8 @@ export class PullRequestGenerator {
       labels.push('npm')
     if (composerCount > 0)
       labels.push('composer')
+    if (zigCount > 0)
+      labels.push('zig')
     if (systemCount > 0)
       labels.push('system')
     if (actionsCount > 0)
@@ -171,6 +177,9 @@ export class PullRequestGenerator {
     const composerCount = group.updates.filter(u =>
       u.file.endsWith('composer.json') || u.file.endsWith('composer.lock'),
     ).length
+    const zigCount = group.updates.filter(u =>
+      u.file.endsWith('build.zig.zon'),
+    ).length
 
     this.log('📊 Package type counts', {
       packageJsonCount,
@@ -210,6 +219,8 @@ export class PullRequestGenerator {
         body += `| 🚀 GitHub Actions | ${githubActionsCount} |\n`
       if (composerCount > 0)
         body += `| 🐘 Composer Packages | ${composerCount} |\n`
+      if (zigCount > 0)
+        body += `| ⚡ Zig Packages | ${zigCount} |\n`
       body += `| **Total** | **${group.updates.length}** |\n\n`
     }
 
@@ -219,6 +230,9 @@ export class PullRequestGenerator {
     )
     const composerUpdates = group.updates.filter(update =>
       update.file.endsWith('composer.json') || update.file.endsWith('composer.lock'),
+    )
+    const zigUpdates = group.updates.filter(update =>
+      update.file.endsWith('build.zig.zon'),
     )
     const dependencyFileUpdates = group.updates.filter(update =>
       update.file.includes('.yaml') || update.file.includes('.yml'),
@@ -420,6 +434,59 @@ export class PullRequestGenerator {
         const updateType = update.updateType || 'minor'
 
         body += `| ${packageCell} | ${change} | ${badges.age} | ${badges.adoption} | ${badges.passing} | ${badges.confidence} | ${dependencyType} | ${updateType} |\n`
+      }
+
+      body += `\n`
+    }
+
+    // Zig dependencies table
+    if (zigUpdates.length > 0) {
+      // Only show section header for multi-package updates or when there are multiple package types
+      if (isMultiPackageUpdate || zigCount < group.updates.length) {
+        body += `## ⚡ Zig Dependencies\n\n`
+      }
+
+      body += `![zig](https://img.shields.io/badge/Zig-F7A41D?style=flat&logo=zig&logoColor=white)\n\n`
+
+      // Only show count text for multi-package updates
+      if (zigUpdates.length > 1) {
+        body += `*${zigUpdates.length} packages will be updated*\n\n`
+      }
+
+      body += `| Package | Change | Type | File |\n`
+      body += `|---|---|---|---|\n`
+
+      for (const update of zigUpdates) {
+        // Generate package link from metadata if available
+        let packageCell: string
+        const metadata = (update as any).metadata
+        if (metadata?.url) {
+          // Extract repository URL from tarball URL
+          const repoMatch = metadata.url.match(/https?:\/\/github\.com\/([^\/]+\/[^\/]+)/)
+          if (repoMatch) {
+            const repoUrl = `https://github.com/${repoMatch[1]}`
+            packageCell = `[${update.name}](${repoUrl})`
+          }
+          else {
+            packageCell = update.name
+          }
+        }
+        else {
+          packageCell = update.name
+        }
+
+        // Enhanced version change display
+        const updateType = getUpdateType(update.currentVersion, update.newVersion)
+        const typeEmoji = updateType === 'major' ? '🔴' : updateType === 'minor' ? '🟡' : '🟢'
+        const change = this.formatVersionChange(update.currentVersion, update.newVersion)
+
+        // File reference
+        const fileName = update.file.split('/').pop() || update.file
+        const fileCell = this.config?.repository?.owner && this.config?.repository?.name
+          ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
+          : `\`${fileName}\``
+
+        body += `| ${packageCell} | ${change} | ${typeEmoji} ${updateType} | ${fileCell} |\n`
       }
 
       body += `\n`
