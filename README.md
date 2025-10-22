@@ -8,9 +8,9 @@
 
 # 🐶 Buddy Bot
 
-> The fastest, most intelligent dependency management bot for modern JavaScript and TypeScript projects _(and PHP)_.
+> The fastest, most intelligent dependency management bot for modern JavaScript and TypeScript projects _(and PHP, Zig)_.
 
-Buddy Bot is a lightning-fast alternative to Dependabot and Renovate, purpose-built for modern JavaScript, TypeScript, and PHP ecosystems. It intelligently scans your projects, detects outdated & deprecated dependencies across multiple package managers, and creates beautifully formatted pull requests with comprehensive changelogs and metadata.
+Buddy Bot is a lightning-fast alternative to Dependabot and Renovate, purpose-built for modern JavaScript, TypeScript, PHP, and Zig ecosystems. It intelligently scans your projects, detects outdated & deprecated dependencies across multiple package managers, and creates beautifully formatted pull requests with comprehensive changelogs and metadata.
 
 ![Buddy Bot Pull Request Example](.github/art/screenshot.png)
 
@@ -24,9 +24,10 @@ Buddy Bot is a lightning-fast alternative to Dependabot and Renovate, purpose-bu
 
 ### 📦 **Universal Package Support**
 
-- **Multi-Package Manager**: _Full support for Bun, npm, yarn, pnpm, Composer, pkgx & Launchpad_
+- **Multi-Package Manager**: _Full support for Bun, npm, yarn, pnpm, Composer, Zig, pkgx & Launchpad_
 - **GitHub Actions**: _Automatically updates workflow dependencies (`actions/checkout@v4`, etc.)_
 - **Docker Images**: _Detects and updates Dockerfile base images and versions_
+- **Zig Dependencies**: _Manages build.zig.zon dependencies with URL and hash tracking_
 - **Lock File Awareness**: _Respects and updates all lock file formats_
 
 ### 🎯 **Smart Dependency Management**
@@ -45,7 +46,7 @@ Buddy Bot is a lightning-fast alternative to Dependabot and Renovate, purpose-bu
 
 ### 🎨 **Beautiful Pull Requests**
 
-- **Multi-Format Tables**: _Separate sections for npm, PHP/Composer, pkgx/Launchpad, and GitHub Actions_
+- **Multi-Format Tables**: _Separate sections for npm, PHP/Composer, Zig, pkgx/Launchpad, and GitHub Actions_
 - **Rich Metadata**: _Confidence badges, adoption metrics, age indicators, and download stats_
 - **Detailed Changelogs**: _Automatic release notes and breaking change detection_
 - **Professional Formatting**: _Clean, readable PR descriptions with proper categorization_
@@ -561,6 +562,7 @@ For the rebase functionality to update GitHub Actions workflow files, you need p
 - ✅ **package.json** - npm/yarn/pnpm dependencies
 - ✅ **Lock files** - package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb
 - ✅ **Dependency files** - deps.yaml, dependencies.yaml, pkgx.yaml
+- ✅ **Zig manifests** - build.zig.zon with URL and hash updates
 - ✅ **GitHub Actions** - workflow files (with proper permissions)
 - ✅ **PR content** - Updated title, body, and metadata
 
@@ -643,6 +645,7 @@ Buddy automatically detects and updates the following dependency file formats:
 - **package.json** - Traditional npm dependencies
 - **composer.json** - PHP dependencies from Packagist
 - **composer.lock** - PHP lock file with exact versions
+- **build.zig.zon** - Zig package manager dependencies with URL and hash tracking
 - **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
 - **dependencies.yaml** / **dependencies.yml** - Alternative dependency file format
 - **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
@@ -657,7 +660,7 @@ All dependency files are parsed using the `ts-pkgx` library to ensure compatibil
 
 ### Pull Request Format
 
-Buddy generates comprehensive pull requests with **three separate dependency tables**:
+Buddy generates comprehensive pull requests with **separate dependency tables** for each ecosystem:
 
 #### 1. npm Dependencies
 
@@ -680,7 +683,17 @@ Focused table for PHP packages from Packagist:
 | phpunit/phpunit | ^10.0.0 → ^10.3.0 | composer.json | ✅ Available |
 ```
 
-#### 3. Launchpad/pkgx Dependencies
+#### 3. Zig Dependencies
+
+Focused table for Zig packages with repository links and update types:
+
+```
+| Package | Change | Type | File |
+|---------|--------|------|------|
+| httpz | 0.5.0 → 0.6.0 | 🟡 minor | build.zig.zon |
+```
+
+#### 4. Launchpad/pkgx Dependencies
 
 Simplified table focusing on package updates and file locations:
 
@@ -690,7 +703,7 @@ Simplified table focusing on package updates and file locations:
 | bun.com | ^1.2.16 → ^1.2.19 | deps.yaml | ✅ Available |
 ```
 
-#### 4. GitHub Actions
+#### 5. GitHub Actions
 
 Workflow automation updates with direct links to repositories:
 

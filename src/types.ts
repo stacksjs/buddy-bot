@@ -156,7 +156,7 @@ export interface PackageFile {
   /** File path relative to repository root */
   path: string
   /** Type of package file */
-  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml' | 'composer.json' | 'composer.lock' | 'github-actions' | 'Dockerfile'
+  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml' | 'composer.json' | 'composer.lock' | 'github-actions' | 'Dockerfile' | 'build.zig.zon'
   /** Raw file content */
   content: string
   /** Parsed dependencies */
@@ -169,11 +169,13 @@ export interface Dependency {
   /** Current version or range */
   currentVersion: string
   /** Dependency type */
-  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image'
+  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies'
   /** File where dependency is defined */
   file: string
   /** Line number in file */
   line?: number
+  /** Additional metadata (e.g., URL, hash for Zig dependencies) */
+  metadata?: Record<string, string>
 }
 
 export interface PackageUpdate {
@@ -186,7 +188,7 @@ export interface PackageUpdate {
   /** Update type */
   updateType: 'major' | 'minor' | 'patch'
   /** Dependency type */
-  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image'
+  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies'
   /** Source file */
   file: string
   /** Package metadata from registry */

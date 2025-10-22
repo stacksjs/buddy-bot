@@ -10,6 +10,7 @@ import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
+import { isZigManifest, parseZigManifest } from '../utils/zig-parser'
 
 export class PackageScanner {
   private ignoreGlobs: Glob[] = []
@@ -107,6 +108,20 @@ export class PackageScanner {
         if (packageFile) {
           packageFiles.push(packageFile)
           this.logger.info(`📦 Parsed Dockerfile: ${filePath} with ${packageFile.dependencies.length} dependencies`)
+        }
+      }
+
+      // Look for Zig manifest files (build.zig.zon)
+      const zigManifests = await this.findZigManifests()
+      this.logger.info(`🔍 Found ${zigManifests.length} Zig manifest(s): ${zigManifests.join(', ')}`)
+      for (const filePath of zigManifests) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
+        const packageFile = await this.parseZigManifestFile(filePath)
+        if (packageFile) {
+          packageFiles.push(packageFile)
+          this.logger.info(`📦 Parsed Zig manifest: ${filePath} with ${packageFile.dependencies.length} dependencies`)
         }
       }
 
@@ -332,6 +347,40 @@ export class PackageScanner {
     }
     catch (_error) {
       this.logger.warn(`Failed to parse Dockerfile ${filePath}:`, _error)
+      return null
+    }
+  }
+
+  /**
+   * Find Zig manifest files (build.zig.zon) in the project
+   */
+  private async findZigManifests(): Promise<string[]> {
+    const zigManifests: string[] = []
+
+    try {
+      // Look for build.zig.zon files
+      const manifestFiles = await this.findFiles('build.zig.zon')
+      zigManifests.push(...manifestFiles)
+    }
+    catch {
+      // Ignore if no Zig manifests exist
+    }
+
+    return zigManifests
+  }
+
+  /**
+   * Parse a Zig manifest file (build.zig.zon)
+   */
+  async parseZigManifestFile(filePath: string): Promise<PackageFile | null> {
+    try {
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
+      const result = await parseZigManifest(filePath, content)
+      return result
+    }
+    catch (_error) {
+      this.logger.warn(`Failed to parse Zig manifest ${filePath}:`, _error)
       return null
     }
   }
