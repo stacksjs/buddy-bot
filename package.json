@@ -59,7 +59,7 @@
   },
   "dependencies": {
     "prompts": "^2.4.2",
-    "ts-pkgx": "^0.4.103"
+    "ts-pkgx": "^0.4.104"
   },
   "devDependencies": {
     "@stacksjs/clapp": "^0.2.0",
