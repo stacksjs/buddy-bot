@@ -23,16 +23,16 @@ export async function parseZigManifest(filePath: string, content: string): Promi
 
     // Parse dependencies from the .dependencies block
     // Format: .dependencies = .{ .package_name = .{ .url = "...", .hash = "..." }, }
-    const dependenciesMatch = content.match(/\.dependencies\s*=\s*\.?\{([^}]*)\}/s)
+    const dependenciesMatch = content.match(/\.dependencies\s*=\s*\.?\{([^}]*)\}/)
 
     if (dependenciesMatch) {
       const dependenciesBlock = dependenciesMatch[1]
 
       // Match each dependency entry: .package_name = .{ .url = "...", ... }
       const depRegex = /\.(\w+)\s*=\s*\.?\{([^}]*)\}/g
-      let match
+      let match = depRegex.exec(dependenciesBlock)
 
-      while ((match = depRegex.exec(dependenciesBlock)) !== null) {
+      while (match !== null) {
         const packageName = match[1]
         const depContent = match[2]
 
@@ -46,17 +46,21 @@ export async function parseZigManifest(filePath: string, content: string): Promi
           const versionMatch = url.match(/\/v?(\d+\.\d+\.\d+(?:-[\w.]+)?)/i)
           const version = versionMatch ? versionMatch[1] : 'unknown'
 
+          const metadata: Record<string, string> = { url }
+          if (hashMatch) {
+            metadata.hash = hashMatch[1]
+          }
+
           dependencies.push({
             name: packageName,
             currentVersion: version,
             type: 'zig-dependencies',
             file: filePath,
-            metadata: {
-              url,
-              hash: hashMatch ? hashMatch[1] : undefined,
-            },
+            metadata,
           })
         }
+
+        match = depRegex.exec(dependenciesBlock)
       }
     }
 

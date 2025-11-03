@@ -10,7 +10,7 @@ import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
-import { isZigManifest, parseZigManifest } from '../utils/zig-parser'
+import { parseZigManifest } from '../utils/zig-parser'
 
 export class PackageScanner {
   private ignoreGlobs: Glob[] = []

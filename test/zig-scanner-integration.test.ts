@@ -1,4 +1,3 @@
-import type { PackageFile } from '../src/types'
 import type { Logger } from '../src/utils/logger'
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'

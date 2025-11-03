@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  generateZigManifestUpdates,
   isZigManifest,
   parseZigManifest,
   updateZigManifest,

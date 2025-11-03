@@ -462,7 +462,7 @@ export class PullRequestGenerator {
         const metadata = (update as any).metadata
         if (metadata?.url) {
           // Extract repository URL from tarball URL
-          const repoMatch = metadata.url.match(/https?:\/\/github\.com\/([^\/]+\/[^\/]+)/)
+          const repoMatch = metadata.url.match(/https?:\/\/github\.com\/([^/]+\/[^/]+)/)
           if (repoMatch) {
             const repoUrl = `https://github.com/${repoMatch[1]}`
             packageCell = `[${update.name}](${repoUrl})`
