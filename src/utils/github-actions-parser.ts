@@ -221,21 +221,28 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
     })
 
     if (releasesResponse.ok) {
-      const releases = await releasesResponse.json() as Array<{ tag_name?: string, published_at?: string }>
-      console.log(`📋 Found ${releases.length} releases`)
+      const releases = await releasesResponse.json()
 
-      // Filter out pre-releases and sort by published date
-      const stableReleases = releases
-        .filter(release => release.tag_name && !release.tag_name.includes('-'))
-        .sort((a, b) => {
-          const dateA = a.published_at ? new Date(a.published_at).getTime() : 0
-          const dateB = b.published_at ? new Date(b.published_at).getTime() : 0
-          return dateB - dateA // Sort descending (newest first)
-        })
+      // Ensure we have an array
+      if (!Array.isArray(releases)) {
+        console.log(`⚠️ Unexpected releases response format (expected array)`)
+      }
+      else {
+        console.log(`📋 Found ${releases.length} releases`)
 
-      if (stableReleases.length > 0) {
-        console.log(`✅ Found latest stable release: ${stableReleases[0].tag_name}`)
-        return stableReleases[0].tag_name || null
+        // Filter out pre-releases and sort by published date
+        const stableReleases = releases
+          .filter((release: any) => release.tag_name && !release.tag_name.includes('-'))
+          .sort((a: any, b: any) => {
+            const dateA = a.published_at ? new Date(a.published_at).getTime() : 0
+            const dateB = b.published_at ? new Date(b.published_at).getTime() : 0
+            return dateB - dateA // Sort descending (newest first)
+          })
+
+        if (stableReleases.length > 0) {
+          console.log(`✅ Found latest stable release: ${stableReleases[0].tag_name}`)
+          return stableReleases[0].tag_name || null
+        }
       }
     }
     else {
@@ -249,35 +256,42 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
     })
 
     if (tagsResponse.ok) {
-      const tags = await tagsResponse.json() as Array<{ name?: string }>
-      console.log(`📋 Found ${tags.length} tags`)
+      const tags = await tagsResponse.json()
 
-      // Filter out pre-releases and find the latest stable tag
-      const stableTags = tags
-        .filter(tag => tag.name && !tag.name.includes('-'))
-        .map(tag => tag.name!)
-        .sort((a, b) => {
-          // Simple version comparison for tags
-          // Remove 'v' prefix if present for proper number parsing
-          const aClean = a.replace(/^v/, '')
-          const bClean = b.replace(/^v/, '')
+      // Ensure we have an array
+      if (!Array.isArray(tags)) {
+        console.log(`⚠️ Unexpected tags response format (expected array)`)
+      }
+      else {
+        console.log(`📋 Found ${tags.length} tags`)
 
-          const aParts = aClean.split('.').map(Number)
-          const bParts = bClean.split('.').map(Number)
+        // Filter out pre-releases and find the latest stable tag
+        const stableTags = tags
+          .filter((tag: any) => tag.name && !tag.name.includes('-'))
+          .map((tag: any) => tag.name!)
+          .sort((a: string, b: string) => {
+            // Simple version comparison for tags
+            // Remove 'v' prefix if present for proper number parsing
+            const aClean = a.replace(/^v/, '')
+            const bClean = b.replace(/^v/, '')
 
-          for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-            const aPart = aParts[i] || 0
-            const bPart = bParts[i] || 0
-            if (aPart !== bPart) {
-              return bPart - aPart // Sort descending
+            const aParts = aClean.split('.').map(Number)
+            const bParts = bClean.split('.').map(Number)
+
+            for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+              const aPart = aParts[i] || 0
+              const bPart = bParts[i] || 0
+              if (aPart !== bPart) {
+                return bPart - aPart // Sort descending
             }
           }
           return 0
         })
 
-      if (stableTags.length > 0) {
-        console.log(`✅ Found latest stable tag: ${stableTags[0]}`)
-        return stableTags[0]
+        if (stableTags.length > 0) {
+          console.log(`✅ Found latest stable tag: ${stableTags[0]}`)
+          return stableTags[0]
+        }
       }
     }
     else {

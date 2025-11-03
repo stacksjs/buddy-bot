@@ -23,18 +23,52 @@ export async function parseZigManifest(filePath: string, content: string): Promi
 
     // Parse dependencies from the .dependencies block
     // Format: .dependencies = .{ .package_name = .{ .url = "...", .hash = "..." }, }
-    const dependenciesMatch = content.match(/\.dependencies\s*=\s*\.?\{([^}]*)\}/)
+    // We need to handle nested braces, so we'll use a more sophisticated approach
+    const dependenciesStartMatch = content.match(/\.dependencies\s*=\s*\.?\{/)
 
-    if (dependenciesMatch) {
-      const dependenciesBlock = dependenciesMatch[1]
+    if (dependenciesStartMatch) {
+      const startIndex = dependenciesStartMatch.index! + dependenciesStartMatch[0].length
 
-      // Match each dependency entry: .package_name = .{ .url = "...", ... }
-      const depRegex = /\.(\w+)\s*=\s*\.?\{([^}]*)\}/g
-      let match = depRegex.exec(dependenciesBlock)
+      // Find the matching closing brace by counting brace depth
+      let braceDepth = 1
+      let endIndex = startIndex
 
-      while (match !== null) {
+      while (endIndex < content.length && braceDepth > 0) {
+        if (content[endIndex] === '{') {
+          braceDepth++
+        }
+        else if (content[endIndex] === '}') {
+          braceDepth--
+        }
+        endIndex++
+      }
+
+      const dependenciesBlock = content.slice(startIndex, endIndex - 1)
+
+      // Match each dependency entry: .package_name = .{ ... }
+      // We'll find each one individually by looking for the pattern and extracting the content
+      const depPattern = /\.(\w+)\s*=\s*\.?\{/g
+      let match
+
+      while ((match = depPattern.exec(dependenciesBlock)) !== null) {
         const packageName = match[1]
-        const depContent = match[2]
+        const depStartIndex = match.index + match[0].length
+
+        // Find the closing brace for this dependency
+        let depBraceDepth = 1
+        let depEndIndex = depStartIndex
+
+        while (depEndIndex < dependenciesBlock.length && depBraceDepth > 0) {
+          if (dependenciesBlock[depEndIndex] === '{') {
+            depBraceDepth++
+          }
+          else if (dependenciesBlock[depEndIndex] === '}') {
+            depBraceDepth--
+          }
+          depEndIndex++
+        }
+
+        const depContent = dependenciesBlock.slice(depStartIndex, depEndIndex - 1)
 
         // Extract URL to get version information
         const urlMatch = depContent.match(/\.url\s*=\s*"([^"]+)"/)
@@ -59,8 +93,6 @@ export async function parseZigManifest(filePath: string, content: string): Promi
             metadata,
           })
         }
-
-        match = depRegex.exec(dependenciesBlock)
       }
     }
 
