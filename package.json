@@ -59,14 +59,14 @@
   },
   "dependencies": {
     "prompts": "^2.4.2",
-    "ts-pkgx": "^0.4.96"
+    "ts-pkgx": "^0.4.116"
   },
   "devDependencies": {
     "@stacksjs/clapp": "^0.2.0",
     "@stacksjs/docs": "^0.70.23",
     "@stacksjs/eslint-config": "^4.14.0-beta.3",
     "@types/prompts": "^2.4.9",
-    "better-dx": "^0.1.4"
+    "better-dx": "^0.2.0"
   },
   "overrides": {
     "unconfig": "0.3.10"
