@@ -283,10 +283,10 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
               const bPart = bParts[i] || 0
               if (aPart !== bPart) {
                 return bPart - aPart // Sort descending
+              }
             }
-          }
-          return 0
-        })
+            return 0
+          })
 
         if (stableTags.length > 0) {
           console.log(`✅ Found latest stable tag: ${stableTags[0]}`)

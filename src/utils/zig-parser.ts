@@ -48,9 +48,9 @@ export async function parseZigManifest(filePath: string, content: string): Promi
       // Match each dependency entry: .package_name = .{ ... }
       // We'll find each one individually by looking for the pattern and extracting the content
       const depPattern = /\.(\w+)\s*=\s*\.?\{/g
-      let match
+      let match = depPattern.exec(dependenciesBlock)
 
-      while ((match = depPattern.exec(dependenciesBlock)) !== null) {
+      while (match !== null) {
         const packageName = match[1]
         const depStartIndex = match.index + match[0].length
 
@@ -93,6 +93,8 @@ export async function parseZigManifest(filePath: string, content: string): Promi
             metadata,
           })
         }
+
+        match = depPattern.exec(dependenciesBlock)
       }
     }
 
