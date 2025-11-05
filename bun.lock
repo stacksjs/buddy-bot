@@ -5,7 +5,7 @@
       "name": "buddy-bot",
       "dependencies": {
         "prompts": "^2.4.2",
-        "ts-pkgx": "^0.4.117",
+        "ts-pkgx": "^0.4.119",
       },
       "devDependencies": {
         "@stacksjs/clapp": "^0.2.0",
@@ -1778,7 +1778,7 @@
 
     "ts-error-handling": ["ts-error-handling@0.1.0", "", {}, "sha512-v0t9+8PBJkyQoOG2SY/PGKJLPrahsRA/4ZbU/C7+RWVviXtUrXRyGKkHa+2+UwgVFJVdI//D9PINuSfciqNKOQ=="],
 
-    "ts-pkgx": ["ts-pkgx@0.4.117", "", { "dependencies": { "bun-plugin-dtsx": "^0.21.17", "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-dlnU14Zwicpq1qsTGDwH978XUbYAaERM49TJbMqDV/rKau1wxc3EU0WwjjkoA3oyY110U5Dn4qnwDe5cHkkcfg=="],
+    "ts-pkgx": ["ts-pkgx@0.4.119", "", { "dependencies": { "bun-plugin-dtsx": "^0.21.17", "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-QEzV7M115wflk2lZ2Y1+MufUkBBuPqBgNb0ltLnC0y3yccSvkJ1dM8w+9BD9pW2rJ+V9IYlrPt5YbAE/D8ZAZQ=="],
 
     "ts-web-scraper": ["ts-web-scraper@0.1.1", "", { "bin": { "scraper": "dist/bin/cli.js" } }, "sha512-js+gSRe95yDD9U3+GmjvIKBYLAN9WoZKV84x7HcSI7dqdWEIoZSeSGR/Jbr8f5hCeV9FD70KdTPIS2LQwviQXQ=="],
 
