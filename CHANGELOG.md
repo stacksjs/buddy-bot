@@ -1,4 +1,34 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.10...v0.9.11)
+
+### 🚀 Features
+
+- add Zig support ([7eccc85](https://github.com/stacksjs/buddy-bot/commit/7eccc85))
+
+### 🧹 Chores
+
+- release v0.9.11 ([c2d8df6](https://github.com/stacksjs/buddy-bot/commit/c2d8df6))
+- **deps**: update stacksjs/action-releaser action to v1.2.7 (#391) ([5863dcb](https://github.com/stacksjs/buddy-bot/commit/5863dcb)) ([#391](https://github.com/stacksjs/buddy-bot/issues/391), [#391](https://github.com/stacksjs/buddy-bot/issues/391))
+- **deps**: update all non-major dependencies (#390) ([24a850a](https://github.com/stacksjs/buddy-bot/commit/24a850a)) ([#390](https://github.com/stacksjs/buddy-bot/issues/390), [#390](https://github.com/stacksjs/buddy-bot/issues/390))
+- wip ([525f770](https://github.com/stacksjs/buddy-bot/commit/525f770))
+- **deps**: update dependency ts-pkgx to ^0.4.119 (#389) ([b6dc636](https://github.com/stacksjs/buddy-bot/commit/b6dc636)) ([#389](https://github.com/stacksjs/buddy-bot/issues/389), [#389](https://github.com/stacksjs/buddy-bot/issues/389))
+- wip ([5b97809](https://github.com/stacksjs/buddy-bot/commit/5b97809))
+- wip ([9d28fec](https://github.com/stacksjs/buddy-bot/commit/9d28fec))
+- **deps**: update actions/checkout action to v5 (#119) ([7927301](https://github.com/stacksjs/buddy-bot/commit/7927301)) ([#119](https://github.com/stacksjs/buddy-bot/issues/119), [#119](https://github.com/stacksjs/buddy-bot/issues/119))
+- add cursor rules and improve og-image ([84b01ca](https://github.com/stacksjs/buddy-bot/commit/84b01ca))
+- upgrade action-releaser to v1.2.4 ([269e360](https://github.com/stacksjs/buddy-bot/commit/269e360))
+
+### 📄 Miscellaneous
+
+- Merge pull request #383 from stacksjs/renovate/all-minor-patch ([190780a](https://github.com/stacksjs/buddy-bot/commit/190780a)) ([#383](https://github.com/stacksjs/buddy-bot/issues/383), [#383](https://github.com/stacksjs/buddy-bot/issues/383))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+- cab-mikee <mike.cabz32@gmail.com>
+- glennmichael123 <gtorregosa@gmail.com>
+- renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.9...v0.9.10)
 
 ### 🚀 Features
