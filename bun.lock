@@ -1,13 +1,12 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "buddy-bot",
       "dependencies": {
         "bunfig": "^0.15.6",
         "prompts": "^2.4.2",
-        "ts-pkgx": "^0.4.121",
+        "ts-pkgx": "^0.4.122",
       },
       "devDependencies": {
         "@stacksjs/clapp": "^0.2.0",
