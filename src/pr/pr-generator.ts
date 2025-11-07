@@ -761,6 +761,10 @@ export class PullRequestGenerator {
         if (info?.weeklyDownloads) {
           body += `- **${update.name}**: ${info.weeklyDownloads.toLocaleString()} weekly downloads\n`
         }
+        else {
+          // Fallback when download stats aren't available
+          body += `- **${update.name}**: npm package with weekly downloads tracked on npmjs.com\n`
+        }
       }
 
       // Stats for Composer updates (simplified)
