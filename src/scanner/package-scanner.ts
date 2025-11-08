@@ -518,7 +518,8 @@ export class PackageScanner {
             // eslint-disable-next-line ts/no-require-imports
             const path = require('node:path')
             const relativePath = path.relative(this.projectPath, fullPath)
-            files.push(relativePath)
+            // Normalize path separators to forward slashes for consistency
+            files.push(relativePath.split(path.sep).join('/'))
           }
         }
         catch {
@@ -568,7 +569,8 @@ export class PackageScanner {
           // eslint-disable-next-line ts/no-require-imports
           const path = require('node:path')
           const relativePath = path.relative(this.projectPath, fullPath)
-          files.push(relativePath)
+          // Normalize path separators to forward slashes for consistency
+          files.push(relativePath.split(path.sep).join('/'))
         }
         else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
           // Recursively search subdirectories
@@ -603,7 +605,8 @@ export class PackageScanner {
           // eslint-disable-next-line ts/no-require-imports
           const path = require('node:path')
           const relativePath = path.relative(this.projectPath, fullPath)
-          files.push(relativePath)
+          // Normalize path separators to forward slashes for consistency
+          files.push(relativePath.split(path.sep).join('/'))
         }
         else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
           const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)
@@ -673,7 +676,9 @@ export class PackageScanner {
   private getRelativePath(absolutePath: string): string {
     // eslint-disable-next-line ts/no-require-imports
     const path = require('node:path')
-    return path.relative(this.projectPath, absolutePath)
+    const relativePath = path.relative(this.projectPath, absolutePath)
+    // Normalize path separators to forward slashes for consistency
+    return relativePath.split(path.sep).join('/')
   }
 
   /**

@@ -85,9 +85,22 @@ describe('PackageScanner - Zig Integration', () => {
     },
 }`
 
-      writeFileSync(join(packagesDir, 'build.zig.zon'), zigContent)
+      const zigFilePath = join(packagesDir, 'build.zig.zon')
+      writeFileSync(zigFilePath, zigContent)
+
+      // Verify file was created
+      if (!existsSync(zigFilePath)) {
+        throw new Error(`Failed to create test file: ${zigFilePath}`)
+      }
 
       const result = await scanner.scanProject()
+
+      // Debug: log all found files
+      if (!result.find(f => f.path.includes('build.zig.zon'))) {
+        console.error('Debug - All scanned files:', result.map(f => f.path))
+        console.error('Debug - testDir:', testDir)
+        console.error('Debug - zigFilePath:', zigFilePath)
+      }
 
       const zigFile = result.find(f => f.path.includes('build.zig.zon'))
       expect(zigFile).toBeDefined()
@@ -173,10 +186,26 @@ describe('PackageScanner - Zig Integration', () => {
     },
 }`
 
-      writeFileSync(join(testDir, 'package.json'), packageJsonContent)
-      writeFileSync(join(testDir, 'build.zig.zon'), zigContent)
+      const packageJsonPath = join(testDir, 'package.json')
+      const zigFilePath = join(testDir, 'build.zig.zon')
+      writeFileSync(packageJsonPath, packageJsonContent)
+      writeFileSync(zigFilePath, zigContent)
+
+      // Verify files were created
+      if (!existsSync(packageJsonPath)) {
+        throw new Error(`Failed to create test file: ${packageJsonPath}`)
+      }
+      if (!existsSync(zigFilePath)) {
+        throw new Error(`Failed to create test file: ${zigFilePath}`)
+      }
 
       const result = await scanner.scanProject()
+
+      // Debug: log all found files if expected files are missing
+      if (!result.find(f => f.path === 'package.json') || !result.find(f => f.path === 'build.zig.zon')) {
+        console.error('Debug - All scanned files:', result.map(f => f.path))
+        console.error('Debug - Expected package.json and build.zig.zon')
+      }
 
       const packageJsonFile = result.find(f => f.path === 'package.json')
       const zigFile = result.find(f => f.path === 'build.zig.zon')
@@ -261,12 +290,31 @@ pub fn build(b: *std.Build) void {
     },
 }`
 
-      writeFileSync(join(package1Dir, 'build.zig.zon'), zigContent1)
-      writeFileSync(join(package2Dir, 'build.zig.zon'), zigContent2)
+      const zigFile1Path = join(package1Dir, 'build.zig.zon')
+      const zigFile2Path = join(package2Dir, 'build.zig.zon')
+      writeFileSync(zigFile1Path, zigContent1)
+      writeFileSync(zigFile2Path, zigContent2)
+
+      // Verify files were created
+      if (!existsSync(zigFile1Path)) {
+        throw new Error(`Failed to create test file: ${zigFile1Path}`)
+      }
+      if (!existsSync(zigFile2Path)) {
+        throw new Error(`Failed to create test file: ${zigFile2Path}`)
+      }
 
       const result = await scanner.scanProject()
 
+      // Debug: log all found files if expected count doesn't match
       const zigFiles = result.filter(f => f.type === 'build.zig.zon')
+      if (zigFiles.length !== 2) {
+        console.error('Debug - All scanned files:', result.map(f => ({ path: f.path, type: f.type })))
+        console.error('Debug - Zig files found:', zigFiles.length)
+        console.error('Debug - testDir:', testDir)
+        console.error('Debug - package1Dir:', package1Dir)
+        console.error('Debug - package2Dir:', package2Dir)
+      }
+
       expect(zigFiles).toHaveLength(2)
 
       const lib1File = zigFiles.find(f => f.path.includes('lib1'))

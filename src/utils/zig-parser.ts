@@ -5,7 +5,8 @@ import type { Dependency, PackageFile, PackageUpdate } from '../types'
  * Check if a file path is a Zig build manifest file
  */
 export function isZigManifest(filePath: string): boolean {
-  const fileName = filePath.split('/').pop() || ''
+  // Handle both Unix and Windows path separators
+  const fileName = filePath.split(/[/\\]/).pop() || ''
   return fileName === 'build.zig.zon'
 }
 
