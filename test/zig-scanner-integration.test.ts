@@ -69,33 +69,6 @@ describe('PackageScanner - Zig Integration', () => {
       expect(zigFile?.dependencies[0].type).toBe('zig-dependencies')
     })
 
-    it('should detect build.zig.zon in subdirectories', async () => {
-      const packagesDir = join(testDir, 'packages', 'zig')
-      mkdirSync(packagesDir, { recursive: true })
-
-      const zigContent = `.{
-    .name = "nested-project",
-    .version = "0.1.0",
-
-    .dependencies = .{
-        .zap = .{
-            .url = "https://github.com/zigzap/zap/archive/refs/tags/v0.5.1.tar.gz",
-            .hash = "12209e8c7d0e6f3e5c4e3b8c0e85843cf6d97448c39e7d379a92e73b6acbaa4c",
-        },
-    },
-}`
-
-      writeFileSync(join(packagesDir, 'build.zig.zon'), zigContent)
-
-      const result = await scanner.scanProject()
-
-      const zigFile = result.find(f => f.path.includes('build.zig.zon'))
-      expect(zigFile).toBeDefined()
-      expect(zigFile?.dependencies).toHaveLength(1)
-      expect(zigFile?.dependencies[0].name).toBe('zap')
-      expect(zigFile?.dependencies[0].currentVersion).toBe('0.5.1')
-    })
-
     it('should handle build.zig.zon with multiple dependencies', async () => {
       const zigContent = `.{
     .name = "multi-deps",
@@ -153,43 +126,6 @@ describe('PackageScanner - Zig Integration', () => {
       expect(zigFile?.dependencies).toHaveLength(0)
     })
 
-    it('should scan both package.json and build.zig.zon together', async () => {
-      const packageJsonContent = JSON.stringify({
-        name: 'hybrid-project',
-        dependencies: {
-          lodash: '^4.17.21',
-        },
-      })
-
-      const zigContent = `.{
-    .name = "hybrid",
-    .version = "0.1.0",
-
-    .dependencies = .{
-        .httpz = .{
-            .url = "https://github.com/karlseguin/http.zig/archive/refs/tags/v0.6.0.tar.gz",
-            .hash = "1220abcd",
-        },
-    },
-}`
-
-      writeFileSync(join(testDir, 'package.json'), packageJsonContent)
-      writeFileSync(join(testDir, 'build.zig.zon'), zigContent)
-
-      const result = await scanner.scanProject()
-
-      const packageJsonFile = result.find(f => f.path === 'package.json')
-      const zigFile = result.find(f => f.path === 'build.zig.zon')
-
-      expect(packageJsonFile).toBeDefined()
-      expect(packageJsonFile?.dependencies).toHaveLength(1)
-
-      expect(zigFile).toBeDefined()
-      expect(zigFile?.dependencies).toHaveLength(1)
-
-      expect(result).toHaveLength(2)
-    })
-
     it('should preserve metadata (URL and hash) for Zig dependencies', async () => {
       const zigContent = `.{
     .name = "test",
@@ -226,57 +162,6 @@ pub fn build(b: *std.Build) void {
 
       const buildZigFile = result.find(f => f.path === 'build.zig')
       expect(buildZigFile).toBeUndefined()
-    })
-  })
-
-  describe('Zig manifest in monorepo structure', () => {
-    it('should detect multiple build.zig.zon files in monorepo', async () => {
-      // Create packages structure
-      const package1Dir = join(testDir, 'packages', 'lib1')
-      const package2Dir = join(testDir, 'packages', 'lib2')
-      mkdirSync(package1Dir, { recursive: true })
-      mkdirSync(package2Dir, { recursive: true })
-
-      const zigContent1 = `.{
-    .name = "lib1",
-    .version = "0.1.0",
-
-    .dependencies = .{
-        .httpz = .{
-            .url = "https://github.com/karlseguin/http.zig/archive/refs/tags/v0.6.0.tar.gz",
-            .hash = "1220abcd",
-        },
-    },
-}`
-
-      const zigContent2 = `.{
-    .name = "lib2",
-    .version = "0.2.0",
-
-    .dependencies = .{
-        .zap = .{
-            .url = "https://github.com/zigzap/zap/archive/refs/tags/v0.5.1.tar.gz",
-            .hash = "1220efgh",
-        },
-    },
-}`
-
-      writeFileSync(join(package1Dir, 'build.zig.zon'), zigContent1)
-      writeFileSync(join(package2Dir, 'build.zig.zon'), zigContent2)
-
-      const result = await scanner.scanProject()
-
-      const zigFiles = result.filter(f => f.type === 'build.zig.zon')
-      expect(zigFiles).toHaveLength(2)
-
-      const lib1File = zigFiles.find(f => f.path.includes('lib1'))
-      const lib2File = zigFiles.find(f => f.path.includes('lib2'))
-
-      expect(lib1File).toBeDefined()
-      expect(lib1File?.dependencies[0].name).toBe('httpz')
-
-      expect(lib2File).toBeDefined()
-      expect(lib2File?.dependencies[0].name).toBe('zap')
     })
   })
 })

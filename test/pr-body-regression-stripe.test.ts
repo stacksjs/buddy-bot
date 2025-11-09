@@ -1,8 +1,12 @@
 /* eslint-disable no-console */
-import { describe, expect, it } from 'bun:test'
+import { beforeAll, describe, expect, it } from 'bun:test'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
 
 describe('PR Body Regression - Stripe Issue', () => {
+  beforeAll(() => {
+    process.env.APP_ENV = 'test'
+  })
+
   it('should reproduce the exact stripe regression from PR #1453', async () => {
     // This test reproduces the exact regression where stripe major update
     // generates only summary table without detailed package information
