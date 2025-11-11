@@ -60,7 +60,7 @@
   "dependencies": {
     "bunfig": "^0.15.6",
     "prompts": "^2.4.2",
-    "ts-pkgx": "^0.4.125"
+    "ts-pkgx": "^0.4.126"
   },
   "devDependencies": {
     "@stacksjs/clapp": "^0.2.0",
