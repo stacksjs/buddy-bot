@@ -136,7 +136,7 @@ describe('Buddy - GitHub Actions Integration', () => {
       // Mock GitHub API with URL-based responses to handle parallel fetching
       // Since actions are fetched in parallel, we need to match by URL not by call order
       fetchSpy = spyOn(globalThis, 'fetch')
-        .mockImplementation(async (url: string) => {
+        .mockImplementation((async (url: string) => {
           const urlStr = url.toString()
 
           // actions/checkout - all endpoints fail
@@ -165,7 +165,7 @@ describe('Buddy - GitHub Actions Integration', () => {
 
           // Default: not found
           return { ok: false, status: 404 } as Response
-        })
+        }) as typeof fetch)
 
       packageScannerSpy.mockResolvedValue([mockGitHubActionsFile])
       registryClientSpy.mockResolvedValue([])

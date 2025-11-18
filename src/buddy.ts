@@ -595,7 +595,8 @@ export class Buddy {
 
     // Wait for all checks to complete
     const actionResults = await Promise.all(actionPromises)
-    updates.push(...actionResults.filter((update): update is PackageUpdate => update !== null))
+    const validUpdates = actionResults.filter((update): update is NonNullable<typeof update> => update !== null)
+    updates.push(...validUpdates)
 
     this.logger.info(`Generated ${updates.length} GitHub Actions updates`)
 
@@ -694,7 +695,8 @@ export class Buddy {
 
     // Wait for all checks to complete
     const imageResults = await Promise.all(imagePromises)
-    updates.push(...imageResults.filter((update): update is PackageUpdate => update !== null))
+    const validUpdates = imageResults.filter((update): update is NonNullable<typeof update> => update !== null)
+    updates.push(...validUpdates)
 
     this.logger.info(`Generated ${updates.length} Docker image updates`)
 
