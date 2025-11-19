@@ -45,12 +45,15 @@ export class Buddy {
 
     try {
       // Scan for package files
+      const scanStartTime = Date.now()
       const packageFiles = await this.scanner.scanProject()
+      this.logger.info(`⏱️  Package file scan took ${Date.now() - scanStartTime}ms`)
       const totalPackages = packageFiles.reduce((sum, file) => sum + file.dependencies.length, 0)
 
       // Get outdated packages from package.json using bun outdated
       let packageJsonUpdates: PackageUpdate[] = []
 
+      const bunOutdatedStartTime = Date.now()
       if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
         // Get all updates first, then filter
         const allUpdates = await this.registryClient.getOutdatedPackages()
@@ -59,15 +62,22 @@ export class Buddy {
       else {
         packageJsonUpdates = await this.registryClient.getOutdatedPackages()
       }
+      this.logger.info(`⏱️  bun outdated check took ${Date.now() - bunOutdatedStartTime}ms (found ${packageJsonUpdates.length} updates)`)
 
       // Get outdated packages from dependency files using ts-pkgx
+      const depFilesStartTime = Date.now()
       const dependencyFileUpdates = await this.checkDependencyFilesForUpdates(packageFiles)
+      this.logger.info(`⏱️  Dependency file checks took ${Date.now() - depFilesStartTime}ms (found ${dependencyFileUpdates.length} updates)`)
 
       // Get outdated GitHub Actions
+      const actionsStartTime = Date.now()
       const githubActionsUpdates = await this.checkGitHubActionsForUpdates(packageFiles)
+      this.logger.info(`⏱️  GitHub Actions checks took ${Date.now() - actionsStartTime}ms (found ${githubActionsUpdates.length} updates)`)
 
       // Get outdated Docker images
+      const dockerStartTime = Date.now()
       const dockerUpdates = await this.checkDockerfilesForUpdates(packageFiles)
+      this.logger.info(`⏱️  Docker image checks took ${Date.now() - dockerStartTime}ms (found ${dockerUpdates.length} updates)`)
 
       // Merge all updates
       let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates, ...dockerUpdates]
@@ -78,20 +88,28 @@ export class Buddy {
       }
 
       // Apply update strategy filtering
+      const strategyStartTime = Date.now()
       if (this.config.packages?.strategy) {
         updates = this.filterUpdatesByStrategy(updates, this.config.packages.strategy)
       }
+      this.logger.info(`⏱️  Strategy filtering took ${Date.now() - strategyStartTime}ms`)
 
       // Apply minimum release age filtering
+      const ageFilterStartTime = Date.now()
       updates = await this.filterUpdatesByMinimumReleaseAge(updates)
+      this.logger.info(`⏱️  Minimum release age filtering took ${Date.now() - ageFilterStartTime}ms`)
 
       // Sort updates by priority
+      const sortStartTime = Date.now()
       updates = sortUpdatesByPriority(updates)
+      this.logger.info(`⏱️  Sorting took ${Date.now() - sortStartTime}ms`)
 
       // Group updates
+      const groupStartTime = Date.now()
       const groups = this.config.packages?.groups
         ? this.groupUpdatesByConfig(updates)
         : groupUpdates(updates)
+      this.logger.info(`⏱️  Grouping took ${Date.now() - groupStartTime}ms`)
 
       const scanDuration = Date.now() - startTime
 
@@ -116,6 +134,7 @@ export class Buddy {
    * Create pull requests for updates
    */
   async createPullRequests(scanResult: UpdateScanResult): Promise<void> {
+    const prStartTime = Date.now()
     this.logger.info('Creating pull requests for updates...')
 
     try {
@@ -161,11 +180,15 @@ export class Buddy {
       // Process each group
       for (const group of scanResult.groups) {
         try {
+          const groupStartTime = Date.now()
           this.logger.info(`Creating PR for group: ${group.name} (${group.updates.length} updates)`)
 
           // Generate PR content first to check for existing PRs
           const prTitle = group.title
+          const prBodyStartTime = Date.now()
           const prBody = await prGenerator.generateBody(group)
+          const prBodyDuration = Date.now() - prBodyStartTime
+          this.logger.info(`⏱️  PR body generation took ${prBodyDuration}ms`)
 
           // Check for existing open PRs with similar content
           const existingPRs = await gitProvider.getPullRequests('open')
@@ -391,13 +414,17 @@ export class Buddy {
 
           this.logger.success(`✅ Created PR #${pr.number}: ${pr.title}`)
           this.logger.info(`🔗 ${pr.url}`)
+
+          const groupDuration = Date.now() - groupStartTime
+          this.logger.info(`⏱️  Total group processing took ${groupDuration}ms`)
         }
         catch (error) {
           this.logger.error(`❌ Failed to create PR for group ${group.name}:`, error)
         }
       }
 
-      this.logger.success(`✅ Completed PR creation for ${scanResult.groups.length} group(s)`)
+      const totalPRDuration = Date.now() - prStartTime
+      this.logger.success(`✅ Completed PR creation for ${scanResult.groups.length} group(s) in ${totalPRDuration}ms`)
     }
     catch (error) {
       this.logger.error('Failed to create pull requests:', error)
@@ -430,12 +457,17 @@ export class Buddy {
     // Filter to only dependency files (not package.json or lock files)
     const dependencyFiles = packageFiles.filter(file => isDependencyFile(file.path))
 
-    for (const file of dependencyFiles) {
+    this.logger.info(`⚡ Checking ${dependencyFiles.length} dependency files in parallel...`)
+
+    // PARALLEL: Process all dependency files concurrently
+    const filePromises = dependencyFiles.map(async (file) => {
       try {
         this.logger.info(`Checking dependency file: ${file.path}`)
 
         // Use ts-pkgx to resolve latest versions
         const resolved = await resolveDependencyFile(file.path)
+
+        const fileUpdates: PackageUpdate[] = []
 
         for (const dep of resolved.allDependencies || []) {
           if (this.shouldRespectVersion(dep.constraint)) {
@@ -463,7 +495,7 @@ export class Buddy {
             // This prevents double prefixes when the constraint already has one
             const newVersion = dep.version
 
-            updates.push({
+            fileUpdates.push({
               name: dep.name,
               currentVersion: dep.constraint,
               newVersion,
@@ -477,11 +509,18 @@ export class Buddy {
             })
           }
         }
+
+        return fileUpdates
       }
       catch (error) {
         this.logger.error(`Failed to check dependency file ${file.path}:`, error)
+        return []
       }
-    }
+    })
+
+    // Wait for all file checks to complete
+    const fileResults = await Promise.all(filePromises)
+    updates.push(...fileResults.flat())
 
     return updates
   }
@@ -500,60 +539,64 @@ export class Buddy {
 
     this.logger.info(`🔍 Found ${githubActionsFiles.length} GitHub Actions workflow files`)
 
+    // PARALLEL: Collect all action dependencies from all files
+    const allActionChecks: Array<{ file: PackageFile, dep: any }> = []
     for (const file of githubActionsFiles) {
+      const actionDeps = file.dependencies.filter(dep => dep.type === 'github-actions')
+      this.logger.info(`Found ${actionDeps.length} GitHub Actions in ${file.path}`)
+      actionDeps.forEach(dep => allActionChecks.push({ file, dep }))
+    }
+
+    // PARALLEL: Fetch all action versions concurrently
+    this.logger.info(`⚡ Checking ${allActionChecks.length} GitHub Actions in parallel...`)
+    const actionPromises = allActionChecks.map(async ({ file, dep }) => {
       try {
-        this.logger.info(`Checking GitHub Actions file: ${file.path}`)
+        this.logger.info(`Checking action: ${dep.name}@${dep.currentVersion}`)
 
-        // Get all GitHub Actions dependencies from this file
-        const actionDeps = file.dependencies.filter(dep => dep.type === 'github-actions')
-        this.logger.info(`Found ${actionDeps.length} GitHub Actions in ${file.path}`)
+        // Fetch latest version for this action
+        const latestVersion = await fetchLatestActionVersion(dep.name)
 
-        for (const dep of actionDeps) {
-          try {
-            this.logger.info(`Checking action: ${dep.name}@${dep.currentVersion}`)
+        if (latestVersion) {
+          this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)
 
-            // Fetch latest version for this action
-            const latestVersion = await fetchLatestActionVersion(dep.name)
+          if (latestVersion !== dep.currentVersion) {
+            // Determine update type
+            const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
 
-            if (latestVersion) {
-              this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)
+            this.logger.info(`Update available: ${dep.name} ${dep.currentVersion} → ${latestVersion} (${updateType})`)
 
-              if (latestVersion !== dep.currentVersion) {
-                // Determine update type
-                const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
-
-                this.logger.info(`Update available: ${dep.name} ${dep.currentVersion} → ${latestVersion} (${updateType})`)
-
-                updates.push({
-                  name: dep.name,
-                  currentVersion: dep.currentVersion,
-                  newVersion: latestVersion,
-                  updateType,
-                  dependencyType: 'github-actions',
-                  file: file.path,
-                  metadata: undefined,
-                  releaseNotesUrl: `https://github.com/${dep.name}/releases`,
-                  changelogUrl: undefined,
-                  homepage: `https://github.com/${dep.name}`,
-                })
-              }
-              else {
-                this.logger.info(`No update needed for ${dep.name}: already at ${latestVersion}`)
-              }
-            }
-            else {
-              this.logger.warn(`Could not fetch latest version for ${dep.name}`)
+            return {
+              name: dep.name,
+              currentVersion: dep.currentVersion,
+              newVersion: latestVersion,
+              updateType,
+              dependencyType: 'github-actions' as const,
+              file: file.path,
+              metadata: undefined,
+              releaseNotesUrl: `https://github.com/${dep.name}/releases`,
+              changelogUrl: undefined,
+              homepage: `https://github.com/${dep.name}`,
             }
           }
-          catch (error) {
-            this.logger.warn(`Failed to check version for action ${dep.name}:`, error)
+          else {
+            this.logger.info(`No update needed for ${dep.name}: already at ${latestVersion}`)
           }
         }
+        else {
+          this.logger.warn(`Could not fetch latest version for ${dep.name}`)
+        }
+        return null
       }
       catch (error) {
-        this.logger.error(`Failed to check GitHub Actions file ${file.path}:`, error)
+        this.logger.warn(`Failed to check version for action ${dep.name}:`, error)
+        return null
       }
-    }
+    })
+
+    // Wait for all checks to complete
+    const actionResults = await Promise.all(actionPromises)
+    const validUpdates = actionResults.filter((update): update is NonNullable<typeof update> => update !== null)
+    updates.push(...validUpdates)
 
     this.logger.info(`Generated ${updates.length} GitHub Actions updates`)
 
@@ -591,65 +634,69 @@ export class Buddy {
 
     this.logger.info(`🔍 Found ${dockerfiles.length} Dockerfile(s)`)
 
+    // PARALLEL: Collect all Docker image dependencies from all files
+    const allImageChecks: Array<{ file: PackageFile, dep: any }> = []
     for (const file of dockerfiles) {
+      const imageDeps = file.dependencies.filter(dep => dep.type === 'docker-image')
+      this.logger.info(`Found ${imageDeps.length} Docker images in ${file.path}`)
+      imageDeps.forEach(dep => allImageChecks.push({ file, dep }))
+    }
+
+    // PARALLEL: Fetch all Docker image versions concurrently
+    this.logger.info(`⚡ Checking ${allImageChecks.length} Docker images in parallel...`)
+    const imagePromises = allImageChecks.map(async ({ file, dep }) => {
       try {
-        this.logger.info(`Checking Dockerfile: ${file.path}`)
+        this.logger.info(`Checking Docker image: ${dep.name}:${dep.currentVersion}`)
 
-        // Get all Docker image dependencies from this file
-        const imageDeps = file.dependencies.filter(dep => dep.type === 'docker-image')
-        this.logger.info(`Found ${imageDeps.length} Docker images in ${file.path}`)
+        if (this.shouldRespectVersion(dep.currentVersion)) {
+          this.logger.debug(`Skipping ${dep.name} - version "${dep.currentVersion}" should be respected`)
+          return null
+        }
 
-        for (const dep of imageDeps) {
-          try {
-            this.logger.info(`Checking Docker image: ${dep.name}:${dep.currentVersion}`)
+        // Fetch latest version for this Docker image
+        const latestVersion = await fetchLatestDockerImageVersion(dep.name)
 
-            if (this.shouldRespectVersion(dep.currentVersion)) {
-              this.logger.debug(`Skipping ${dep.name} - version "${dep.currentVersion}" should be respected`)
-              continue
-            }
+        if (latestVersion) {
+          this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)
 
-            // Fetch latest version for this Docker image
-            const latestVersion = await fetchLatestDockerImageVersion(dep.name)
+          if (latestVersion !== dep.currentVersion) {
+            // Determine update type
+            const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
 
-            if (latestVersion) {
-              this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)
+            this.logger.info(`Update available: ${dep.name} ${dep.currentVersion} → ${latestVersion} (${updateType})`)
 
-              if (latestVersion !== dep.currentVersion) {
-                // Determine update type
-                const updateType = this.getUpdateType(dep.currentVersion, latestVersion)
-
-                this.logger.info(`Update available: ${dep.name} ${dep.currentVersion} → ${latestVersion} (${updateType})`)
-
-                updates.push({
-                  name: dep.name,
-                  currentVersion: dep.currentVersion,
-                  newVersion: latestVersion,
-                  updateType,
-                  dependencyType: 'docker-image',
-                  file: file.path,
-                  metadata: undefined,
-                  releaseNotesUrl: `https://hub.docker.com/r/${dep.name}/tags`,
-                  changelogUrl: undefined,
-                  homepage: `https://hub.docker.com/r/${dep.name}`,
-                })
-              }
-              else {
-                this.logger.info(`No update needed for ${dep.name}: already at ${latestVersion}`)
-              }
-            }
-            else {
-              this.logger.warn(`Could not fetch latest version for Docker image ${dep.name}`)
+            return {
+              name: dep.name,
+              currentVersion: dep.currentVersion,
+              newVersion: latestVersion,
+              updateType,
+              dependencyType: 'docker-image' as const,
+              file: file.path,
+              metadata: undefined,
+              releaseNotesUrl: `https://hub.docker.com/r/${dep.name}/tags`,
+              changelogUrl: undefined,
+              homepage: `https://hub.docker.com/r/${dep.name}`,
             }
           }
-          catch (error) {
-            this.logger.warn(`Failed to check version for Docker image ${dep.name}:`, error)
+          else {
+            this.logger.info(`No update needed for ${dep.name}: already at ${latestVersion}`)
           }
         }
+        else {
+          this.logger.warn(`Could not fetch latest version for Docker image ${dep.name}`)
+        }
+        return null
       }
       catch (error) {
-        this.logger.error(`Failed to check Dockerfile ${file.path}:`, error)
+        this.logger.warn(`Failed to check version for Docker image ${dep.name}:`, error)
+        return null
       }
-    }
+    })
+
+    // Wait for all checks to complete
+    const imageResults = await Promise.all(imagePromises)
+    const validUpdates = imageResults.filter((update): update is NonNullable<typeof update> => update !== null)
+    updates.push(...validUpdates)
 
     this.logger.info(`Generated ${updates.length} Docker image updates`)
 
@@ -964,11 +1011,10 @@ export class Buddy {
       return updates
     }
 
-    this.logger.info(`Applying minimum release age filter (${minimumReleaseAge} minutes)...`)
+    this.logger.info(`Applying minimum release age filter (${minimumReleaseAge} minutes) in parallel...`)
 
-    const filteredUpdates: PackageUpdate[] = []
-
-    for (const update of updates) {
+    // PARALLEL: Check all updates concurrently
+    const ageCheckPromises = updates.map(async (update) => {
       try {
         const meetsRequirement = await this.registryClient.meetsMinimumReleaseAge(
           update.name,
@@ -977,18 +1023,23 @@ export class Buddy {
         )
 
         if (meetsRequirement) {
-          filteredUpdates.push(update)
+          return update
         }
         else {
           this.logger.debug(`Filtered out ${update.name}@${update.newVersion} (${update.dependencyType}) due to minimum release age requirement`)
+          return null
         }
       }
       catch (error) {
         // If there's an error checking the release age, be conservative and include the update
         this.logger.warn(`Error checking release age for ${update.name}@${update.newVersion} (${update.dependencyType}), including update:`, error)
-        filteredUpdates.push(update)
+        return update
       }
-    }
+    })
+
+    // Wait for all checks to complete
+    const ageCheckResults = await Promise.all(ageCheckPromises)
+    const filteredUpdates = ageCheckResults.filter((update): update is PackageUpdate => update !== null)
 
     const filteredCount = updates.length - filteredUpdates.length
     if (filteredCount > 0) {

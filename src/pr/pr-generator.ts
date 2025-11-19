@@ -312,7 +312,12 @@ export class PullRequestGenerator {
       body += `| Package | Change | Age | Adoption | Passing | Confidence |\n`
       body += `|---|---|---|---|---|---|\n`
 
-      for (const update of packageJsonUpdates) {
+      const fetchStartTime = Date.now()
+      this.log(`⏱️  Starting to fetch info for ${packageJsonUpdates.length} npm packages in parallel...`)
+
+      // PARALLEL FETCHING - fetch all packages concurrently
+      const fetchPromises = packageJsonUpdates.map(async (update) => {
+        const singleFetchStart = Date.now()
         try {
           // Clean package name (remove dependency type info) before fetching
           const cleanPackageName = update.name.replace(/\s*\(dev\)$/, '').replace(/\s*\(peer\)$/, '').replace(/\s*\(optional\)$/, '')
@@ -322,12 +327,28 @@ export class PullRequestGenerator {
             update.currentVersion,
             update.newVersion,
           )
-          packageInfos.set(update.name, result)
+          this.log(`⏱️  Fetched ${cleanPackageName} in ${Date.now() - singleFetchStart}ms`)
+          return { name: update.name, result }
         }
         catch (error) {
           console.warn(`Failed to fetch info for ${update.name}:`, error)
+          return null
         }
-      }
+      })
+
+      // Wait for all fetches to complete
+      const results = await Promise.all(fetchPromises)
+
+      // Store results in map
+      results.forEach((item) => {
+        if (item) {
+          packageInfos.set(item.name, item.result)
+        }
+      })
+
+      const fetchDuration = Date.now() - fetchStartTime
+      this.log(`⏱️  Total npm package info fetch took ${fetchDuration}ms for ${packageJsonUpdates.length} packages (avg: ${Math.round(fetchDuration / packageJsonUpdates.length)}ms per package)`)
+      console.log(`⏱️  [PR-GEN] npm package info fetch: ${fetchDuration}ms for ${packageJsonUpdates.length} packages (PARALLEL)`)
 
       for (const update of packageJsonUpdates) {
         const packageInfo = packageInfos.get(update.name)
