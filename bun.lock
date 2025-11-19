@@ -7,7 +7,7 @@
       "dependencies": {
         "bunfig": "^0.15.6",
         "prompts": "^2.4.2",
-        "ts-pkgx": "^0.4.123",
+        "ts-pkgx": "^0.4.134",
       },
       "devDependencies": {
         "@stacksjs/clapp": "^0.2.0",
@@ -1641,7 +1641,7 @@
 
     "ts-declaration-location": ["ts-declaration-location@1.0.7", "", { "dependencies": { "picomatch": "^4.0.2" }, "peerDependencies": { "typescript": ">=4.0.0" } }, "sha512-EDyGAwH1gO0Ausm9gV6T2nUvBgXT5kGoCMJPllOaooZ+4VvJiKBdZE7wK18N1deEowhcUptS+5GXZK8U/fvpwA=="],
 
-    "ts-pkgx": ["ts-pkgx@0.4.123", "", { "dependencies": { "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-Lxy5CBpGtXvqNqLYAvsAD5iiSFftDIbEbsHV4fOW0E9kP10NzMTIc7LVD0UwEwWqiYofmti23nRSBJnt5PPzmw=="],
+    "ts-pkgx": ["ts-pkgx@0.4.134", "", { "dependencies": { "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-tDG7YM6Dgjb5l+kIH8XKfDGjHYVltctSFmvKjyfJfXNhwFSmXjpRMP8zP63s+nVyFBTSUvEWsvj0aAvnE9jWiQ=="],
 
     "ts-web-scraper": ["ts-web-scraper@0.1.1", "", { "bin": { "scraper": "dist/bin/cli.js" } }, "sha512-js+gSRe95yDD9U3+GmjvIKBYLAN9WoZKV84x7HcSI7dqdWEIoZSeSGR/Jbr8f5hCeV9FD70KdTPIS2LQwviQXQ=="],
 
