@@ -1024,15 +1024,18 @@ export class GitHubProvider implements GitProvider {
           }
         }
 
-        console.log(`📋 Found ${prNumbers.length} PR refs, checking their status via HTTP...`)
+        // Only check PRs that have associated buddy-bot branches
+        const prNumbersToCheck = Array.from(prBranchMap.keys())
+        console.log(`📋 Found ${prNumbers.length} PR refs, ${prNumbersToCheck.length} have buddy-bot branches`)
+        console.log(`🔍 Checking ${prNumbersToCheck.length} PRs via HTTP (skipping ${prNumbers.length - prNumbersToCheck.length} non-buddy-bot PRs)...`)
 
         // Check each PR's status via HTTP (in batches to be nice to GitHub)
         const batchSize = 5
         let checkedCount = 0
         let openCount = 0
 
-        for (let i = 0; i < prNumbers.length; i += batchSize) {
-          const batch = prNumbers.slice(i, i + batchSize)
+        for (let i = 0; i < prNumbersToCheck.length; i += batchSize) {
+          const batch = prNumbersToCheck.slice(i, i + batchSize)
 
           // Process batch with small delay between requests
           const batchPromises = batch.map(async (prNumber, index) => {
@@ -1062,7 +1065,8 @@ export class GitHubProvider implements GitProvider {
           }
         }
 
-        console.log(`✅ Checked ${checkedCount} PRs via HTTP: ${openCount} open, ${checkedCount - openCount} closed`)
+        console.log(`✅ Checked ${checkedCount} buddy-bot PRs via HTTP: ${openCount} open, ${checkedCount - openCount} closed`)
+        console.log(`   (Skipped ${prNumbers.length - prNumbersToCheck.length} non-buddy-bot PRs)`)
         console.log(`🛡️ Protected ${protectedBranches.size} branches with confirmed open PRs`)
         console.log(`🎯 HTTP detection successful - no age-based protection needed`)
         this.httpDetectionSuccessful = true
