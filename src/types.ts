@@ -71,6 +71,20 @@ export interface BuddyBotConfig {
     labels?: string[]
   }
 
+  /** Release notes configuration */
+  releaseNotes?: {
+    /** Enable release notes in PRs (default: true) */
+    enabled?: boolean
+    /** Sanitize GitHub references (#123, issue/PR URLs) to prevent spam notifications (default: true) */
+    sanitizeReferences?: boolean
+    /** Maximum number of releases to show per package (default: 3) */
+    maxReleases?: number
+    /** Maximum character length per release body (default: 1000) */
+    maxBodyLength?: number
+    /** Include compare links between versions (default: true) */
+    includeCompareLinks?: boolean
+  }
+
   /** Workflow generation settings */
   workflows?: {
     /** Enable workflow generation */

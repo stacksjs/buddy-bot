@@ -1022,9 +1022,13 @@ export class PullRequestGenerator {
     // Sanitize @mentions to avoid pinging real users in PRs
     cleaned = this.sanitizeMentions(cleaned)
 
-    // Limit to reasonable length for PR body
-    if (cleaned.length > 1000) {
-      cleaned = `${cleaned.substring(0, 1000)}...\n\n*[View full release notes]*`
+    // Sanitize GitHub issue/PR references to prevent spam notifications
+    cleaned = this.sanitizeGitHubReferences(cleaned)
+
+    // Limit to reasonable length for PR body (configurable, default: 1000)
+    const maxLength = this.config?.releaseNotes?.maxBodyLength ?? 1000
+    if (cleaned.length > maxLength) {
+      cleaned = `${cleaned.substring(0, maxLength)}...\n\n*[View full release notes]*`
     }
 
     return cleaned
@@ -1063,6 +1067,60 @@ export class PullRequestGenerator {
 
     // Restore inline code placeholders
     protectedText = protectedText.replace(/__INLINE_CODE_PLACEHOLDER_(\d+)__/g, (_m, i: string) => placeholders[Number(i)])
+
+    // Restore fenced code placeholders
+    protectedText = protectedText.replace(/__FENCE_PLACEHOLDER_(\d+)__/g, (_m, i: string) => fences[Number(i)])
+
+    return protectedText
+  }
+
+  /**
+   * Sanitize GitHub issue/PR references to prevent spam notifications.
+   * Converts references like #123 and GitHub URLs into non-linking text.
+   * Examples:
+   *   #123 -> `#123`
+   *   fixes #456 -> fixes `#456`
+   *   https://github.com/org/repo/pull/123 -> `org/repo#123`
+   *   https://github.com/org/repo/issues/456 -> `org/repo#456`
+   */
+  private sanitizeGitHubReferences(text: string): string {
+    // Check if sanitization is enabled (default: true)
+    if (this.config?.releaseNotes?.sanitizeReferences === false) {
+      return text
+    }
+
+    // Protect fenced code blocks and inline code by temporarily replacing them
+    const fences: string[] = []
+    const inlineCode: string[] = []
+
+    // Replace fenced code blocks ```...``` with placeholders
+    let protectedText = text.replace(/```[\s\S]*?```/g, (match) => {
+      fences.push(match)
+      return `__FENCE_PLACEHOLDER_${fences.length - 1}__`
+    })
+
+    // Replace inline code `...` with placeholders
+    protectedText = protectedText.replace(/`[^`\n]+`/g, (match) => {
+      inlineCode.push(match)
+      return `__INLINE_CODE_PLACEHOLDER_${inlineCode.length - 1}__`
+    })
+
+    // Replace full GitHub issue/PR URLs with non-linking format
+    // https://github.com/org/repo/pull/123 -> `org/repo#123`
+    // https://github.com/org/repo/issues/456 -> `org/repo#456`
+    protectedText = protectedText.replace(
+      /https?:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:pull|issues)\/(\d+)/g,
+      (_match, owner: string, repo: string, num: string) => `\`${owner}/${repo}#${num}\``,
+    )
+
+    // Replace standalone issue/PR references #123 with backtick-wrapped version
+    // This prevents GitHub from creating links/notifications
+    // Negative lookbehind: don't match if preceded by ` or alphanumeric (part of URL or already wrapped)
+    // Negative lookahead: don't match if followed by alphanumeric
+    protectedText = protectedText.replace(/(?<![`\w])#(\d+)(?!\d)/g, '`#$1`')
+
+    // Restore inline code placeholders
+    protectedText = protectedText.replace(/__INLINE_CODE_PLACEHOLDER_(\d+)__/g, (_m, i: string) => inlineCode[Number(i)])
 
     // Restore fenced code placeholders
     protectedText = protectedText.replace(/__FENCE_PLACEHOLDER_(\d+)__/g, (_m, i: string) => fences[Number(i)])
