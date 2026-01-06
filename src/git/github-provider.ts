@@ -12,9 +12,9 @@ export class GitHubProvider implements GitProvider {
     pullRequests: Map<string, { data: PullRequest[], timestamp: number }>
     issues: Map<string, { data: Issue[], timestamp: number }>
   } = {
-      pullRequests: new Map(),
-      issues: new Map(),
-    }
+    pullRequests: new Map(),
+    issues: new Map(),
+  }
 
   // Cache TTL in milliseconds (5 minutes - reasonable for a single workflow run)
   private readonly cacheTTL = 5 * 60 * 1000
