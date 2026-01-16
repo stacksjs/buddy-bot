@@ -7,12 +7,39 @@ import process from 'node:process'
 export class GitHubProvider implements GitProvider {
   private readonly apiUrl = 'https://api.github.com'
 
+  // In-memory cache for API responses (reduces redundant API calls within a single workflow run)
+  private cache: {
+    pullRequests: Map<string, { data: PullRequest[], timestamp: number }>
+    issues: Map<string, { data: Issue[], timestamp: number }>
+  } = {
+    pullRequests: new Map(),
+    issues: new Map(),
+  }
+
+  // Cache TTL in milliseconds (5 minutes - reasonable for a single workflow run)
+  private readonly cacheTTL = 5 * 60 * 1000
+
   constructor(
     private readonly token: string,
     private readonly owner: string,
     private readonly repo: string,
     private readonly hasWorkflowPermissions: boolean = false,
   ) {}
+
+  /**
+   * Check if cached data is still valid
+   */
+  private isCacheValid(timestamp: number): boolean {
+    return Date.now() - timestamp < this.cacheTTL
+  }
+
+  /**
+   * Clear all caches (useful when data is modified)
+   */
+  clearCache(): void {
+    this.cache.pullRequests.clear()
+    this.cache.issues.clear()
+  }
 
   async createBranch(branchName: string, baseBranch: string): Promise<void> {
     try {
@@ -571,10 +598,19 @@ export class GitHubProvider implements GitProvider {
   }
 
   async getPullRequests(state: 'open' | 'closed' | 'all' = 'open'): Promise<PullRequest[]> {
-    try {
-      const response = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls?state=${state}`)
+    // Check cache first
+    const cacheKey = `${state}`
+    const cached = this.cache.pullRequests.get(cacheKey)
+    if (cached && this.isCacheValid(cached.timestamp)) {
+      console.log(`📦 Using cached PRs (state: ${state}, ${cached.data.length} PRs)`)
+      return cached.data
+    }
 
-      return response.map((pr: any) => ({
+    try {
+      // Use apiRequestWithRetry for rate limit handling
+      const response = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/pulls?state=${state}&per_page=100`)
+
+      const prs = response.map((pr: any) => ({
         number: pr.number,
         title: pr.title,
         body: pr.body || '',
@@ -591,6 +627,12 @@ export class GitHubProvider implements GitProvider {
         labels: pr.labels?.map((l: any) => l.name) || [],
         draft: pr.draft,
       }))
+
+      // Cache the result
+      this.cache.pullRequests.set(cacheKey, { data: prs, timestamp: Date.now() })
+      console.log(`✅ Fetched and cached ${prs.length} PRs (state: ${state})`)
+
+      return prs
     }
     catch (error) {
       console.error(`❌ Failed to get PRs:`, error)
@@ -599,6 +641,9 @@ export class GitHubProvider implements GitProvider {
   }
 
   async updatePullRequest(prNumber: number, options: Partial<PullRequestOptions>): Promise<PullRequest> {
+    // Invalidate PR cache since we're modifying data
+    this.cache.pullRequests.clear()
+
     try {
       const updateData: any = {}
       if (options.title)
@@ -691,9 +736,12 @@ export class GitHubProvider implements GitProvider {
   }
 
   async closePullRequest(prNumber: number): Promise<void> {
+    // Invalidate PR cache since we're modifying data
+    this.cache.pullRequests.clear()
+
     try {
       // Get PR details to know the branch name for cleanup
-      const prDetails = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
+      const prDetails = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
       const branchName = prDetails.head.ref
 
       await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, {
@@ -1297,8 +1345,11 @@ export class GitHubProvider implements GitProvider {
   }
 
   async createIssue(options: IssueOptions): Promise<Issue> {
+    // Invalidate issue cache since we're creating new data
+    this.cache.issues.clear()
+
     try {
-      const response = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues`, {
+      const response = await this.apiRequestWithRetry(`POST /repos/${this.owner}/${this.repo}/issues`, {
         title: options.title,
         body: options.body,
         assignees: options.assignees || [],
@@ -1330,10 +1381,19 @@ export class GitHubProvider implements GitProvider {
   }
 
   async getIssues(state: 'open' | 'closed' | 'all' = 'open'): Promise<Issue[]> {
-    try {
-      const response = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/issues?state=${state}&sort=updated&direction=desc`)
+    // Check cache first
+    const cacheKey = `${state}`
+    const cached = this.cache.issues.get(cacheKey)
+    if (cached && this.isCacheValid(cached.timestamp)) {
+      console.log(`📦 Using cached issues (state: ${state}, ${cached.data.length} issues)`)
+      return cached.data
+    }
 
-      return response
+    try {
+      // Use apiRequestWithRetry for rate limit handling
+      const response = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/issues?state=${state}&sort=updated&direction=desc&per_page=100`)
+
+      const issues = response
         .filter((issue: any) => !issue.pull_request) // Filter out PRs (they're returned as issues by GitHub API)
         .map((issue: any) => ({
           number: issue.number,
@@ -1349,6 +1409,12 @@ export class GitHubProvider implements GitProvider {
           labels: issue.labels?.map((l: any) => typeof l === 'string' ? l : l.name) || [],
           pinned: false, // GitHub API doesn't return pinned status directly
         }))
+
+      // Cache the result
+      this.cache.issues.set(cacheKey, { data: issues, timestamp: Date.now() })
+      console.log(`✅ Fetched and cached ${issues.length} issues (state: ${state})`)
+
+      return issues
     }
     catch (error) {
       console.error('❌ Failed to get issues:', error)
@@ -1357,6 +1423,9 @@ export class GitHubProvider implements GitProvider {
   }
 
   async updateIssue(issueNumber: number, options: Partial<IssueOptions>): Promise<Issue> {
+    // Invalidate issue cache since we're modifying data
+    this.cache.issues.clear()
+
     try {
       const updateData: any = {}
 
@@ -1371,7 +1440,7 @@ export class GitHubProvider implements GitProvider {
       if (options.milestone !== undefined)
         updateData.milestone = options.milestone
 
-      const response = await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, updateData)
+      const response = await this.apiRequestWithRetry(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, updateData)
 
       console.log(`✅ Updated issue #${issueNumber}: ${response.title}`)
 
@@ -1397,8 +1466,11 @@ export class GitHubProvider implements GitProvider {
   }
 
   async closeIssue(issueNumber: number): Promise<void> {
+    // Invalidate issue cache since we're modifying data
+    this.cache.issues.clear()
+
     try {
-      await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, {
+      await this.apiRequestWithRetry(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, {
         state: 'closed',
       })
 
