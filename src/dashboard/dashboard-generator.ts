@@ -58,6 +58,15 @@ export class DashboardGenerator {
   }
 
   /**
+   * Sanitize text to prevent GitHub from creating issue/PR reference links
+   * that could trigger notifications
+   */
+  private sanitizeReferences(text: string): string {
+    // Wrap standalone #123 references in backticks to prevent GitHub linking
+    return text.replace(/(?<![`\w])#(\d+)(?!\d)/g, '`#$1`')
+  }
+
+  /**
    * Generate the Open PRs section
    */
   private generateOpenPRsSection(openPRs: PullRequest[]): string {
@@ -77,7 +86,10 @@ The following updates have all been created. To force a retry/rebase of any, cli
         ? `../pull/${pr.number}`
         : pr.url
 
-      section += ` - [ ] <!-- rebase-branch=${rebaseBranch} -->[${pr.title}](${relativeUrl})`
+      // Sanitize PR title to prevent #123 references from creating links/notifications
+      const sanitizedTitle = this.sanitizeReferences(pr.title)
+
+      section += ` - [ ] <!-- rebase-branch=${rebaseBranch} -->[${sanitizedTitle}](${relativeUrl})`
 
       // Show clean package names like Renovate does (without version info)
       if (packageInfo.length > 0) {

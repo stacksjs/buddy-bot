@@ -405,7 +405,8 @@ export async function checkForRebaseRequests(token: string, owner: string, repo:
         return false
 
       // Use the same pattern as the CLI for consistency
-      const checkedPattern = /- \[x\] <!-- rebase-check -->.*(?:want to (?:rebase|update)\/retry this PR|If you want to (?:rebase|update)\/retry)/i
+      // Note: The generated checkbox has a leading space (` - [x]`) so we use \s* to match optional whitespace
+      const checkedPattern = /\s*-\s*\[x\]\s*<!--\s*rebase-check\s*-->.*(?:rebase|update)\/retry/i
       return checkedPattern.test(pr.body)
     })
 

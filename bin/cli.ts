@@ -894,103 +894,61 @@ cli
         hasWorkflowPermissions,
       )
 
-      // Step 1: Check for rebase checkboxes using HTTP (no API auth needed)
+      // Step 1: Check for rebase checkboxes using GitHub API (proper body access)
       logger.info('🔍 Checking for PRs with rebase checkbox enabled...')
 
       let rebasedCount = 0
       let checkedPRs = 0
 
       try {
-        // Get PR numbers from git refs
-        const prRefsOutput = await gitProvider.runCommand('git', ['ls-remote', 'origin', 'refs/pull/*/head'])
-        const prNumbers: number[] = []
+        // Get all open PRs via GitHub API to access the raw body
+        const openPRs = await gitProvider.getPullRequests('open')
 
-        for (const line of prRefsOutput.split('\n')) {
-          if (line.trim()) {
-            const parts = line.trim().split('\t')
-            if (parts.length === 2) {
-              const ref = parts[1] // refs/pull/123/head
-              const prMatch = ref.match(/refs\/pull\/(\d+)\/head/)
-              if (prMatch) {
-                prNumbers.push(Number.parseInt(prMatch[1]))
+        // Filter to buddy-bot PRs (branches starting with buddy-bot/)
+        const buddyBotPRs = openPRs.filter(pr => pr.head.startsWith('buddy-bot/'))
+
+        logger.info(`📋 Found ${buddyBotPRs.length} buddy-bot PRs to check for rebase requests`)
+
+        for (const pr of buddyBotPRs) {
+          checkedPRs++
+          const hasRebaseChecked = checkRebaseCheckbox(pr.body || '')
+
+          if (hasRebaseChecked) {
+            logger.info(`🔄 PR #${pr.number} has rebase checkbox checked`)
+
+            if (options.dryRun) {
+              logger.info(`🔍 [DRY RUN] Would rebase PR #${pr.number}`)
+              rebasedCount++
+            }
+            else {
+              logger.info(`🔄 Rebasing PR #${pr.number} via rebase command...`)
+
+              try {
+                // Use the existing rebase command logic
+                const { spawn } = await import('node:child_process')
+                const rebaseProcess = spawn('bunx', ['buddy-bot', 'rebase', pr.number.toString()], {
+                  stdio: 'inherit',
+                  cwd: process.cwd(),
+                })
+
+                await new Promise((resolve, reject) => {
+                  rebaseProcess.on('close', (code) => {
+                    if (code === 0) {
+                      rebasedCount++
+                      resolve(code)
+                    }
+                    else {
+                      reject(new Error(`Rebase failed with code ${code}`))
+                    }
+                  })
+                })
+
+                logger.success(`✅ Successfully rebased PR #${pr.number}`)
+              }
+              catch (rebaseError) {
+                logger.error(`❌ Failed to rebase PR #${pr.number}:`, rebaseError)
               }
             }
-          }
-        }
-
-        logger.info(`📋 Found ${prNumbers.length} PRs to check for rebase requests`)
-
-        // Check each PR for rebase checkbox (in small batches)
-        const batchSize = 3 // Smaller batches for PR content fetching
-        for (let i = 0; i < prNumbers.length && i < 20; i += batchSize) { // Limit to first 20 PRs
-          const batch = prNumbers.slice(i, i + batchSize)
-
-          for (const prNumber of batch) {
-            try {
-              // Fetch PR page HTML to check for rebase checkbox
-              const url = `https://github.com/${config.repository.owner}/${config.repository.name}/pull/${prNumber}`
-              const response = await fetch(url, {
-                headers: { 'User-Agent': 'buddy-bot/1.0' },
-              })
-
-              if (response.ok) {
-                const html = await response.text()
-                checkedPRs++
-
-                // Check if PR is open and has rebase checkbox checked
-                const isOpen = html.includes('State--open') && !html.includes('State--closed') && !html.includes('State--merged')
-                const hasRebaseChecked = checkRebaseCheckbox(html)
-
-                if (isOpen && hasRebaseChecked) {
-                  logger.info(`🔄 PR #${prNumber} has rebase checkbox checked`)
-
-                  if (options.dryRun) {
-                    logger.info(`🔍 [DRY RUN] Would rebase PR #${prNumber}`)
-                    rebasedCount++
-                  }
-                  else {
-                    logger.info(`🔄 Rebasing PR #${prNumber} via rebase command...`)
-
-                    try {
-                      // Use the existing rebase command logic
-                      const { spawn } = await import('node:child_process')
-                      const rebaseProcess = spawn('bunx', ['buddy-bot', 'rebase', prNumber.toString()], {
-                        stdio: 'inherit',
-                        cwd: process.cwd(),
-                      })
-
-                      await new Promise((resolve, reject) => {
-                        rebaseProcess.on('close', (code) => {
-                          if (code === 0) {
-                            rebasedCount++
-                            resolve(code)
-                          }
-                          else {
-                            reject(new Error(`Rebase failed with code ${code}`))
-                          }
-                        })
-                      })
-
-                      logger.success(`✅ Successfully rebased PR #${prNumber}`)
-                    }
-                    catch (rebaseError) {
-                      logger.error(`❌ Failed to rebase PR #${prNumber}:`, rebaseError)
-                    }
-                  }
-                }
-              }
-
-              // Small delay between requests
-              await new Promise(resolve => setTimeout(resolve, 200))
-            }
-            catch (error) {
-              logger.warn(`⚠️ Could not check PR #${prNumber}:`, error)
-            }
-          }
-
-          // Delay between batches
-          if (i + batchSize < Math.min(prNumbers.length, 20)) {
-            await new Promise(resolve => setTimeout(resolve, 1000))
           }
         }
 
@@ -1052,7 +1010,8 @@ cli
 // Helper function to check if rebase checkbox is checked
 function checkRebaseCheckbox(body: string): boolean {
   // Look for the checked rebase checkbox pattern - handle both "rebase/retry" and "update/retry"
-  const checkedPattern = /- \[x\] <!-- rebase-check -->If you want to (?:rebase|update)\/retry this PR, check this box/i
+  // Note: The generated checkbox has a leading space (` - [x]`) so we use \s* to match optional whitespace
+  const checkedPattern = /\s*-\s*\[x\]\s*<!--\s*rebase-check\s*-->.*(?:rebase|update)\/retry/i
   return checkedPattern.test(body)
 }
 
