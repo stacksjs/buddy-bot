@@ -37,9 +37,19 @@ export const defaultConfig: BuddyBotConfig = {
   },
 }
 
-// eslint-disable-next-line antfu/no-top-level-await
-export const config: BuddyBotConfig = await loadConfig({
+// Lazy-loaded config to avoid top-level await (enables bun --compile)
+let _config: BuddyBotConfig | null = null
+
+export async function getConfig(): Promise<BuddyBotConfig> {
+  if (!_config) {
+    _config = await loadConfig({
   name: 'buddy-bot',
   cwd: process.cwd(),
   defaultConfig,
 })
+  }
+  return _config
+}
+
+// For backwards compatibility - synchronous access with default fallback
+export const config: BuddyBotConfig = defaultConfig
