@@ -41,6 +41,25 @@ export class GitHubProvider implements GitProvider {
     this.cache.issues.clear()
   }
 
+  /**
+   * Check if a branch exists in the repository
+   */
+  async branchExists(branchName: string): Promise<boolean> {
+    try {
+      await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${branchName}`)
+      return true
+    }
+    catch (error: any) {
+      // 404 means branch doesn't exist
+      if (error.message?.includes('404'))
+        return false
+
+      // For other errors, log and return false (conservative approach)
+      console.warn(`⚠️ Error checking branch ${branchName}:`, error)
+      return false
+    }
+  }
+
   async createBranch(branchName: string, baseBranch: string): Promise<void> {
     try {
       // Get the base branch SHA

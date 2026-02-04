@@ -246,6 +246,9 @@ export interface PackageMetadata {
 
 // Git and PR types
 export interface GitProvider {
+  /** Check if a branch exists */
+  branchExists: (branchName: string) => Promise<boolean>
+
   /** Create a new branch */
   createBranch: (branchName: string, baseBranch: string) => Promise<void>
 

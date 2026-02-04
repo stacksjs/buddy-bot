@@ -7,6 +7,12 @@ export class GitLabProvider implements GitProvider {
     private readonly projectId: string,
   ) {}
 
+  async branchExists(branchName: string): Promise<boolean> {
+    // TODO: Implement GitLab API call to check if branch exists
+    console.log(`Would check if branch ${branchName} exists`)
+    return false
+  }
+
   async createBranch(branchName: string, baseBranch: string): Promise<void> {
     // TODO: Implement GitLab API call to create branch
     console.log(`Would create branch ${branchName} from ${baseBranch}`)

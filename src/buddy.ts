@@ -192,12 +192,24 @@ export class Buddy {
 
           // Check for existing open PRs with similar content
           const existingPRs = await gitProvider.getPullRequests('open')
-          const branchPattern = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-`
+
+          // Generate the deterministic branch name for this group
+          const expectedBranchName = this.generateBranchName(group)
+
+          // Also support legacy branch names with timestamps for backwards compatibility
+          const legacyBranchPattern = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-`
 
           const existingPR = existingPRs.find(pr =>
-            (pr.title === prTitle
-              || pr.head.startsWith(branchPattern)
-              || this.isSimilarPRTitle(pr.title, prTitle))
+            (
+              // Primary match: exact branch name match (new deterministic naming)
+              pr.head === expectedBranchName
+              // Secondary match: title match
+              || pr.title === prTitle
+              // Tertiary match: legacy branch pattern with timestamp
+              || pr.head.startsWith(legacyBranchPattern)
+              // Quaternary match: similar titles (for grouped updates)
+              || this.isSimilarPRTitle(pr.title, prTitle)
+            )
             && (pr.author === 'github-actions[bot]' || pr.author.includes('buddy') || pr.head.startsWith('buddy-bot/'))
             && !pr.head.includes('renovate/') // Exclude Renovate PRs
             && !pr.head.includes('dependabot/') // Exclude Dependabot PRs
@@ -319,9 +331,51 @@ export class Buddy {
             }
           }
 
-          // Generate unique branch name
-          const timestamp = Date.now()
-          const branchName = `buddy-bot/update-${group.name.toLowerCase().replace(/\s+/g, '-')}-${timestamp}`
+          // Generate deterministic branch name (no timestamp - allows reuse of existing branches)
+          const branchName = this.generateBranchName(group)
+
+          // Check if branch already exists and has an open PR
+          // This prevents creating duplicate PRs when the detection above failed
+          const existingBranch = await gitProvider.branchExists(branchName)
+
+          if (existingBranch) {
+            this.logger.info(`🔄 Branch ${branchName} already exists, checking for associated PR...`)
+
+            // Re-check for existing PR with this exact branch name
+            const existingPRForBranch = existingPRs.find(pr => pr.head === branchName)
+
+            if (existingPRForBranch) {
+              this.logger.info(`✅ Found existing PR #${existingPRForBranch.number} for branch ${branchName}, updating it...`)
+
+              // Update the existing PR instead of creating a new one
+              const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
+              if (packageJsonUpdates.length > 0) {
+                await gitProvider.commitChanges(branchName, `${group.title} (updated)`, packageJsonUpdates)
+              }
+
+              const dynamicLabels = prGenerator.generateLabels(group)
+              await gitProvider.updatePullRequest(existingPRForBranch.number, {
+                title: prTitle,
+                body: prBody,
+                labels: dynamicLabels,
+                reviewers: this.config.pullRequest?.reviewers,
+                assignees: this.config.pullRequest?.assignees,
+              })
+
+              this.logger.success(`✅ Updated existing PR #${existingPRForBranch.number}: ${prTitle}`)
+              this.logger.info(`🔗 ${existingPRForBranch.url}`)
+              continue
+            }
+
+            // Branch exists but no open PR - delete the orphaned branch and create fresh
+            this.logger.info(`🧹 Branch ${branchName} exists but has no open PR, cleaning up...`)
+            try {
+              await gitProvider.deleteBranch(branchName)
+            }
+            catch (deleteError) {
+              this.logger.warn(`⚠️ Failed to delete orphaned branch ${branchName}:`, deleteError)
+            }
+          }
 
           // Create branch
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
@@ -1117,7 +1171,25 @@ export class Buddy {
   }
 
   /**
+   * Generate a deterministic branch name for a group
+   * This ensures the same group always gets the same branch name,
+   * preventing duplicate PRs from being created
+   */
+  private generateBranchName(group: UpdateGroup): string {
+    // Normalize group name to create a stable branch name
+    const normalizedName = group.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '') // Remove any special characters
+      .replace(/-+/g, '-') // Collapse multiple hyphens
+      .replace(/^-|-$/g, '') // Trim leading/trailing hyphens
+
+    return `buddy-bot/update-${normalizedName}`
+  }
+
+  /**
    * Check if two PR titles are similar (for dependency updates)
+   * This is used to find existing PRs that should be updated instead of creating new ones
    */
   private isSimilarPRTitle(existingTitle: string, newTitle: string): boolean {
     // Exact match is always similar
@@ -1125,25 +1197,49 @@ export class Buddy {
       return true
     }
 
-    // For major updates, be very specific - only match if it's the exact same package and version
-    if (newTitle.toLowerCase().includes('update dependency ')) {
+    const existingLower = existingTitle.toLowerCase()
+    const newLower = newTitle.toLowerCase()
+
+    // Match grouped updates: both are for "all non-major" or similar grouped patterns
+    // This handles titles like:
+    // - "chore(deps): update all non-major dependencies"
+    // - "chore(deps): update 5 dependencies (minor)"
+    // - "chore(deps): update 3 dependencies (patch)"
+    const groupedPatterns = [
+      /update all non-major/i,
+      /update \d+ dependenc(y|ies)/i,
+      /update.*\(minor\)/i,
+      /update.*\(patch\)/i,
+      /update.*\(major\)/i,
+    ]
+
+    const existingIsGrouped = groupedPatterns.some(p => p.test(existingTitle))
+    const newIsGrouped = groupedPatterns.some(p => p.test(newTitle))
+
+    // If both are grouped updates, they're similar (same PR should be updated)
+    if (existingIsGrouped && newIsGrouped) {
+      // But differentiate between major and non-major
+      const existingIsMajor = existingLower.includes('(major)') || existingLower.includes('major update')
+      const newIsMajor = newLower.includes('(major)') || newLower.includes('major update')
+
+      // Only match if both are major or both are non-major
+      return existingIsMajor === newIsMajor
+    }
+
+    // For single dependency updates, match by package name
+    if (newLower.includes('update dependency ')) {
       // Extract package name from titles like "chore(deps): update dependency package-name to v1.0"
       const newPackageMatch = newTitle.match(/update dependency (\S+)/i)
       const existingPackageMatch = existingTitle.match(/update dependency (\S+)/i)
 
       if (newPackageMatch && existingPackageMatch) {
-        // Only similar if same package name
+        // Only similar if same package name (ignoring version)
         return newPackageMatch[1] === existingPackageMatch[1]
       }
     }
 
-    // Don't match different update types (major vs non-major, individual vs grouped)
-    const existingLower = existingTitle.toLowerCase()
-    const newLower = newTitle.toLowerCase()
-
-    // If one is for "all non-major" and other is for specific dependency, they're different
-    if ((existingLower.includes('all non-major') && newLower.includes('dependency '))
-      || (newLower.includes('all non-major') && existingLower.includes('dependency '))) {
+    // If one is grouped and one is individual, they're different
+    if (existingIsGrouped !== newIsGrouped) {
       return false
     }
 
