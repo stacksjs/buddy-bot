@@ -1726,7 +1726,7 @@ export function getWorkflowPreset(useCase: string): WorkflowPreset {
     },
     'testing': {
       name: 'Development/Testing',
-      description: 'Manual trigger + every 5 minutes (for testing)',
+      description: 'Manual trigger + every 20 minutes (for testing)',
       templates: {},
       schedules: {
         dashboard: 'manual',
@@ -1737,7 +1737,7 @@ export function getWorkflowPreset(useCase: string): WorkflowPreset {
       custom: [
         {
           name: 'testing-updates',
-          schedule: '*/5 * * * *',
+          schedule: '*/20 * * * *',
           strategy: 'patch',
           autoMerge: false, // No auto-merge for testing
         },

@@ -435,7 +435,7 @@ jobs:
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Every 5 minutes for testing
+    - cron: '*/20 * * * *' # Every 20 minutes for testing
   workflow_dispatch: # Manual triggering for development
     inputs:
       strategy:
@@ -569,11 +569,11 @@ jobs:
           echo "" >> \$GITHUB_STEP_SUMMARY
 
           if [ "\${{ github.event_name }}" = "schedule" ]; then
-            echo "⏰ **Scheduled Run**: This was triggered automatically every 5 minutes" >> \$GITHUB_STEP_SUMMARY
+            echo "⏰ **Scheduled Run**: This was triggered automatically every 20 minutes" >> \$GITHUB_STEP_SUMMARY
             echo "💡 **Tip**: Use 'Actions' tab to manually trigger with custom settings" >> \$GITHUB_STEP_SUMMARY
           else
             echo "🖱️ **Manual Trigger**: This was triggered manually from the Actions tab" >> \$GITHUB_STEP_SUMMARY
-            echo "⏰ **Auto-Schedule**: This workflow also runs every 5 minutes for testing" >> \$GITHUB_STEP_SUMMARY
+            echo "⏰ **Auto-Schedule**: This workflow also runs every 20 minutes for testing" >> \$GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> \$GITHUB_STEP_SUMMARY

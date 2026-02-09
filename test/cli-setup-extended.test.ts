@@ -84,7 +84,7 @@ describe('CLI Setup - Extended Tests', () => {
       // Testing preset
       const testing = getWorkflowPreset('testing')
       expect(testing.name).toBe('Development/Testing')
-      expect(testing.custom?.some(c => c.schedule === '*/5 * * * *')).toBe(true)
+      expect(testing.custom?.some(c => c.schedule === '*/20 * * * *')).toBe(true)
 
       // Custom preset
       const custom = getWorkflowPreset('custom')
