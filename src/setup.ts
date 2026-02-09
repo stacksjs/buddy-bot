@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import type { Logger } from './utils/logger'
 import { exec } from 'node:child_process'
 import fs from 'node:fs'

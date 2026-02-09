@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-/* eslint-disable no-cond-assign */
 
 import type { BuddyBotConfig } from '../src/types'
 import fs from 'node:fs'
