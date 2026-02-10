@@ -1,4 +1,31 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.12...v0.9.13)
+
+### 🧹 Chores
+
+- release v0.9.13 ([9b5ca97](https://github.com/stacksjs/buddy-bot/commit/9b5ca97)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([7b1e98d](https://github.com/stacksjs/buddy-bot/commit/7b1e98d)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([2cd8dbd](https://github.com/stacksjs/buddy-bot/commit/2cd8dbd)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([2fa700c](https://github.com/stacksjs/buddy-bot/commit/2fa700c)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([e47439a](https://github.com/stacksjs/buddy-bot/commit/e47439a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([3e775f2](https://github.com/stacksjs/buddy-bot/commit/3e775f2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- several pr update improvements ([7d23ff6](https://github.com/stacksjs/buddy-bot/commit/7d23ff6)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([92a5d5b](https://github.com/stacksjs/buddy-bot/commit/92a5d5b)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([e5c8f56](https://github.com/stacksjs/buddy-bot/commit/e5c8f56)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([90efd28](https://github.com/stacksjs/buddy-bot/commit/90efd28)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([82ef52f](https://github.com/stacksjs/buddy-bot/commit/82ef52f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([bbd16ff](https://github.com/stacksjs/buddy-bot/commit/bbd16ff)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([4d05ef4](https://github.com/stacksjs/buddy-bot/commit/4d05ef4)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([d56e66f](https://github.com/stacksjs/buddy-bot/commit/d56e66f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update actions/checkout action to v6 (#401) ([09161b1](https://github.com/stacksjs/buddy-bot/commit/09161b1)) _(by [renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>](https://github.com/renovate[bot]))_ ([#401](https://github.com/stacksjs/buddy-bot/issues/401), [#401](https://github.com/stacksjs/buddy-bot/issues/401))
+- wip ([223c63f](https://github.com/stacksjs/buddy-bot/commit/223c63f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _[renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>](https://github.com/renovate[bot])_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.10...v0.9.11)
 
 ### 🚀 Features
