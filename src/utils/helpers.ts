@@ -241,7 +241,9 @@ function getFilePriority(filePath: string): number {
 }
 
 /**
- * Group updates based on configuration and type
+ * Group updates based on configuration and type.
+ * Separates GitHub Actions and Docker updates into their own dedicated PR groups
+ * to prevent mixing dependency ecosystems (like Renovate does).
  */
 export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   const groups: UpdateGroup[] = []
@@ -249,10 +251,39 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   // Deduplicate updates by package name and version - keep the most relevant file
   const deduplicatedUpdates = deduplicateUpdates(updates)
 
-  // Group by update type
-  const majorUpdates = deduplicatedUpdates.filter(u => u.updateType === 'major')
-  const minorUpdates = deduplicatedUpdates.filter(u => u.updateType === 'minor')
-  const patchUpdates = deduplicatedUpdates.filter(u => u.updateType === 'patch')
+  // Separate by dependency ecosystem first — each ecosystem gets its own PR(s)
+  const githubActionsUpdates = deduplicatedUpdates.filter(u => u.dependencyType === 'github-actions')
+  const dockerUpdates = deduplicatedUpdates.filter(u => u.dependencyType === 'docker-image')
+  const packageUpdates = deduplicatedUpdates.filter(u =>
+    u.dependencyType !== 'github-actions' && u.dependencyType !== 'docker-image',
+  )
+
+  // GitHub Actions get their own stable group
+  if (githubActionsUpdates.length > 0) {
+    groups.push({
+      name: 'GitHub Actions',
+      updates: githubActionsUpdates,
+      updateType: getHighestUpdateType(githubActionsUpdates),
+      title: 'chore(deps): update github actions',
+      body: formatPRBody(githubActionsUpdates),
+    })
+  }
+
+  // Docker images get their own stable group
+  if (dockerUpdates.length > 0) {
+    groups.push({
+      name: 'Docker Images',
+      updates: dockerUpdates,
+      updateType: getHighestUpdateType(dockerUpdates),
+      title: 'chore(deps): update docker images',
+      body: formatPRBody(dockerUpdates),
+    })
+  }
+
+  // Package updates (npm, composer, pkgx, etc.) — group by update type
+  const majorUpdates = packageUpdates.filter(u => u.updateType === 'major')
+  const minorUpdates = packageUpdates.filter(u => u.updateType === 'minor')
+  const patchUpdates = packageUpdates.filter(u => u.updateType === 'patch')
 
   // Create individual PRs for each major update
   for (const majorUpdate of majorUpdates) {
@@ -277,6 +308,17 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   }
 
   return groups
+}
+
+/**
+ * Get the highest severity update type from a list of updates
+ */
+function getHighestUpdateType(updates: PackageUpdate[]): 'major' | 'minor' | 'patch' {
+  if (updates.some(u => u.updateType === 'major'))
+    return 'major'
+  if (updates.some(u => u.updateType === 'minor'))
+    return 'minor'
+  return 'patch'
 }
 
 /**

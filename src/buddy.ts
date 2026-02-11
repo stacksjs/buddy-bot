@@ -1200,11 +1200,22 @@ export class Buddy {
     const existingLower = existingTitle.toLowerCase()
     const newLower = newTitle.toLowerCase()
 
+    // Match ecosystem-specific groups: GitHub Actions and Docker have their own PRs
+    const existingIsGHActions = existingLower.includes('github actions')
+    const newIsGHActions = newLower.includes('github actions')
+    if (existingIsGHActions && newIsGHActions)
+      return true
+    if (existingIsGHActions !== newIsGHActions)
+      return false
+
+    const existingIsDocker = existingLower.includes('docker image')
+    const newIsDocker = newLower.includes('docker image')
+    if (existingIsDocker && newIsDocker)
+      return true
+    if (existingIsDocker !== newIsDocker)
+      return false
+
     // Match grouped updates: both are for "all non-major" or similar grouped patterns
-    // This handles titles like:
-    // - "chore(deps): update all non-major dependencies"
-    // - "chore(deps): update 5 dependencies (minor)"
-    // - "chore(deps): update 3 dependencies (patch)"
     const groupedPatterns = [
       /update all non-major/i,
       /update \d+ dependenc(y|ies)/i,
@@ -1228,7 +1239,6 @@ export class Buddy {
 
     // For single dependency updates, match by package name
     if (newLower.includes('update dependency ')) {
-      // Extract package name from titles like "chore(deps): update dependency package-name to v1.0"
       const newPackageMatch = newTitle.match(/update dependency (\S+)/i)
       const existingPackageMatch = existingTitle.match(/update dependency (\S+)/i)
 
@@ -1245,7 +1255,7 @@ export class Buddy {
 
     // Different specific dependencies are different PRs
     if (existingLower.includes('dependency ') && newLower.includes('dependency ')) {
-      return false // Each dependency gets its own PR
+      return false
     }
 
     // Otherwise, not similar
