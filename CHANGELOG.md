@@ -1,4 +1,16 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.13...v0.9.14)
+
+### 🧹 Chores
+
+- release v0.9.14 ([773f519](https://github.com/stacksjs/buddy-bot/commit/773f519)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([bc9cb6f](https://github.com/stacksjs/buddy-bot/commit/bc9cb6f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([dae827b](https://github.com/stacksjs/buddy-bot/commit/dae827b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.12...v0.9.13)
 
 ### 🧹 Chores
