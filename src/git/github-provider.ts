@@ -80,18 +80,18 @@ export class GitHubProvider implements GitProvider {
     }
   }
 
-  async commitChanges(branchName: string, message: string, files: FileChange[]): Promise<void> {
+  async commitChanges(branchName: string, message: string, files: FileChange[], baseBranch: string = 'main'): Promise<void> {
     // Try Git CLI first for better compatibility with GitHub Actions permissions
     try {
-      await this.commitChangesWithGit(branchName, message, files)
+      await this.commitChangesWithGit(branchName, message, files, baseBranch)
     }
     catch (gitError) {
       console.warn(`⚠️ Git CLI commit failed, falling back to GitHub API: ${gitError}`)
-      await this.commitChangesWithAPI(branchName, message, files)
+      await this.commitChangesWithAPI(branchName, message, files, baseBranch)
     }
   }
 
-  private async commitChangesWithGit(branchName: string, message: string, files: FileChange[]): Promise<void> {
+  private async commitChangesWithGit(branchName: string, message: string, files: FileChange[], baseBranch: string = 'main'): Promise<void> {
     try {
       // Handle workflow files based on token permissions
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
@@ -156,60 +156,31 @@ export class GitHubProvider implements GitProvider {
       // Fetch latest changes
       await this.runCommand('git', ['fetch', 'origin'])
 
-      // Work on the target branch in place to avoid recreating identical commits
-      // 1) Try to checkout the branch tracking remote
+      // Renovate-style branch recreation: reset the PR branch to the base branch tip,
+      // then apply dependency file changes fresh on top. This completely eliminates
+      // merge conflicts because there's nothing to merge — we start from a clean base
+      // and just write the dependency file changes on top.
+      console.log(`🔄 Recreating ${branchName} from origin/${baseBranch} (Renovate-style)...`)
+
+      // Ensure we're on the PR branch (create if it doesn't exist)
       try {
         await this.runCommand('git', ['checkout', branchName])
       }
       catch {
-        // If it doesn't exist locally, create it tracking the remote if present
         try {
           await this.runCommand('git', ['checkout', '-b', branchName, `origin/${branchName}`])
         }
         catch {
-          // As a last resort, create an empty local branch (caller is expected to have created the remote)
           await this.runCommand('git', ['checkout', '-b', branchName])
         }
       }
 
-      // Ensure working tree is clean and aligned with remote branch tip
-      try {
-        await this.runCommand('git', ['reset', '--hard', `origin/${branchName}`])
-      }
-      catch {
-        // If remote ref doesn't exist yet, align with current HEAD
-        await this.runCommand('git', ['reset', '--hard', 'HEAD'])
-      }
+      // Reset the PR branch to the base branch tip — this is the key Renovate-style move.
+      // Instead of merging main into the PR branch (which causes conflicts),
+      // we simply point the branch at main's HEAD and apply our changes fresh.
+      await this.runCommand('git', ['reset', '--hard', `origin/${baseBranch}`])
       await this.runCommand('git', ['clean', '-fd'])
-
-      // Merge main into the PR branch to resolve conflicts before applying updates
-      // This prevents the "hundreds of deleted PRs" problem by keeping PRs up-to-date with main
-      try {
-        console.log(`🔀 Merging main into ${branchName} to resolve any conflicts...`)
-        await this.runCommand('git', ['merge', 'origin/main', '--no-edit'])
-        console.log(`✅ Successfully merged main into ${branchName}`)
-      }
-      catch {
-        // If merge fails due to conflicts, use theirs strategy to accept main's changes
-        // Then our file updates will overwrite with the correct dependency versions
-        console.warn(`⚠️ Merge conflicts detected, resolving with strategy: accept main's changes, then apply updates`)
-
-        try {
-          // Abort the failed merge first
-          await this.runCommand('git', ['merge', '--abort'])
-
-          // Retry merge with strategy to accept main's changes for conflicts
-          // This ensures the PR branch is based on latest main
-          await this.runCommand('git', ['merge', 'origin/main', '-X', 'theirs', '--no-edit'])
-          console.log(`✅ Resolved conflicts by accepting main's changes`)
-        }
-        catch (strategyError) {
-          // If that still fails, log the error but continue
-          // The file updates we apply next will create the correct state
-          console.warn(`⚠️ Could not merge main into ${branchName}:`, strategyError)
-          console.warn(`⚠️ Continuing with file updates - PR may need manual conflict resolution`)
-        }
-      }
+      console.log(`✅ Reset ${branchName} to origin/${baseBranch}`)
 
       // Apply file changes
       for (const file of files) {
@@ -254,19 +225,22 @@ export class GitHubProvider implements GitProvider {
         // Commit changes
         await this.runCommand('git', ['commit', '-m', message])
 
-        // Push changes (no force unless absolutely necessary)
-        try {
-          await this.runCommand('git', ['push', 'origin', branchName])
-        }
-        catch {
-          // Fall back to a safe force push in CI edge cases
-          await this.runCommand('git', ['push', 'origin', branchName, '--force-with-lease'])
-        }
+        // Force-push is required because we recreated the branch from base (Renovate-style).
+        // Use --force-with-lease for safety — it will fail if someone else pushed to the
+        // branch concurrently, preventing accidental overwrites.
+        await this.runCommand('git', ['push', 'origin', branchName, '--force-with-lease'])
 
-        console.log(`✅ Successfully rebased ${branchName} with fresh changes: ${message}`)
+        console.log(`✅ Successfully recreated ${branchName} with fresh changes from ${baseBranch}: ${message}`)
       }
       else {
-        console.log(`ℹ️ No changes to commit for ${branchName}`)
+        // SAFETY: Do NOT push when there are no file changes after resetting to base.
+        // If we push now, the branch would be at the exact same commit as main,
+        // and GitHub would auto-close the PR thinking it was merged.
+        // This can happen when:
+        //   1. The dependency changes were already merged to main
+        //   2. commitChanges was called with an empty file list
+        // In both cases, the right thing is to leave the branch alone.
+        console.log(`ℹ️ No file changes after resetting to ${baseBranch} — skipping push to prevent PR auto-close`)
       }
     }
     catch (error) {
@@ -275,7 +249,7 @@ export class GitHubProvider implements GitProvider {
     }
   }
 
-  private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[]): Promise<void> {
+  private async commitChangesWithAPI(branchName: string, message: string, files: FileChange[], baseBranch: string = 'main'): Promise<void> {
     try {
       // Handle workflow files based on token permissions
       const workflowFiles = files.filter(f => f.path.includes('.github/workflows/'))
@@ -301,13 +275,15 @@ export class GitHubProvider implements GitProvider {
         console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
       }
 
-      // Get current branch SHA
-      const branchRef = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${branchName}`)
-      const currentSha = branchRef.object.sha
+      // Renovate-style: base the new commit on the base branch (e.g. main), not the PR branch.
+      // This recreates the branch from scratch, eliminating any merge conflicts.
+      console.log(`🔄 Recreating ${branchName} from ${baseBranch} via API (Renovate-style)...`)
+      const baseRef = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${baseBranch}`)
+      const baseSha = baseRef.object.sha
 
-      // Get current tree
-      const currentCommit = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/commits/${currentSha}`)
-      const currentTreeSha = currentCommit.tree.sha
+      // Get base branch tree
+      const baseCommit = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/commits/${baseSha}`)
+      const baseTreeSha = baseCommit.tree.sha
 
       // Create new tree with file changes
       const tree = []
@@ -340,21 +316,23 @@ export class GitHubProvider implements GitProvider {
       }
 
       const newTree = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/git/trees`, {
-        base_tree: currentTreeSha,
+        base_tree: baseTreeSha,
         tree,
       })
 
-      // If the resulting tree is the same as the current one, skip creating a commit
-      if (newTree.sha === currentTreeSha) {
-        console.log(`ℹ️ No changes detected for ${branchName} (API path) - skipping commit`)
+      // SAFETY: If the tree matches base, the dependency changes are already in main.
+      // Do NOT update the branch ref — pointing it at main's SHA would make GitHub
+      // auto-close the PR thinking it was merged.
+      if (newTree.sha === baseTreeSha) {
+        console.log(`ℹ️ No file changes relative to ${baseBranch} — skipping push to prevent PR auto-close`)
         return
       }
 
-      // Create new commit with explicit github-actions[bot] author
+      // Create new commit parented to the base branch SHA (Renovate-style: single commit on top of base)
       const newCommit = await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/git/commits`, {
         message,
         tree: newTree.sha,
-        parents: [currentSha],
+        parents: [baseSha],
         author: {
           name: 'github-actions[bot]',
           email: '41898282+github-actions[bot]@users.noreply.github.com',
@@ -365,9 +343,10 @@ export class GitHubProvider implements GitProvider {
         },
       })
 
-      // Update branch reference
+      // Force-update branch reference (required since we're recreating from base branch)
       await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/git/refs/heads/${branchName}`, {
         sha: newCommit.sha,
+        force: true,
       })
 
       console.log(`✅ Committed changes to ${branchName}: ${message}`)

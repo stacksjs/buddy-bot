@@ -91,7 +91,7 @@ describe('CLI Setup - Non-Interactive Mode', () => {
       const workflow = generateUnifiedWorkflow(false)
 
       expect(workflow).toContain('name: Buddy Bot')
-      expect(workflow).toContain('cron: \'*/1 * * * *\'')
+      expect(workflow).toContain('pull_request:') // Rebase checkbox triggers instantly via PR edit event
       expect(workflow).toContain('check:') // job name
       expect(workflow).toContain('bunx buddy-bot update-check')
     })

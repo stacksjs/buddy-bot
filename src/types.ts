@@ -252,8 +252,8 @@ export interface GitProvider {
   /** Create a new branch */
   createBranch: (branchName: string, baseBranch: string) => Promise<void>
 
-  /** Commit changes to branch */
-  commitChanges: (branchName: string, message: string, files: FileChange[]) => Promise<void>
+  /** Commit changes to branch (Renovate-style: resets branch to baseBranch, applies files fresh) */
+  commitChanges: (branchName: string, message: string, files: FileChange[], baseBranch?: string) => Promise<void>
 
   /** Create pull request */
   createPullRequest: (options: PullRequestOptions) => Promise<PullRequest>

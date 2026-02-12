@@ -33,7 +33,7 @@ describe('CLI Setup - Enhanced Functions', () => {
       expect(workflow).toContain('check:')
       expect(workflow).toContain('dependency-update:')
       expect(workflow).toContain('dashboard-update:')
-      expect(workflow).toContain('cron: \'*/1 * * * *\'') // Check every minute
+      expect(workflow).toContain('pull_request:') // Rebase checkbox triggers instantly via PR edit event
       expect(workflow).toContain('cron: \'0 */2 * * *\'') // Update every 2 hours
       expect(workflow).toContain('cron: \'15 */2 * * *\'') // Dashboard 15 mins after updates
       expect(workflow).toContain('bunx buddy-bot update-check')

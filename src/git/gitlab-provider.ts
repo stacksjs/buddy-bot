@@ -18,7 +18,7 @@ export class GitLabProvider implements GitProvider {
     console.log(`Would create branch ${branchName} from ${baseBranch}`)
   }
 
-  async commitChanges(branchName: string, message: string, files: FileChange[]): Promise<void> {
+  async commitChanges(branchName: string, message: string, files: FileChange[], _baseBranch?: string): Promise<void> {
     // TODO: Implement GitLab API call to commit changes
     console.log(`Would commit ${files.length} files to ${branchName} with message: ${message}`)
   }

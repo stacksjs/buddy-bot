@@ -286,30 +286,31 @@ export class Buddy {
               else {
                 this.logger.info(`📝 Regenerated ${packageJsonUpdates.length} file changes for existing PR ${existingPR.number}`)
 
-                // Always call commitChanges to ensure main is merged into PR branch
+                // Always call commitChanges to recreate branch from base (Renovate-style)
                 // This keeps the PR branch up-to-date even when file content is identical
                 try {
                   const { hasBranchDifferences } = await import('./utils/git')
                   const changed = await hasBranchDifferences(packageJsonUpdates, existingBranchName)
 
                   if (!changed) {
-                    this.logger.info(`ℹ️ No content differences for ${existingBranchName}; will merge main to keep branch up-to-date`)
-                    // Still call commitChanges with empty file list to trigger merge of main into PR branch
-                    // This prevents PR branches from falling behind and getting CONFLICTING status
-                    await gitProvider.commitChanges(existingBranchName, `chore: merge main to keep branch up-to-date`, [])
-                    this.logger.success(`✅ Merged main into ${existingBranchName} to keep it up-to-date`)
+                    this.logger.info(`ℹ️ No content differences for ${existingBranchName}; recreating from ${this.config.repository.baseBranch || 'main'} with same dependency changes to keep branch up-to-date`)
+                    // IMPORTANT: Still pass the full file list, NOT empty [].
+                    // After resetting to base, the dependency changes need to be reapplied.
+                    // Passing [] would make the branch identical to main → GitHub auto-closes the PR.
+                    await gitProvider.commitChanges(existingBranchName, `${group.title} (rebased)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                    this.logger.success(`✅ Recreated ${existingBranchName} from ${this.config.repository.baseBranch || 'main'} (dependency versions unchanged)`)
                   }
                   else {
-                    // Commit the updated changes to the existing branch
-                    await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates)
-                    this.logger.success(`✅ Updated files in branch ${existingBranchName} with latest dependency versions`)
+                    // Recreate the branch from base and apply updated changes (Renovate-style)
+                    await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                    this.logger.success(`✅ Recreated branch ${existingBranchName} with latest dependency versions`)
                   }
                 }
                 catch (cmpErr) {
                   // If the comparison fails for any reason, fall back to committing (previous behavior)
                   this.logger.warn(`⚠️ Failed to compare branch content, proceeding with commit:`, cmpErr)
-                  await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates)
-                  this.logger.success(`✅ Updated files in branch ${existingBranchName} with latest dependency versions`)
+                  await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                  this.logger.success(`✅ Recreated branch ${existingBranchName} with latest dependency versions`)
                 }
               }
 
@@ -347,10 +348,10 @@ export class Buddy {
             if (existingPRForBranch) {
               this.logger.info(`✅ Found existing PR #${existingPRForBranch.number} for branch ${branchName}, updating it...`)
 
-              // Update the existing PR instead of creating a new one
+              // Update the existing PR instead of creating a new one (Renovate-style: recreate from base)
               const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
               if (packageJsonUpdates.length > 0) {
-                await gitProvider.commitChanges(branchName, `${group.title} (updated)`, packageJsonUpdates)
+                await gitProvider.commitChanges(branchName, `${group.title} (updated)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
               }
 
               const dynamicLabels = prGenerator.generateLabels(group)
@@ -448,8 +449,8 @@ export class Buddy {
 
           this.logger.info(`📝 Generated ${packageJsonUpdates.length} file changes for ${group.name}`)
 
-          // Commit changes
-          await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates)
+          // Commit changes (Renovate-style: branch is created from base, changes applied fresh)
+          await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates, this.config.repository.baseBranch || 'main')
 
           // Generate dynamic labels based on update types and package types
           const dynamicLabels = prGenerator.generateLabels(group)

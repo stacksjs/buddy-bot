@@ -1109,9 +1109,12 @@ export function generateUnifiedWorkflow(hasCustomToken: boolean): string {
   return `name: Buddy Bot
 
 on:
+  # Rebase checkbox: fires instantly when a PR body is edited (e.g. checkbox ticked).
+  # No polling needed — this replaces the old every-minute cron for rebase detection.
+  pull_request:
+    types: [edited]
+
   schedule:
-    # Check for rebase requests every minute
-    - cron: '*/1 * * * *'
     # Update dependencies every 2 hours
     - cron: '0 */2 * * *'
     # Update dashboard 15 minutes after dependency updates (ensures updates are reflected)
@@ -1198,7 +1201,17 @@ jobs:
           echo "run_update=false" >> \$GITHUB_OUTPUT
           echo "run_dashboard=false" >> \$GITHUB_OUTPUT
 
-          if [ "\${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "\${{ github.event_name }}" = "pull_request" ]; then
+            # PR body was edited — check if it's a buddy-bot PR with rebase checkbox
+            # Only run the check job (lightweight: just scans for the checkbox and rebases)
+            BRANCH="\${{ github.event.pull_request.head.ref }}"
+            if [[ "\$BRANCH" == buddy-bot/* ]]; then
+              echo "run_check=true" >> \$GITHUB_OUTPUT
+              echo "ℹ️ buddy-bot PR edited — running rebase check for branch: \$BRANCH"
+            else
+              echo "ℹ️ Non-buddy-bot PR edited — skipping (branch: \$BRANCH)"
+            fi
+          elif [ "\${{ github.event_name }}" = "workflow_dispatch" ]; then
             JOB="\${{ github.event.inputs.job || 'all' }}"
             if [ "\$JOB" = "all" ] || [ "\$JOB" = "check" ]; then
               echo "run_check=true" >> \$GITHUB_OUTPUT
@@ -1211,9 +1224,7 @@ jobs:
             fi
           elif [ "\${{ github.event_name }}" = "schedule" ]; then
             # Determine based on cron schedule
-            if [ "\${{ github.event.schedule }}" = "*/1 * * * *" ]; then
-              echo "run_check=true" >> \$GITHUB_OUTPUT
-            elif [ "\${{ github.event.schedule }}" = "0 */2 * * *" ]; then
+            if [ "\${{ github.event.schedule }}" = "0 */2 * * *" ]; then
               echo "run_update=true" >> \$GITHUB_OUTPUT
             elif [ "\${{ github.event.schedule }}" = "15 */2 * * *" ]; then
               echo "run_dashboard=true" >> \$GITHUB_OUTPUT

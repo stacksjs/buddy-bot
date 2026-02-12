@@ -8,7 +8,7 @@ describe('CLI Setup - Extended Tests', () => {
       // Test with custom token
       const workflowWithCustomToken = generateUnifiedWorkflow(true)
       expect(workflowWithCustomToken).toContain('name: Buddy Bot')
-      expect(workflowWithCustomToken).toContain('cron: \'*/1 * * * *\'') // Check job
+      expect(workflowWithCustomToken).toContain('pull_request:') // Rebase checkbox via PR edit event
       expect(workflowWithCustomToken).toContain('cron: \'0 */2 * * *\'') // Update job
       expect(workflowWithCustomToken).toContain('cron: \'15 */2 * * *\'') // Dashboard job
       expect(workflowWithCustomToken).toContain('BUDDY_BOT_TOKEN')
@@ -16,7 +16,7 @@ describe('CLI Setup - Extended Tests', () => {
       // Test with default token
       const workflowWithDefaultToken = generateUnifiedWorkflow(false)
       expect(workflowWithDefaultToken).toContain('name: Buddy Bot')
-      expect(workflowWithDefaultToken).toContain('cron: \'*/1 * * * *\'') // Check job
+      expect(workflowWithDefaultToken).toContain('pull_request:') // Rebase checkbox via PR edit event
       expect(workflowWithDefaultToken).toContain('cron: \'0 */2 * * *\'') // Update job
       expect(workflowWithDefaultToken).toContain('cron: \'15 */2 * * *\'') // Dashboard job
       // eslint-disable-next-line no-template-curly-in-string

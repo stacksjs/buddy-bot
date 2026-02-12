@@ -213,12 +213,12 @@ describe('CLI Non-Interactive Integration Tests', () => {
 
       const requiredSections = [
         'name: Buddy Bot',
-        'cron: \'*/1 * * * *\'',
+        'pull_request:', // Rebase checkbox triggers instantly via PR edit event
+        'types: [edited]',
         'workflow_dispatch:',
         'dry_run:',
         'check:', // job name
         'bunx buddy-bot update-check',
-        'Check for rebase requests',
       ]
 
       for (const section of requiredSections) {

@@ -7,7 +7,7 @@ describe('No-op commit prevention', () => {
     { path: 'test-package.json', content: '{"name":"test-package"}', type: 'update' },
   ]
 
-  it('does not commit/push when git status has no changes (Git path)', async () => {
+  it('does not commit or push when git status has no changes (prevents PR auto-close)', async () => {
     const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
     const commands: Array<{ cmd: string, args: string[] }> = []
     prov.runCommand = async (command: string, args: string[]) => {
@@ -21,11 +21,14 @@ describe('No-op commit prevention', () => {
 
     const cmds = commands.map(c => c.args.join(' ')).join('\n')
     expect(cmds).toContain('status --porcelain')
+    // No commit should be created when there are no file changes
     expect(cmds).not.toContain('commit -m')
+    // CRITICAL: Do NOT push when status is empty — pushing the branch at main's SHA
+    // would make GitHub auto-close the PR thinking it was merged
     expect(cmds).not.toContain('push origin')
   })
 
-  it('commits and pushes when git status shows changes (Git path)', async () => {
+  it('commits and force-pushes when git status shows changes (Git path)', async () => {
     const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
     const commands: Array<{ cmd: string, args: string[] }> = []
     prov.runCommand = async (command: string, args: string[]) => {
@@ -38,7 +41,7 @@ describe('No-op commit prevention', () => {
     await prov.commitChanges('buddy/test-branch', 'test message', filesChanged)
 
     const hasCommit = commands.some(c => c.args[0] === 'commit' && c.args[1] === '-m')
-    const hasPush = commands.some(c => c.args[0] === 'push' && c.args[1] === 'origin')
+    const hasPush = commands.some(c => c.args[0] === 'push' && c.args.includes('--force-with-lease'))
     expect(hasCommit).toBeTrue()
     expect(hasPush).toBeTrue()
   })

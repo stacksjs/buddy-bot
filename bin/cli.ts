@@ -808,9 +808,10 @@ cli
       // Generate new file changes (package.json, dependency files, GitHub Actions)
       const packageJsonUpdates = await buddy.generateAllFileUpdates(group.updates)
 
-      // Update the branch with new commits
-      await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates)
-      logger.info(`✅ Updated branch ${pr.head} with latest changes`)
+      // Recreate branch from base with latest dependency changes (Renovate-style)
+      const baseBranch = config.repository?.baseBranch || 'main'
+      await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates, baseBranch)
+      logger.info(`✅ Recreated branch ${pr.head} from ${baseBranch} with latest changes`)
 
       // Generate new PR content
       const { PullRequestGenerator } = await import('../src/pr/pr-generator')
