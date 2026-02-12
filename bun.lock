@@ -1,17 +1,18 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "buddy-bot",
       "dependencies": {
         "bunfig": "^0.15.6",
         "prompts": "^2.4.2",
-        "ts-pkgx": "^0.4.134",
+        "ts-pkgx": "^0.4.154",
       },
       "devDependencies": {
         "@stacksjs/bunpress": "^0.1.1",
         "@stacksjs/clapp": "^0.2.0",
-        "@types/bun": "^1.3.2",
+        "@types/bun": "^1.3.9",
         "@types/prompts": "^2.4.9",
         "better-dx": "^0.2.5",
         "bun-plugin-dtsx": "^0.9.9",
