@@ -1099,13 +1099,7 @@ function generateComposerSetupSteps(): string {
 `
 }
 
-export function generateUnifiedWorkflow(hasCustomToken: boolean): string {
-  const tokenEnv = hasCustomToken
-    // eslint-disable-next-line no-template-curly-in-string
-    ? '${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}'
-    // eslint-disable-next-line no-template-curly-in-string
-    : '${{ secrets.GITHUB_TOKEN }}'
-
+export function generateUnifiedWorkflow(_hasCustomToken: boolean): string {
   return `name: Buddy Bot
 
 on:
@@ -1169,11 +1163,11 @@ on:
         type: boolean
 
 env:
-  # For workflow file updates, you need a Personal Access Token with 'repo' and 'workflow' scopes
-  # Create a PAT at: https://github.com/settings/tokens
-  # Add it as a repository secret named 'BUDDY_BOT_TOKEN'
-  # If BUDDY_BOT_TOKEN is not available, falls back to GITHUB_TOKEN (limited permissions)
-  GITHUB_TOKEN: ${tokenEnv}
+  # Use the built-in GITHUB_TOKEN for commits and PRs — contributions are attributed
+  # to github-actions[bot] instead of a personal account.
+  # BUDDY_BOT_TOKEN (a PAT with 'repo' and 'workflow' scopes) is only used when
+  # workflow file updates are needed. Create one at: https://github.com/settings/tokens
+  GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
   BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
 permissions:
@@ -1204,10 +1198,16 @@ jobs:
           if [ "\${{ github.event_name }}" = "pull_request" ]; then
             # PR body was edited — check if it's a buddy-bot PR with rebase checkbox
             # Only run the check job (lightweight: just scans for the checkbox and rebases)
+            ACTOR="\${{ github.actor }}"
             BRANCH="\${{ github.event.pull_request.head.ref }}"
-            if [[ "\$BRANCH" == buddy-bot/* ]]; then
+
+            # Skip if the edit was made by a bot (prevents cascade loops where
+            # buddy-bot updates a PR body → fires edited event → re-triggers workflow)
+            if [[ "\$ACTOR" == *"[bot]"* ]] || [[ "\$ACTOR" == "github-actions[bot]" ]] || [[ "\$ACTOR" == "buddy-bot" ]]; then
+              echo "ℹ️ Skipping — PR edit was made by bot actor: \$ACTOR"
+            elif [[ "\$BRANCH" == buddy-bot/* ]]; then
               echo "run_check=true" >> \$GITHUB_OUTPUT
-              echo "ℹ️ buddy-bot PR edited — running rebase check for branch: \$BRANCH"
+              echo "ℹ️ buddy-bot PR edited by user — running rebase check for branch: \$BRANCH"
             else
               echo "ℹ️ Non-buddy-bot PR edited — skipping (branch: \$BRANCH)"
             fi
@@ -1240,7 +1240,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${tokenEnv}
+          token: \${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0 # Fetch full history for rebasing
           persist-credentials: true
 
@@ -1265,7 +1265,7 @@ ${generateComposerSetupSteps()}
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${tokenEnv}
+          token: \${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -1314,7 +1314,7 @@ ${generateComposerSetupSteps()}
           fi
 
         env:
-          GITHUB_TOKEN: ${tokenEnv}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
           BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Create check summary
@@ -1346,7 +1346,7 @@ ${generateComposerSetupSteps()}
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${tokenEnv}
+          token: \${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -1400,7 +1400,7 @@ ${generateComposerSetupSteps()}
           fi
 
         env:
-          GITHUB_TOKEN: ${tokenEnv}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
           BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
@@ -1443,7 +1443,7 @@ ${generateComposerSetupSteps()}
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${tokenEnv}
+          token: \${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -1542,7 +1542,7 @@ ${generateComposerSetupSteps()}
           fi
 
         env:
-          GITHUB_TOKEN: ${tokenEnv}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
           BUDDY_BOT_TOKEN: \${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification

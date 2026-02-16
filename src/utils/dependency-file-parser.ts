@@ -53,14 +53,16 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
     }
     catch (pkgxError) {
       console.warn(`ts-pkgx failed to parse ${filePath}, attempting fallback YAML parsing:`, pkgxError)
+    }
 
-      // Fallback: Simple YAML parsing for basic deps.yaml files
+    // Fallback: if ts-pkgx returned no dependencies (either threw or returned empty),
+    // try the simple YAML parser which works without the pkgx registry
+    if (dependencies.length === 0) {
       try {
         dependencies = await parseSimpleYamlDependencies(content, filePath)
       }
       catch (yamlError) {
-        console.warn(`Fallback YAML parsing also failed for ${filePath}:`, yamlError)
-        // Return empty dependencies rather than null to maintain file structure
+        console.warn(`Fallback YAML parsing failed for ${filePath}:`, yamlError)
         dependencies = []
       }
     }

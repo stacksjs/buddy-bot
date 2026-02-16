@@ -8,7 +8,11 @@ describe('CLI Setup - Enhanced Functions', () => {
 
       expect(workflow).toContain('name: Buddy Bot')
       expect(workflow).toContain('cron: \'15 */2 * * *\'') // Updated dashboard schedule
-      expect(workflow).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
+      // GITHUB_TOKEN is the built-in token; BUDDY_BOT_TOKEN is passed separately for workflow file permissions
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(workflow).toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}')
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(workflow).toContain('BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}')
       expect(workflow).toContain('bunx buddy-bot dashboard')
       expect(workflow).toContain('bunx buddy-bot update-check')
       expect(workflow).toContain('bunx buddy-bot update')

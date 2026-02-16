@@ -158,7 +158,7 @@ devDependencies:
       expect(mockResolveDependencyFile).toHaveBeenCalledWith('deps.yaml')
     })
 
-    it('should handle empty allDependencies array', async () => {
+    it('should fall back to YAML parser when allDependencies is empty', async () => {
       const mockResolvedDeps = {
         allDependencies: [],
       }
@@ -167,8 +167,9 @@ devDependencies:
 
       const result = await parseDependencyFile('deps.yaml', mockFileContent)
 
+      // When ts-pkgx returns empty results, the fallback YAML parser should find deps from content
       expect(result).toBeDefined()
-      expect(result?.dependencies).toHaveLength(0)
+      expect(result?.dependencies.length).toBeGreaterThan(0)
     })
 
     // Note: Fallback test removed because ts-pkgx only provides allDependencies,
@@ -209,13 +210,14 @@ devDependencies:
       expect(result?.dependencies[0].name).toBe('react')
     })
 
-    it('should handle null/undefined resolved dependencies', async () => {
+    it('should fall back to YAML parser when resolved dependencies is null', async () => {
       mockResolveDependencyFile.mockResolvedValue(null)
 
       const result = await parseDependencyFile('deps.yaml', mockFileContent)
 
+      // When ts-pkgx returns null, the fallback YAML parser should find deps from content
       expect(result).toBeDefined()
-      expect(result?.dependencies).toHaveLength(0)
+      expect(result?.dependencies.length).toBeGreaterThan(0)
     })
   })
 

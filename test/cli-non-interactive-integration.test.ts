@@ -138,9 +138,12 @@ describe('CLI Non-Interactive Integration Tests', () => {
       const configContent = await fs.readFile('buddy-bot.config.ts', 'utf-8')
       expect(configContent).toContain('// token: process.env.BUDDY_BOT_TOKEN,')
 
-      // Verify workflow has custom token environment
+      // Verify workflow uses built-in GITHUB_TOKEN (not overridden with PAT)
       const unifiedContent = await fs.readFile('.github/workflows/buddy-bot.yml', 'utf-8')
-      expect(unifiedContent).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(unifiedContent).toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}')
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(unifiedContent).toContain('BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}')
     })
 
     it('should handle different token setup modes', async () => {

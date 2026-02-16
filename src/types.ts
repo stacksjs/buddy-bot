@@ -49,6 +49,9 @@ export interface BuddyBotConfig {
     minimumReleaseAgeExclude?: string[]
   }
 
+  /** Maximum number of PRs to create per workflow run (default: 10) */
+  maxPRsPerRun?: number
+
   /** PR generation settings */
   pullRequest?: {
     /** Commit message format */
@@ -170,7 +173,7 @@ export interface PackageFile {
   /** File path relative to repository root */
   path: string
   /** Type of package file */
-  type: 'package.json' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml' | 'composer.json' | 'composer.lock' | 'github-actions' | 'Dockerfile' | 'build.zig.zon'
+  type: 'package.json' | 'bun.lock' | 'bun.lockb' | 'package-lock.json' | 'yarn.lock' | 'pnpm-lock.yaml' | 'deps.yaml' | 'deps.yml' | 'dependencies.yaml' | 'dependencies.yml' | 'pkgx.yaml' | 'pkgx.yml' | '.deps.yaml' | '.deps.yml' | 'composer.json' | 'composer.lock' | 'github-actions' | 'Dockerfile' | 'build.zig.zon'
   /** Raw file content */
   content: string
   /** Parsed dependencies */

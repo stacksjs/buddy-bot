@@ -145,37 +145,44 @@ export class Buddy {
         return
       }
 
-      // Get GitHub token from environment (prefer BUDDY_BOT_TOKEN for full permissions)
-      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
-      if (!token) {
+      // Use GITHUB_TOKEN for all operations — this ensures commits and PRs are
+      // attributed to github-actions[bot] instead of polluting a personal account's
+      // contribution graph. BUDDY_BOT_TOKEN (a PAT) is only passed separately for
+      // workflow file updates that require elevated permissions.
+      const token = process.env.GITHUB_TOKEN
+      const workflowToken = process.env.BUDDY_BOT_TOKEN
+      if (!token && !workflowToken) {
         this.logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR creation')
         return
       }
 
-      // Determine if we have workflow permissions (BUDDY_BOT_TOKEN has full permissions)
-      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
+      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
+      const primaryToken = token || workflowToken!
+      const hasWorkflowPermissions = !!workflowToken
 
-      if (process.env.BUDDY_BOT_TOKEN) {
-        console.log('✅ BUDDY_BOT_TOKEN detected - workflow permissions enabled')
-        console.log(`🔑 Token length: ${process.env.BUDDY_BOT_TOKEN.length} characters`)
+      if (workflowToken) {
+        console.log('✅ BUDDY_BOT_TOKEN detected - workflow file permissions enabled')
       }
       else {
-        console.log('⚠️ BUDDY_BOT_TOKEN not found - workflow permissions disabled')
-        console.log('💡 Ensure BUDDY_BOT_TOKEN is properly configured in GitHub secrets')
-        // eslint-disable-next-line no-template-curly-in-string
-        console.log('💡 The workflow should set: env: BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}')
+        console.log('ℹ️ No BUDDY_BOT_TOKEN — workflow file updates will be skipped')
       }
 
-      // Initialize GitHub provider
+      // Initialize GitHub provider with primary token for API calls
+      // and optional workflow token for elevated permissions
       const gitProvider = new GitHubProvider(
-        token,
+        primaryToken,
         this.config.repository.owner,
         this.config.repository.name,
         hasWorkflowPermissions,
+        workflowToken,
       )
 
       // Initialize PR generator with config
       const prGenerator = new PullRequestGenerator(this.config)
+
+      // Rate limiting: cap the number of PRs created per run to prevent flooding
+      const maxPRsPerRun = this.config.maxPRsPerRun ?? 10
+      let prsCreatedThisRun = 0
 
       // Process each group
       for (const group of scanResult.groups) {
@@ -332,6 +339,12 @@ export class Buddy {
             }
           }
 
+          // Rate limit: stop creating new PRs if we've hit the cap for this run
+          if (prsCreatedThisRun >= maxPRsPerRun) {
+            this.logger.warn(`⚠️ Rate limit reached: already created ${prsCreatedThisRun} PRs this run (max: ${maxPRsPerRun}). Skipping remaining groups.`)
+            break
+          }
+
           // Generate deterministic branch name (no timestamp - allows reuse of existing branches)
           const branchName = this.generateBranchName(group)
 
@@ -467,7 +480,8 @@ export class Buddy {
             labels: dynamicLabels,
           })
 
-          this.logger.success(`✅ Created PR #${pr.number}: ${pr.title}`)
+          prsCreatedThisRun++
+          this.logger.success(`✅ Created PR #${pr.number}: ${pr.title} (${prsCreatedThisRun}/${maxPRsPerRun} this run)`)
           this.logger.info(`🔗 ${pr.url}`)
 
           const groupDuration = Date.now() - groupStartTime
@@ -2006,8 +2020,8 @@ export class Buddy {
         throw new Error('Dashboard is currently only supported for GitHub repositories')
       }
 
-      // Initialize git provider
-      const token = this.config.repository.token || process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN || ''
+      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution)
+      const token = this.config.repository.token || process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN || ''
       const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
       const gitProvider = new GitHubProvider(
         token,

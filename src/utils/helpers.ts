@@ -179,25 +179,24 @@ export function formatPRBody(updates: PackageUpdate[], template?: string): strin
 }
 
 /**
- * Generate branch name for dependency updates
+ * Generate a deterministic branch name for dependency updates.
+ * Branch names are stable (no timestamps) so the same update always
+ * maps to the same branch, preventing duplicate PRs across runs.
  */
 export function generateBranchName(updates: PackageUpdate[], prefix = 'buddy'): string {
-  const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-
   if (updates.length === 1) {
     const update = updates[0]
     const safeName = update.name.replace(/[^a-z0-9-]/gi, '-')
-    return `${prefix}/update-${safeName}-to-${update.newVersion}-${timestamp}`
+    return `${prefix}/update-${safeName}-to-${update.newVersion}`
   }
 
   const majorUpdates = updates.filter(u => u.updateType === 'major')
 
   if (majorUpdates.length > 0) {
-    return `${prefix}/update-major-dependencies-${timestamp}`
+    return `${prefix}/update-major-dependencies`
   }
-  else {
-    return `${prefix}/update-dependencies-${timestamp}`
-  }
+
+  return `${prefix}/update-dependencies`
 }
 
 /**

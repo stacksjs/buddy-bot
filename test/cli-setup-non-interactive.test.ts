@@ -68,9 +68,13 @@ describe('CLI Setup - Non-Interactive Mode', () => {
 
       const workflow = generateUnifiedWorkflow(true)
 
-      expect(workflow).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
-      expect(workflow).toContain('# For workflow file updates, you need a Personal Access Token')
-      expect(workflow).toContain('# Create a PAT at: https://github.com/settings/tokens')
+      // GITHUB_TOKEN is always the built-in token; BUDDY_BOT_TOKEN is separate
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(workflow).toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}')
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(workflow).toContain('BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}')
+      expect(workflow).toContain('BUDDY_BOT_TOKEN (a PAT with \'repo\' and \'workflow\' scopes)')
+      expect(workflow).toContain('Create one at: https://github.com/settings/tokens')
     })
 
     it('should generate update workflow with default token environment', async () => {

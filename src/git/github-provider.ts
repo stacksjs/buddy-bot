@@ -16,14 +16,16 @@ export class GitHubProvider implements GitProvider {
     issues: new Map(),
   }
 
-  // Cache TTL in milliseconds (5 minutes - reasonable for a single workflow run)
-  private readonly cacheTTL = 5 * 60 * 1000
+  // Cache TTL in milliseconds (30 minutes - prevents concurrent runs within
+  // the same workflow from missing each other's PRs and creating duplicates)
+  private readonly cacheTTL = 30 * 60 * 1000
 
   constructor(
     private readonly token: string,
     private readonly owner: string,
     private readonly repo: string,
     private readonly hasWorkflowPermissions: boolean = false,
+    private readonly workflowToken?: string,
   ) {}
 
   /**
@@ -188,7 +190,7 @@ export class GitHubProvider implements GitProvider {
 
         // Safety check: prevent writing to sensitive files during tests
         if (process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test') {
-          const sensitiveFiles = ['package.json', 'bun.lockb', 'package-lock.json', 'yarn.lock']
+          const sensitiveFiles = ['package.json', 'bun.lock', 'bun.lockb', 'package-lock.json', 'yarn.lock']
           if (sensitiveFiles.includes(cleanPath) && file.content === '{"name":"x"}') {
             console.warn(`⚠️ Skipping test file write to ${cleanPath} to prevent overwriting project files`)
             continue
@@ -228,7 +230,11 @@ export class GitHubProvider implements GitProvider {
         // Force-push is required because we recreated the branch from base (Renovate-style).
         // Use --force-with-lease for safety — it will fail if someone else pushed to the
         // branch concurrently, preventing accidental overwrites.
-        await this.runCommand('git', ['push', 'origin', branchName, '--force-with-lease'])
+        // Use workflow token for push if workflow files are included (needs elevated permissions).
+        const pushToken = (workflowFiles.length > 0 && this.hasWorkflowPermissions)
+          ? this.getEffectiveToken(true)
+          : undefined
+        await this.runCommand('git', ['push', 'origin', branchName, '--force-with-lease'], pushToken)
 
         console.log(`✅ Successfully recreated ${branchName} with fresh changes from ${baseBranch}: ${message}`)
       }
@@ -556,16 +562,28 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * Get the effective token for a given operation.
+   * Uses the workflow token (PAT) for operations that need elevated permissions,
+   * and the primary token (GITHUB_TOKEN) for everything else.
+   */
+  private getEffectiveToken(requireWorkflowPermissions = false): string {
+    if (requireWorkflowPermissions && this.workflowToken)
+      return this.workflowToken
+    return this.token
+  }
+
+  /**
    * Run a command and return its output
    */
-  async runCommand(command: string, args: string[]): Promise<string> {
+  async runCommand(command: string, args: string[], tokenOverride?: string): Promise<string> {
+    const effectiveToken = tokenOverride || this.token
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, {
         stdio: 'pipe',
         env: {
           ...process.env,
-          GITHUB_TOKEN: this.token,
-          GH_TOKEN: this.token,
+          GITHUB_TOKEN: effectiveToken,
+          GH_TOKEN: effectiveToken,
         },
       })
 
@@ -1282,14 +1300,15 @@ export class GitHubProvider implements GitProvider {
   /**
    * Make authenticated API request to GitHub
    */
-  private async apiRequest(endpoint: string, data?: any): Promise<any> {
+  private async apiRequest(endpoint: string, data?: any, tokenOverride?: string): Promise<any> {
     const [method, path] = endpoint.split(' ')
     const url = `${this.apiUrl}${path}`
+    const effectiveToken = tokenOverride || this.token
 
     const options: RequestInit = {
       method,
       headers: {
-        'Authorization': `Bearer ${this.token}`,
+        'Authorization': `Bearer ${effectiveToken}`,
         'Accept': 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
         'User-Agent': 'buddy-bot',

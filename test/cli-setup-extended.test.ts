@@ -102,16 +102,20 @@ describe('CLI Setup - Extended Tests', () => {
     it('should generate correct token environment variables in unified workflow', async () => {
       const { generateUnifiedWorkflow } = await import('../src/setup')
 
-      // With custom token
+      // With custom token — GITHUB_TOKEN is always the built-in token,
+      // BUDDY_BOT_TOKEN is passed separately for workflow file permissions
       const workflowWithCustom = generateUnifiedWorkflow(true)
-      expect(workflowWithCustom).toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(workflowWithCustom).toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}')
+      // eslint-disable-next-line no-template-curly-in-string
+      expect(workflowWithCustom).toContain('BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}')
+      // Should NOT override GITHUB_TOKEN with BUDDY_BOT_TOKEN (that causes personal contribution pollution)
+      expect(workflowWithCustom).not.toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
 
-      // With default token only
+      // With default token only — same output (hasCustomToken no longer changes token env)
       const workflowWithDefault = generateUnifiedWorkflow(false)
       // eslint-disable-next-line no-template-curly-in-string
-      expect(workflowWithDefault).toContain('${{ secrets.GITHUB_TOKEN }}')
-      // Should not use BUDDY_BOT_TOKEN in the actual token environment variable
-      expect(workflowWithDefault).not.toContain('secrets.BUDDY_BOT_TOKEN ||')
+      expect(workflowWithDefault).toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}')
     })
   })
 

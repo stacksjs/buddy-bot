@@ -701,8 +701,8 @@ cli
         process.exit(1)
       }
 
-      // Get GitHub token from environment (prefer BUDDY_BOT_TOKEN for full permissions)
-      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
+      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
+      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
       if (!token) {
         logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR operations')
         process.exit(1)
@@ -715,6 +715,7 @@ cli
         config.repository.owner,
         config.repository.name,
         hasWorkflowPermissions,
+        process.env.BUDDY_BOT_TOKEN,
       )
 
       const prNum = Number.parseInt(prNumber)
@@ -878,8 +879,8 @@ cli
         process.exit(1)
       }
 
-      // Get GitHub token from environment (prefer BUDDY_BOT_TOKEN for full permissions)
-      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
+      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
+      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
       if (!token) {
         logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR operations')
         process.exit(1)
@@ -892,6 +893,7 @@ cli
         config.repository.owner,
         config.repository.name,
         hasWorkflowPermissions,
+        process.env.BUDDY_BOT_TOKEN,
       )
 
       // Step 1: Check for rebase checkboxes using GitHub API (proper body access)
@@ -1728,8 +1730,8 @@ cli
         process.exit(1)
       }
 
-      // Get GitHub token from environment
-      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
+      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
+      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
       if (!token) {
         logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for branch operations')
         process.exit(1)
@@ -1742,6 +1744,7 @@ cli
         config.repository.owner,
         config.repository.name,
         hasWorkflowPermissions,
+        process.env.BUDDY_BOT_TOKEN,
       )
 
       const days = Number.parseInt(options.days || '7', 10)
@@ -1837,8 +1840,8 @@ cli
         process.exit(1)
       }
 
-      // Get GitHub token from environment
-      const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN
+      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
+      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
       if (!token) {
         logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for branch operations')
         process.exit(1)
@@ -1851,6 +1854,7 @@ cli
         config.repository.owner,
         config.repository.name,
         hasWorkflowPermissions,
+        process.env.BUDDY_BOT_TOKEN,
       )
 
       const days = Number.parseInt(options.days || '7', 10)

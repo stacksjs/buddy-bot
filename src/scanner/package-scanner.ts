@@ -539,7 +539,7 @@ export class PackageScanner {
    * Find lock files in the project
    */
   private async findLockFiles(): Promise<string[]> {
-    const lockFileNames = ['bun.lockb', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml']
+    const lockFileNames = ['bun.lock', 'bun.lockb', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml']
     const files: string[] = []
 
     for (const fileName of lockFileNames) {
