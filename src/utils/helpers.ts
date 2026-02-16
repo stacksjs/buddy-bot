@@ -284,17 +284,9 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
   const minorUpdates = packageUpdates.filter(u => u.updateType === 'minor')
   const patchUpdates = packageUpdates.filter(u => u.updateType === 'patch')
 
-  // Create individual PRs for each major update
-  for (const majorUpdate of majorUpdates) {
-    groups.push({
-      name: `Major Update - ${majorUpdate.name}`,
-      updates: [majorUpdate],
-      updateType: 'major',
-      title: `chore(deps): update dependency ${majorUpdate.name} to ${majorUpdate.newVersion}`,
-      body: formatPRBody([majorUpdate]),
-    })
-  }
-
+  // Non-major updates go FIRST (single PR covering many packages).
+  // This ensures they're processed before the maxPRsPerRun rate limit is hit
+  // by individual major update PRs (each major gets its own PR).
   if (minorUpdates.length > 0 || patchUpdates.length > 0) {
     const nonMajorUpdates = [...minorUpdates, ...patchUpdates]
     groups.push({
@@ -303,6 +295,18 @@ export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
       updateType: minorUpdates.length > 0 ? 'minor' : 'patch',
       title: 'chore(deps): update all non-major dependencies',
       body: formatPRBody(nonMajorUpdates),
+    })
+  }
+
+  // Create individual PRs for each major update (these come after non-major
+  // so the rate limiter doesn't starve the non-major group)
+  for (const majorUpdate of majorUpdates) {
+    groups.push({
+      name: `Major Update - ${majorUpdate.name}`,
+      updates: [majorUpdate],
+      updateType: 'major',
+      title: `chore(deps): update dependency ${majorUpdate.name} to ${majorUpdate.newVersion}`,
+      body: formatPRBody([majorUpdate]),
     })
   }
 
