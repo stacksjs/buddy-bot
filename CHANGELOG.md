@@ -1,4 +1,21 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.14...v0.9.15)
+
+### 🧹 Chores
+
+- release v0.9.15 ([c06075f](https://github.com/stacksjs/buddy-bot/commit/c06075f))
+- improve determinism ([07f219e](https://github.com/stacksjs/buddy-bot/commit/07f219e))
+- **deps**: update all non-major dependencies (#1313) ([7651a1f](https://github.com/stacksjs/buddy-bot/commit/7651a1f)) ([#1313](https://github.com/stacksjs/buddy-bot/issues/1313), [#1313](https://github.com/stacksjs/buddy-bot/issues/1313))
+- **deps**: update actions/cache action to v5 (#600) ([85fc7ef](https://github.com/stacksjs/buddy-bot/commit/85fc7ef)) ([#600](https://github.com/stacksjs/buddy-bot/issues/600), [#600](https://github.com/stacksjs/buddy-bot/issues/600))
+- wip ([fb3ecae](https://github.com/stacksjs/buddy-bot/commit/fb3ecae))
+- wip ([3131ff2](https://github.com/stacksjs/buddy-bot/commit/3131ff2))
+
+### Contributors
+
+- Chris <chrisbreuer93@gmail.com>
+- glennmichael123 <gtorregosa@gmail.com>
+- renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.13...v0.9.14)
 
 ### 🧹 Chores
