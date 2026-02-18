@@ -1323,7 +1323,16 @@ export class GitHubProvider implements GitProvider {
 
     if (!response.ok) {
       const errorBody = await response.text()
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}\n${errorBody}`)
+      const tokenHint = effectiveToken
+        ? `token present (${effectiveToken.substring(0, 4)}...)`
+        : 'NO TOKEN — ensure GITHUB_TOKEN or BUDDY_BOT_TOKEN is set'
+      throw new Error(
+        `GitHub API error: ${response.status} ${response.statusText}\n`
+        + `  URL: ${method} ${url}\n`
+        + `  Auth: ${tokenHint}\n`
+        + `  Repo: ${this.owner}/${this.repo}\n`
+        + `${errorBody}`,
+      )
     }
 
     if (response.headers.get('content-type')?.includes('application/json')) {

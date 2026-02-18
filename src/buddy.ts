@@ -31,9 +31,38 @@ export class Buddy {
     private readonly projectPath: string = process.cwd(),
   ) {
     this.logger = new Logger(config.verbose ?? false)
+
+    // Auto-detect repository owner/name if not configured
+    this.resolveRepositoryConfig()
+
     this.scanner = new PackageScanner(this.projectPath, this.logger, this.config.packages?.ignorePaths)
     this.registryClient = new RegistryClient(this.projectPath, this.logger, this.config)
     this.dashboardGenerator = new DashboardGenerator()
+  }
+
+  /**
+   * Auto-detect repository owner and name from GITHUB_REPOSITORY env var
+   * when not explicitly configured. This prevents 404 errors when running
+   * in GitHub Actions without a fully specified buddy-bot config.
+   */
+  private resolveRepositoryConfig(): void {
+    if (!this.config.repository)
+      return
+
+    if (this.config.repository.owner && this.config.repository.name)
+      return
+
+    const githubRepo = process.env.GITHUB_REPOSITORY
+    if (githubRepo) {
+      const [owner, name] = githubRepo.split('/')
+      if (owner && name) {
+        if (!this.config.repository.owner)
+          this.config.repository.owner = owner
+        if (!this.config.repository.name)
+          this.config.repository.name = name
+        this.logger.info(`Auto-detected repository: ${owner}/${name} from GITHUB_REPOSITORY`)
+      }
+    }
   }
 
   /**
@@ -142,6 +171,12 @@ export class Buddy {
       if (!this.config.repository) {
         this.logger.error('❌ Repository configuration required for PR creation')
         this.logger.info('Configure repository.provider, repository.owner, repository.name in buddy-bot.config.ts')
+        return
+      }
+
+      if (!this.config.repository.owner || !this.config.repository.name) {
+        this.logger.error('❌ Repository owner and name are required for PR creation')
+        this.logger.info('Set them in buddy-bot.config.ts or ensure GITHUB_REPOSITORY env var is available')
         return
       }
 
@@ -2018,6 +2053,13 @@ export class Buddy {
 
       if (this.config.repository.provider !== 'github') {
         throw new Error('Dashboard is currently only supported for GitHub repositories')
+      }
+
+      if (!this.config.repository.owner || !this.config.repository.name) {
+        throw new Error(
+          'Repository owner and name are required for dashboard. '
+          + 'Set them in buddy-bot.config.ts or ensure GITHUB_REPOSITORY env var is available.',
+        )
       }
 
       // Use GITHUB_TOKEN as primary (github-actions[bot] attribution)
