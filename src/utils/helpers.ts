@@ -72,8 +72,19 @@ function extractDependencies(
 /**
  * Detect package manager based on lock files and configuration
  */
-export function detectPackageManager(_projectPath: string): 'bun' | 'npm' | 'yarn' | 'pnpm' {
-  // we only support bun for now
+export function detectPackageManager(projectPath: string): 'bun' | 'npm' | 'yarn' | 'pnpm' {
+  const { existsSync } = require('node:fs')
+  const { join } = require('node:path')
+
+  if (existsSync(join(projectPath, 'bun.lockb')) || existsSync(join(projectPath, 'bun.lock')))
+    return 'bun'
+  if (existsSync(join(projectPath, 'pnpm-lock.yaml')))
+    return 'pnpm'
+  if (existsSync(join(projectPath, 'yarn.lock')))
+    return 'yarn'
+  if (existsSync(join(projectPath, 'package-lock.json')))
+    return 'npm'
+
   return 'bun'
 }
 

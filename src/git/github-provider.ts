@@ -3,6 +3,7 @@ import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullReq
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
+import { detectRequiredPackageManagers, getAllLockFilePaths, regenerateLockFile } from '../utils/lock-file'
 
 export class GitHubProvider implements GitProvider {
   private readonly apiUrl = 'https://api.github.com'
@@ -221,6 +222,43 @@ export class GitHubProvider implements GitProvider {
         }
       }
 
+      // Regenerate lock files after manifest changes (skip in test environments)
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test'
+      if (!isTestEnv) {
+        try {
+          const updatedPaths = files.map(f => f.path.replace(/^\.\//, '').replace(/^\/+/, ''))
+          const requiredManagers = detectRequiredPackageManagers(updatedPaths)
+
+          if (requiredManagers.length > 0) {
+            console.log(`🔒 Regenerating lock files for: ${requiredManagers.join(', ')}`)
+            const cwd = process.cwd()
+
+            for (const manager of requiredManagers) {
+              const result = await regenerateLockFile(manager, cwd)
+              if (result.success) {
+                // Stage any regenerated lock files
+                for (const lockFile of getAllLockFilePaths()) {
+                  try {
+                    await this.runCommand('git', ['add', lockFile])
+                  }
+                  catch {
+                    // Lock file may not exist for this manager, that's fine
+                  }
+                }
+              }
+              else {
+                console.warn(`⚠️ Lock file regeneration failed for ${manager}: ${result.message}`)
+                console.warn(`   PR will proceed without updated lock files.`)
+              }
+            }
+          }
+        }
+        catch (lockError) {
+          console.warn(`⚠️ Lock file regeneration failed: ${lockError}`)
+          console.warn(`   PR will proceed without updated lock files.`)
+        }
+      }
+
       // Check if there are changes to commit against the current branch tip
       const status = await this.runCommand('git', ['status', '--porcelain'])
       if (status.trim()) {
@@ -279,6 +317,16 @@ export class GitHubProvider implements GitProvider {
       }
       else if (workflowFiles.length > 0) {
         console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
+      }
+
+      // Note: Lock files cannot be regenerated when committing via the API path
+      // because there is no local filesystem to run install commands against.
+      const hasManifestFiles = files.some(f =>
+        f.path.endsWith('package.json') || f.path.endsWith('composer.json'),
+      )
+      if (hasManifestFiles) {
+        console.warn(`⚠️ Committing manifest files via API — lock files will not be updated.`)
+        console.warn(`   Lock file regeneration requires the Git CLI commit path (local filesystem).`)
       }
 
       // Renovate-style: base the new commit on the base branch (e.g. main), not the PR branch.

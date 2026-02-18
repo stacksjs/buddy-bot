@@ -27,6 +27,13 @@ export {
   sortUpdatesByPriority,
 } from './utils/helpers'
 
+export {
+  detectRequiredPackageManagers,
+  getAllLockFilePaths,
+  regenerateLockFile,
+} from './utils/lock-file'
+export type { LockFileResult, PackageManagerType } from './utils/lock-file'
+
 export { Logger } from './utils/logger'
 
 export { VersionResolver } from './version/version-resolver'
