@@ -1608,7 +1608,7 @@ ${generateComposerSetupSteps()}
 `
 }
 
-export async function generateCoreWorkflows(preset: WorkflowPreset, repoInfo: RepositoryInfo, hasCustomToken: boolean, logger: Logger): Promise<void> {
+export async function generateCoreWorkflows(_preset: WorkflowPreset, _repoInfo: RepositoryInfo, hasCustomToken: boolean, logger: Logger): Promise<void> {
   // Ensure output directory exists
   const outputDir = '.github/workflows'
   if (!fs.existsSync(outputDir)) {
