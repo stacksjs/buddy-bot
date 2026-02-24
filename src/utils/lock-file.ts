@@ -54,7 +54,7 @@ function getInstallCommand(packageManager: PackageManagerType): { command: strin
 export async function regenerateLockFile(
   packageManager: PackageManagerType,
   cwd: string,
-  timeoutMs = 5 * 60 * 1000,
+  timeoutMs: number = 5 * 60 * 1000,
 ): Promise<LockFileResult> {
   const { command, args } = getInstallCommand(packageManager)
 
