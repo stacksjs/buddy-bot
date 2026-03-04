@@ -1,4 +1,29 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.16...v0.9.17)
+
+### 🧹 Chores
+
+- release v0.9.17 ([268efa8](https://github.com/stacksjs/buddy-bot/commit/268efa8)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([59cd14f](https://github.com/stacksjs/buddy-bot/commit/59cd14f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([e219371](https://github.com/stacksjs/buddy-bot/commit/e219371)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update github actions (rebased) (#1314) ([5e076a0](https://github.com/stacksjs/buddy-bot/commit/5e076a0)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1314](https://github.com/stacksjs/buddy-bot/issues/1314), [#1314](https://github.com/stacksjs/buddy-bot/issues/1314))
+- **deps**: update all non-major dependencies (rebased) (#1315) ([d5129da](https://github.com/stacksjs/buddy-bot/commit/d5129da)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1315](https://github.com/stacksjs/buddy-bot/issues/1315), [#1315](https://github.com/stacksjs/buddy-bot/issues/1315))
+- wip ([3e3898f](https://github.com/stacksjs/buddy-bot/commit/3e3898f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([c877550](https://github.com/stacksjs/buddy-bot/commit/c877550)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([6432d08](https://github.com/stacksjs/buddy-bot/commit/6432d08)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([110e7b8](https://github.com/stacksjs/buddy-bot/commit/110e7b8)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([0b8ff9c](https://github.com/stacksjs/buddy-bot/commit/0b8ff9c)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([81bb5a9](https://github.com/stacksjs/buddy-bot/commit/81bb5a9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([39fbcfd](https://github.com/stacksjs/buddy-bot/commit/39fbcfd)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([231b12f](https://github.com/stacksjs/buddy-bot/commit/231b12f)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([e15b271](https://github.com/stacksjs/buddy-bot/commit/e15b271)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([c043ac5](https://github.com/stacksjs/buddy-bot/commit/c043ac5)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.15...v0.9.16)
 
 ### 🧹 Chores
