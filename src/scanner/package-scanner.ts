@@ -10,6 +10,7 @@ import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
+import { parsePantryLockFile } from '../utils/pantry-parser'
 import { parseZigManifest } from '../utils/zig-parser'
 
 export class PackageScanner {
@@ -122,6 +123,19 @@ export class PackageScanner {
         if (packageFile) {
           packageFiles.push(packageFile)
           this.logger.info(`📦 Parsed Zig manifest: ${filePath} with ${packageFile.dependencies.length} dependencies`)
+        }
+      }
+
+      // Look for pantry.lock files
+      const pantryLockFiles = await this.findFiles('pantry.lock')
+      for (const filePath of pantryLockFiles) {
+        if (this.shouldIgnorePath(filePath)) {
+          continue
+        }
+        const packageFile = await this.parsePantryLockFile(filePath)
+        if (packageFile) {
+          packageFiles.push(packageFile)
+          this.logger.info(`📦 Parsed pantry.lock: ${filePath} with ${packageFile.dependencies.length} dependencies`)
         }
       }
 
@@ -420,6 +434,21 @@ export class PackageScanner {
     }
     catch (_error) {
       this.logger.warn(`Failed to parse Composer file ${filePath}:`, _error)
+      return null
+    }
+  }
+
+  /**
+   * Parse a pantry.lock file
+   */
+  async parsePantryLockFile(filePath: string): Promise<PackageFile | null> {
+    try {
+      const fullPath = join(this.projectPath, filePath)
+      const content = await readFile(fullPath, 'utf-8')
+      return await parsePantryLockFile(filePath, content)
+    }
+    catch (_error) {
+      this.logger.warn(`Failed to parse pantry.lock file ${filePath}:`, _error)
       return null
     }
   }

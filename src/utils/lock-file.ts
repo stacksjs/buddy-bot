@@ -23,6 +23,7 @@ export function getAllLockFilePaths(): string[] {
     'yarn.lock',
     'pnpm-lock.yaml',
     'composer.lock',
+    'pantry.lock',
   ]
 }
 
