@@ -1729,3 +1729,8 @@ If you see errors like:
 This indicates the permissions above need to be enabled. Both GitHub CLI and REST API methods require these permissions to create PRs from workflows.
 
 For more details, see the [GitHub documentation on managing GitHub Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests).
+
+
+## Git Commits
+
+When committing changes, do not include a `Co-Authored-By` line for Claude in commit messages.
