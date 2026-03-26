@@ -62,7 +62,7 @@
   "dependencies": {
     "bunfig": "^0.15.6",
     "prompts": "^2.4.2",
-    "ts-pantry": "^0.8.16"
+    "ts-pantry": "^0.9.19"
   },
   "devDependencies": {
     "@stacksjs/bunpress": "^0.1.4",

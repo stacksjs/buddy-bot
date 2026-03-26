@@ -7,7 +7,7 @@
       "dependencies": {
         "bunfig": "^0.15.6",
         "prompts": "^2.4.2",
-        "ts-pantry": "^0.8.16",
+        "ts-pantry": "^0.9.19",
       },
       "devDependencies": {
         "@stacksjs/bunpress": "^0.1.4",
@@ -248,7 +248,7 @@
 
     "ts-error-handling": ["ts-error-handling@0.1.1", "", {}, "sha512-d4VqdX0bJ+jvOYNsY58isJgrEr806Q9cjef5+1UO/kIn1M/+YYSwpR6fqdRhn9XXVASJLSzNmcnBSdl0fRCjDg=="],
 
-    "ts-pantry": ["ts-pantry@0.8.16", "", { "dependencies": { "@stacksjs/ts-cloud": "^0.1.2", "bunfig": "^0.15.6", "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pantry": "./dist/bin/cli.js", "pantry-ts": "./scripts/pantry-cli.ts" } }, "sha512-sGRnF2eBsicfJYqLCnIP+W05N8RrGm1oLTh8FT5Js06dj/ot6lgj2BdI5vLs69zPbnfCBQQ+TvfmiyW5sGNEZg=="],
+    "ts-pantry": ["ts-pantry@0.9.19", "", { "dependencies": { "@stacksjs/ts-cloud": "^0.1.2", "bunfig": "^0.15.6", "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pantry": "./dist/bin/cli.js", "pantry-ts": "./scripts/pantry-cli.ts" } }, "sha512-bLkGRnk8uirykwcXR7qReJUXqpX+jz0ybE3YgIZGbjQ5gUcSR2dyiymqYlKZdiXs/LsaMzKyiDVFnWWMuOGoww=="],
 
     "ts-pkgx": ["ts-pkgx@0.4.154", "", { "dependencies": { "ts-web-scraper": "^0.1.1" }, "bin": { "ts-pkgx": "dist/bin/cli.js" } }, "sha512-ScxXuLzVvgm1YDbHHz9IRxqnU9vHobZsou61RtTTeCcWov+KLaa3msMwgztr6GrFmGRETkLaTbUU4fOajlHx4w=="],
 
