@@ -1,4 +1,54 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.17...v0.9.18)
+
+### 🚀 Features
+
+- add pantry.lock support for dependency scanning ([44060c9](https://github.com/stacksjs/buddy-bot/commit/44060c9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.9.18 ([c8d27cb](https://github.com/stacksjs/buddy-bot/commit/c8d27cb)) _(by Chris <chrisbreuer93@gmail.com>)_
+- improve duplicate prevention ([a6c6dfb](https://github.com/stacksjs/buddy-bot/commit/a6c6dfb)) _(by Chris <chrisbreuer93@gmail.com>)_
+- repo cleanup and modernization ([2e644b9](https://github.com/stacksjs/buddy-bot/commit/2e644b9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- repo cleanup and modernization ([4526608](https://github.com/stacksjs/buddy-bot/commit/4526608)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- remove redundant docs/.vitepress ([f8a2980](https://github.com/stacksjs/buddy-bot/commit/f8a2980)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- remove .zed and .cursor folders ([955445c](https://github.com/stacksjs/buddy-bot/commit/955445c)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- use Pantry action for publish-commit and add job dependencies ([1952730](https://github.com/stacksjs/buddy-bot/commit/1952730)) _(by Chris <chrisbreuer93@gmail.com>)_
+- update bun-plugin-dtsx to 0.9.13 ([d0f51ec](https://github.com/stacksjs/buddy-bot/commit/d0f51ec)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- update lockfile ([2a1f0e7](https://github.com/stacksjs/buddy-bot/commit/2a1f0e7)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- revert bun-plugin-dtsx to 0.9.9 ([3b91a10](https://github.com/stacksjs/buddy-bot/commit/3b91a10)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update all non-major dependencies (rebased) (#1347) ([f5bc809](https://github.com/stacksjs/buddy-bot/commit/f5bc809)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1347](https://github.com/stacksjs/buddy-bot/issues/1347), [#1347](https://github.com/stacksjs/buddy-bot/issues/1347))
+- **deps**: update github actions (rebased) (#1349) ([9f7fe91](https://github.com/stacksjs/buddy-bot/commit/9f7fe91)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1349](https://github.com/stacksjs/buddy-bot/issues/1349), [#1349](https://github.com/stacksjs/buddy-bot/issues/1349))
+- remove file ignores from pickier config ([7e998b5](https://github.com/stacksjs/buddy-bot/commit/7e998b5)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add CLAUDE.md and CHANGELOG.md to pickier ignores ([10bbd3d](https://github.com/stacksjs/buddy-bot/commit/10bbd3d)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- remove .pickierignore ([14dd951](https://github.com/stacksjs/buddy-bot/commit/14dd951)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- update better-dx to ^0.2.7 ([d3a9ef9](https://github.com/stacksjs/buddy-bot/commit/d3a9ef9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- update CLAUDE.md with project context and crosswind details ([fc34017](https://github.com/stacksjs/buddy-bot/commit/fc34017)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add proper claude code guidelines ([7d9f0d9](https://github.com/stacksjs/buddy-bot/commit/7d9f0d9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- use pantry monorepo action instead of pantry-setup ([088e756](https://github.com/stacksjs/buddy-bot/commit/088e756)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- ignore claude config in linter ([21f36fa](https://github.com/stacksjs/buddy-bot/commit/21f36fa)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add co-author guideline to claude config ([da273e2](https://github.com/stacksjs/buddy-bot/commit/da273e2)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add claude code guidelines ([c415b17](https://github.com/stacksjs/buddy-bot/commit/c415b17)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update github actions (#1346) ([bd9e522](https://github.com/stacksjs/buddy-bot/commit/bd9e522)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1346](https://github.com/stacksjs/buddy-bot/issues/1346), [#1346](https://github.com/stacksjs/buddy-bot/issues/1346))
+- **deps**: update github actions (rebased) (#1345) ([7b41430](https://github.com/stacksjs/buddy-bot/commit/7b41430)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1345](https://github.com/stacksjs/buddy-bot/issues/1345), [#1345](https://github.com/stacksjs/buddy-bot/issues/1345))
+- **deps**: update github actions (rebased) (#1343) ([f6cc854](https://github.com/stacksjs/buddy-bot/commit/f6cc854)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1343](https://github.com/stacksjs/buddy-bot/issues/1343), [#1343](https://github.com/stacksjs/buddy-bot/issues/1343))
+- **deps**: update all non-major dependencies (rebased) (#1344) ([04a7fee](https://github.com/stacksjs/buddy-bot/commit/04a7fee)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1344](https://github.com/stacksjs/buddy-bot/issues/1344), [#1344](https://github.com/stacksjs/buddy-bot/issues/1344))
+- wip ([17ea663](https://github.com/stacksjs/buddy-bot/commit/17ea663)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([6b1bb27](https://github.com/stacksjs/buddy-bot/commit/6b1bb27)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([e0ecbc6](https://github.com/stacksjs/buddy-bot/commit/e0ecbc6)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([397522b](https://github.com/stacksjs/buddy-bot/commit/397522b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([b50af24](https://github.com/stacksjs/buddy-bot/commit/b50af24)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- wip ([f9e32b5](https://github.com/stacksjs/buddy-bot/commit/f9e32b5)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 📄 Miscellaneous
+
+- Revert "chore: add claude code guidelines" ([4dc9315](https://github.com/stacksjs/buddy-bot/commit/4dc9315)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.16...v0.9.17)
 
 ### 🧹 Chores
