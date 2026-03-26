@@ -147,7 +147,7 @@ describe('PR Duplicate Prevention', () => {
 
     it('should extract system deps with Unicode arrow (→)', () => {
       const updates = extract(MIXED_PR_BODY)
-      const systemDep = updates.find(u => u.name === 'bun.com')
+      const systemDep = updates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === 'bun.com')
       expect(systemDep).toBeDefined()
       expect(systemDep!.currentVersion).toBe('1.3.1')
       expect(systemDep!.newVersion).toBe('1.3.4')
@@ -157,12 +157,12 @@ describe('PR Duplicate Prevention', () => {
       const updates = extract(MIXED_PR_BODY)
       expect(updates.length).toBe(2)
 
-      const npmDep = updates.find(u => u.name === '@types/bun')
+      const npmDep = updates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === '@types/bun')
       expect(npmDep).toBeDefined()
       expect(npmDep!.currentVersion).toBe('1.3.10')
       expect(npmDep!.newVersion).toBe('1.3.11')
 
-      const systemDep = updates.find(u => u.name === 'bun.com')
+      const systemDep = updates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === 'bun.com')
       expect(systemDep).toBeDefined()
       expect(systemDep!.currentVersion).toBe('1.3.1')
       expect(systemDep!.newVersion).toBe('1.3.4')
@@ -172,12 +172,12 @@ describe('PR Duplicate Prevention', () => {
       const updates = extract(GITHUB_ACTIONS_PR_BODY)
       expect(updates.length).toBe(3)
 
-      const setupBun = updates.find(u => u.name === 'oven-sh/setup-bun')
+      const setupBun = updates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === 'oven-sh/setup-bun')
       expect(setupBun).toBeDefined()
       expect(setupBun!.currentVersion).toBe('2.1.2')
       expect(setupBun!.newVersion).toBe('2.2.0')
 
-      const checkout = updates.find(u => u.name === 'actions/checkout')
+      const checkout = updates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === 'actions/checkout')
       expect(checkout).toBeDefined()
       expect(checkout!.currentVersion).toBe('4.2.1')
       expect(checkout!.newVersion).toBe('4.2.2')
@@ -186,13 +186,13 @@ describe('PR Duplicate Prevention', () => {
     it('should strip version prefixes (^, ~, v) from extracted versions', () => {
       const updates = extract(MIXED_PR_BODY)
       // System dep `^1.3.1` should have prefix stripped
-      const systemDep = updates.find(u => u.name === 'bun.com')
+      const systemDep = updates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === 'bun.com')
       expect(systemDep!.currentVersion).not.toContain('^')
       expect(systemDep!.newVersion).not.toContain('^')
 
       // GH Actions `v2.1.2` should have prefix stripped
       const ghUpdates = extract(GITHUB_ACTIONS_PR_BODY)
-      const setupBun = ghUpdates.find(u => u.name === 'oven-sh/setup-bun')
+      const setupBun = ghUpdates.find((u: { name: string, currentVersion: string, newVersion: string }) => u.name === 'oven-sh/setup-bun')
       expect(setupBun!.currentVersion).not.toContain('v')
     })
 

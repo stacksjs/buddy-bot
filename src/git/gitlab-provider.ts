@@ -62,6 +62,11 @@ export class GitLabProvider implements GitProvider {
     console.log(`Would close MR #${prNumber}`)
   }
 
+  async reopenPullRequest(prNumber: number): Promise<void> {
+    // TODO: Implement GitLab API call to reopen MR
+    console.log(`Would reopen MR #${prNumber}`)
+  }
+
   async createComment(prNumber: number, comment: string): Promise<void> {
     // TODO: Implement GitLab API call to create comment
     console.log(`Would add comment to MR #${prNumber}: ${comment}`)
