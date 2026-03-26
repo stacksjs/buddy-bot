@@ -10,7 +10,7 @@ import {
 
 // Test the real functions - only mock external dependencies
 const mockResolveDependencyFile = mock()
-mock.module('ts-pkgx', () => ({
+mock.module('ts-pantry', () => ({
   resolveDependencyFile: mockResolveDependencyFile,
 }))
 
@@ -125,7 +125,7 @@ describe('Dependency File Parser', () => {
 devDependencies:
   typescript: ^5.0.0`
 
-    it('should parse dependency file using ts-pkgx', async () => {
+    it('should parse dependency file using ts-pantry', async () => {
       const mockResolvedDeps = {
         allDependencies: [
           { name: 'lodash', constraint: '^4.17.21' },

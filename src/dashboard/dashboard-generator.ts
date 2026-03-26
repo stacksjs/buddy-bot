@@ -454,7 +454,7 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
     // Pattern 3: Extract from PR body - look for package names in backticks (avoid table content)
     // This handles cases where the title doesn't contain specific package names
-    // but the body lists them like: `@types/bun`, `cac`, `ts-pkgx`
+    // but the body lists them like: `@types/bun`, `cac`, `ts-pantry`
     if (packages.length < 3) { // Allow backtick extraction to supplement table extraction
       const bodyMatches = pr.body.match(/`([^`]+)`/g)
       if (bodyMatches) {
@@ -491,7 +491,7 @@ The following updates have all been created. To force a retry/rebase of any, cli
           // Must match one of these patterns for valid package names:
               packageName.startsWith('@') // Scoped packages like @types/node
               || packageName.includes('/') // GitHub actions like actions/checkout
-              || packageName.match(/^[a-z][a-z0-9.-]*$/i) // Simple package names like lodash, ts-pkgx, bun.com
+              || packageName.match(/^[a-z][a-z0-9.-]*$/i) // Simple package names like lodash, ts-pantry, bun.com
             )) {
             packages.push(packageName)
           }

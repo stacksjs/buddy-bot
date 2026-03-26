@@ -59,8 +59,8 @@ describe('Buddy - GitHub Actions Integration', () => {
     spyOn(console, 'warn').mockImplementation(() => {})
     spyOn(console, 'error').mockImplementation(() => {})
 
-    // Mock ts-pkgx to prevent real dependency file parsing
-    resolveDependencyFileSpy = spyOn(await import('ts-pkgx'), 'resolveDependencyFile')
+    // Mock ts-pantry to prevent real dependency file parsing
+    resolveDependencyFileSpy = spyOn(await import('ts-pantry'), 'resolveDependencyFile')
     resolveDependencyFileSpy.mockResolvedValue({ allDependencies: [] })
 
     // Ensure we have fresh mocks for each test even if modules are globally mocked

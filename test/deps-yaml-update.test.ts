@@ -7,7 +7,7 @@ import { Buddy } from '../src/buddy'
 import { RegistryClient } from '../src/registry/registry-client'
 
 // Import the module to spy on
-const tsPkgx = await import('ts-pkgx')
+const tsPkgx = await import('ts-pantry')
 
 // Create spy functions
 let mockResolveDependencyFile: any

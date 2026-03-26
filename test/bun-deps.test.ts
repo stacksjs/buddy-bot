@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Buddy } from '../src/buddy'
 
-// Mock the ts-pkgx module to return our test dependencies
+// Mock the ts-pantry module to return our test dependencies
 const mockResolveDependencyFile = mock(() => Promise.resolve({
   allDependencies: [
     {
@@ -110,8 +110,8 @@ describe('Bun deps.yaml Update Tests', () => {
   })
 
   test('should include Bun update in file updates', async () => {
-    // Mock the ts-pkgx module
-    mock.module('ts-pkgx', () => ({
+    // Mock the ts-pantry module
+    mock.module('ts-pantry', () => ({
       resolveDependencyFile: mockResolveDependencyFile,
     }))
 

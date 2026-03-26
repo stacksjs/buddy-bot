@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
-import { resolveDependencyFile } from 'ts-pkgx'
+import { resolveDependencyFile } from 'ts-pantry'
 
 /**
  * Check if a file path is a dependency file that we can handle
@@ -20,7 +20,7 @@ export function isDependencyFile(filePath: string): boolean {
 }
 
 /**
- * Parse a dependency file using ts-pkgx (supports pkgx registry format)
+ * Parse a dependency file using ts-pantry (supports pkgx registry format)
  */
 export async function parseDependencyFile(filePath: string, content: string): Promise<PackageFile | null> {
   try {
@@ -31,19 +31,19 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
     let dependencies: Dependency[] = []
 
     try {
-      // Use ts-pkgx to resolve the dependency file
+      // Use ts-pantry to resolve the dependency file
       const resolvedDeps = await resolveDependencyFile(filePath)
 
       if (resolvedDeps && typeof resolvedDeps === 'object') {
         // Parse dependencies from the resolved structure
-        // ts-pkgx returns allDependencies array instead of separate sections
+        // ts-pantry returns allDependencies array instead of separate sections
         if (resolvedDeps.allDependencies && Array.isArray(resolvedDeps.allDependencies)) {
           for (const dep of resolvedDeps.allDependencies) {
             if (dep.name && dep.constraint) {
               dependencies.push({
                 name: dep.name,
                 currentVersion: dep.constraint,
-                type: 'dependencies', // ts-pkgx doesn't distinguish between dep types for this registry
+                type: 'dependencies', // ts-pantry doesn't distinguish between dep types for this registry
                 file: filePath,
               })
             }
@@ -52,11 +52,11 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
       }
     }
     catch (pkgxError) {
-      console.warn(`ts-pkgx failed to parse ${filePath}, attempting fallback YAML parsing:`, pkgxError)
+      console.warn(`ts-pantry failed to parse ${filePath}, attempting fallback YAML parsing:`, pkgxError)
     }
 
-    // Fallback: if ts-pkgx returned no dependencies (either threw or returned empty),
-    // try the simple YAML parser which works without the pkgx registry
+    // Fallback: if ts-pantry returned no dependencies (either threw or returned empty),
+    // try the simple YAML parser which works without the pantry registry
     if (dependencies.length === 0) {
       try {
         dependencies = await parseSimpleYamlDependencies(content, filePath)
@@ -83,7 +83,7 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
 
 /**
  * Simple YAML parser for basic dependencies structure
- * Fallback when ts-pkgx fails
+ * Fallback when ts-pantry fails
  */
 async function parseSimpleYamlDependencies(content: string, filePath: string): Promise<Dependency[]> {
   const dependencies: Dependency[] = []

@@ -804,26 +804,31 @@ export class GitHubProvider implements GitProvider {
     this.cache.pullRequests.clear()
 
     try {
-      // Get PR details to know the branch name for cleanup
-      const prDetails = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
-      const branchName = prDetails.head.ref
-
       await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, {
         state: 'closed',
       })
       console.log(`✅ Closed PR #${prNumber}`)
-
-      // Clean up the branch after closing
-      try {
-        await this.deleteBranch(branchName)
-        console.log(`🧹 Cleaned up branch ${branchName} after close`)
-      }
-      catch (cleanupError) {
-        console.warn(`⚠️ Failed to clean up branch ${branchName}:`, cleanupError)
-      }
+      // NOTE: Branch cleanup is the caller's responsibility.
+      // Automatically deleting the branch here prevents reopening PRs later.
     }
     catch (error) {
       console.error(`❌ Failed to close PR #${prNumber}:`, error)
+      throw error
+    }
+  }
+
+  async reopenPullRequest(prNumber: number): Promise<void> {
+    // Invalidate PR cache since we're modifying data
+    this.cache.pullRequests.clear()
+
+    try {
+      await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, {
+        state: 'open',
+      })
+      console.log(`✅ Reopened PR #${prNumber}`)
+    }
+    catch (error) {
+      console.error(`❌ Failed to reopen PR #${prNumber}:`, error)
       throw error
     }
   }

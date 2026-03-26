@@ -270,6 +270,9 @@ export interface GitProvider {
   /** Close pull request */
   closePullRequest: (prNumber: number) => Promise<void>
 
+  /** Reopen a closed pull request */
+  reopenPullRequest: (prNumber: number) => Promise<void>
+
   /** Create comment on pull request */
   createComment: (prNumber: number, comment: string) => Promise<void>
 

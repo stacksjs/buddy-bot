@@ -8,7 +8,6 @@
         "bunfig": "^0.15.6",
         "prompts": "^2.4.2",
         "ts-pantry": "^0.8.16",
-        "ts-pkgx": "^0.4.154",
       },
       "devDependencies": {
         "@stacksjs/bunpress": "^0.1.4",

@@ -531,57 +531,26 @@ async function checkForAutoCloseRespectLatest(pr: any, config: any, logger: Logg
     return false
   }
 
-  // Check if the existing PR contains updates that would now be filtered out
-  // Look for dynamic version indicators in the PR body
+  // Extract actual version data from table rows using both arrow formats (-> and →)
+  // This avoids false positives from searching the full body text for words like "main"
   const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
-  const prBody = pr.body.toLowerCase()
 
-  // Check if PR body contains dynamic version indicators
-  const hasDynamicVersions = dynamicIndicators.some(indicator => prBody.includes(indicator))
-  if (!hasDynamicVersions) {
-    logger.debug(`🔍 PR #${pr.number}: No dynamic versions found in PR body`)
-    return false
+  // Regex matches table rows: | [package](url) | `version` → `version` | ... |
+  // Handles both ASCII (->) and Unicode (→) arrows, with optional version prefixes (^, ~, v, >=)
+  // Also handles versions with or without backtick wrapping (e.g., `* → 3.13.5` or `\`*\` → \`3.13.5\``)
+  const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[?`?[v^~>=]*([^`|\s]+)`?\s*(?:->|→)\s*`?[v^~>=]*([^`|\s]+)`?\]?/g
+
+  let match
+  const packagesWithDynamicVersions: string[] = []
+
+  while ((match = tableRowRegex.exec(pr.body)) !== null) {
+    const [, packageName, currentVersion] = match
+    const cleanVersion = currentVersion.toLowerCase().trim()
+    if (dynamicIndicators.includes(cleanVersion)) {
+      packagesWithDynamicVersions.push(packageName)
+      logger.debug(`🔍 PR #${pr.number}: Package ${packageName} has dynamic version "${cleanVersion}"`)
+    }
   }
-
-  logger.debug(`🔍 PR #${pr.number}: Found dynamic versions in PR body`)
-
-  // Extract packages from PR body and check if they have dynamic versions
-  const packageNames = extractPackageNamesFromPRBody(pr.body)
-  logger.debug(`🔍 PR #${pr.number}: Extracted packages: ${packageNames.join(', ')}`)
-
-  // Check if any of the packages in the PR had dynamic versions
-  const packagesWithDynamicVersions = packageNames.filter((pkg) => {
-    // Look for the package in the PR body table format: | [package](url) | version → newVersion | ... |
-    const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
-    const match = pr.body.match(packagePattern)
-    if (!match) {
-      // Fallback: look for any version pattern with this package
-      const fallbackPattern = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\w]*[:=]\\s*["']?([^"'\n]+)["']?`, 'i')
-      const fallbackMatch = pr.body.match(fallbackPattern)
-      if (!fallbackMatch) {
-        logger.debug(`🔍 PR #${pr.number}: No version pattern found for package ${pkg}`)
-        return false
-      }
-
-      const version = fallbackMatch[1].toLowerCase().trim().replace(/`/g, '')
-      const isDynamic = dynamicIndicators.includes(version)
-      logger.debug(`🔍 PR #${pr.number}: Package ${pkg} has version ${version}, isDynamic: ${isDynamic}`)
-      return isDynamic
-    }
-
-    const versionChange = match[1].trim()
-    // Look for patterns like "* → 3.13.5" or "latest → 1.2.3" or "* → 3.13.5"
-    const currentVersionMatch = versionChange.match(/^([^→]+)→/)
-    if (!currentVersionMatch) {
-      logger.debug(`🔍 PR #${pr.number}: Could not parse version change for package ${pkg}: ${versionChange}`)
-      return false
-    }
-
-    const currentVersion = currentVersionMatch[1].trim().toLowerCase().replace(/`/g, '')
-    const isDynamic = dynamicIndicators.includes(currentVersion)
-    logger.debug(`🔍 PR #${pr.number}: Package ${pkg} has current version ${currentVersion}, isDynamic: ${isDynamic}`)
-    return isDynamic
-  })
 
   const shouldClose = packagesWithDynamicVersions.length > 0
   logger.debug(`🔍 PR #${pr.number}: Packages with dynamic versions: ${packagesWithDynamicVersions.join(', ')}`)

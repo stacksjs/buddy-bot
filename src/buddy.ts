@@ -93,7 +93,7 @@ export class Buddy {
       }
       this.logger.info(`⏱️  bun outdated check took ${Date.now() - bunOutdatedStartTime}ms (found ${packageJsonUpdates.length} updates)`)
 
-      // Get outdated packages from dependency files using ts-pkgx
+      // Get outdated packages from dependency files using ts-pantry
       const depFilesStartTime = Date.now()
       const dependencyFileUpdates = await this.checkDependencyFilesForUpdates(packageFiles)
       this.logger.info(`⏱️  Dependency file checks took ${Date.now() - depFilesStartTime}ms (found ${dependencyFileUpdates.length} updates)`)
@@ -265,8 +265,17 @@ export class Buddy {
             // Check if this PR should be auto-closed due to respectLatest config changes
             const shouldAutoClose = this.shouldAutoClosePR(existingPR, group.updates)
             if (shouldAutoClose) {
-              this.logger.info(`🔒 Auto-closing PR #${existingPR.number} due to respectLatest config change`)
+              this.logger.info(`🔒 Auto-closing PR #${existingPR.number} due to config change`)
               try {
+                // Always add an explanatory comment before closing so users can debug
+                const closeReason = this.generateCloseReason(existingPR)
+                try {
+                  await gitProvider.createComment(existingPR.number, closeReason)
+                }
+                catch (commentError) {
+                  this.logger.warn(`⚠️ Could not add close reason comment to PR #${existingPR.number}:`, commentError)
+                }
+
                 await gitProvider.closePullRequest(existingPR.number)
                 await gitProvider.deleteBranch(existingPR.head)
                 this.logger.success(`✅ Auto-closed PR #${existingPR.number} and deleted branch ${existingPR.head}`)
@@ -416,7 +425,54 @@ export class Buddy {
               continue
             }
 
-            // Branch exists but no open PR - delete the orphaned branch and create fresh
+            // Branch exists but no open PR — check for recently-closed PR to reopen
+            // This prevents creating duplicates when a PR was incorrectly auto-closed
+            let reopened = false
+            try {
+              const closedPRs = await gitProvider.getPullRequests('closed')
+              const recentlyClosed = closedPRs.find((pr) => {
+                if (pr.head !== branchName)
+                  return false
+                // Only consider PRs closed within the last 24 hours that weren't merged
+                if (pr.mergedAt)
+                  return false
+                const closedAgo = Date.now() - (pr.updatedAt?.getTime() ?? 0)
+                const twentyFourHours = 24 * 60 * 60 * 1000
+                return closedAgo < twentyFourHours
+              })
+
+              if (recentlyClosed) {
+                this.logger.info(`🔄 Found recently-closed PR #${recentlyClosed.number} for branch ${branchName}, reopening...`)
+
+                // Update the branch with fresh changes before reopening
+                const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
+                if (packageJsonUpdates.length > 0) {
+                  await gitProvider.commitChanges(branchName, `${group.title} (reopened)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                }
+
+                await gitProvider.reopenPullRequest(recentlyClosed.number)
+                const dynamicLabels = prGenerator.generateLabels(group)
+                await gitProvider.updatePullRequest(recentlyClosed.number, {
+                  title: prTitle,
+                  body: prBody,
+                  labels: dynamicLabels,
+                  reviewers: this.config.pullRequest?.reviewers,
+                  assignees: this.config.pullRequest?.assignees,
+                })
+
+                this.logger.success(`✅ Reopened and updated PR #${recentlyClosed.number}: ${prTitle}`)
+                this.logger.info(`🔗 ${recentlyClosed.url}`)
+                reopened = true
+              }
+            }
+            catch (reopenError) {
+              this.logger.warn(`⚠️ Failed to check/reopen closed PRs:`, reopenError)
+            }
+
+            if (reopened)
+              continue
+
+            // Branch exists but no open or reopenable PR - delete the orphaned branch and create fresh
             this.logger.info(`🧹 Branch ${branchName} exists but has no open PR, cleaning up...`)
             try {
               await gitProvider.deleteBranch(branchName)
@@ -425,6 +481,63 @@ export class Buddy {
               this.logger.warn(`⚠️ Failed to delete orphaned branch ${branchName}:`, deleteError)
             }
           }
+
+          // Before creating a fresh PR, check if there's a recently-closed PR
+          // for this same update (even if the branch was deleted).  This catches
+          // the case where checkAndCloseSatisfiedPRs incorrectly closed a PR and
+          // deleted its branch — we reopen instead of creating a duplicate.
+          let reopenedFromClosed = false
+          try {
+            const closedPRs = await gitProvider.getPullRequests('closed')
+            const recentlyClosed = closedPRs.find((pr) => {
+              // Match by branch name or similar title
+              if (pr.head !== branchName && !this.isSimilarPRTitle(pr.title, prTitle))
+                return false
+              // Must be a buddy-bot PR
+              if (!pr.head.startsWith('buddy-bot/') && pr.author !== 'github-actions[bot]')
+                return false
+              // Must not have been merged
+              if (pr.mergedAt)
+                return false
+              // Only consider PRs closed within the last 7 days
+              const closedAgo = Date.now() - (pr.updatedAt?.getTime() ?? 0)
+              const sevenDays = 7 * 24 * 60 * 60 * 1000
+              return closedAgo < sevenDays
+            })
+
+            if (recentlyClosed) {
+              this.logger.info(`🔄 Found recently-closed PR #${recentlyClosed.number} (branch may have been deleted), recreating branch and reopening...`)
+
+              // Recreate the branch and push changes
+              await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
+              const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
+              if (packageJsonUpdates.length > 0) {
+                await gitProvider.commitChanges(branchName, `${group.title} (reopened)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+              }
+
+              // Reopen and update the existing PR
+              await gitProvider.reopenPullRequest(recentlyClosed.number)
+              // Point the reopened PR at the new branch (in case branch name changed)
+              const dynamicLabels = prGenerator.generateLabels(group)
+              await gitProvider.updatePullRequest(recentlyClosed.number, {
+                title: prTitle,
+                body: prBody,
+                labels: dynamicLabels,
+                reviewers: this.config.pullRequest?.reviewers,
+                assignees: this.config.pullRequest?.assignees,
+              })
+
+              this.logger.success(`✅ Reopened and updated PR #${recentlyClosed.number}: ${prTitle}`)
+              this.logger.info(`🔗 ${recentlyClosed.url}`)
+              reopenedFromClosed = true
+            }
+          }
+          catch (reopenError) {
+            this.logger.warn(`⚠️ Failed to check/reopen closed PRs:`, reopenError)
+          }
+
+          if (reopenedFromClosed)
+            continue
 
           // Create branch
           await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
@@ -550,11 +663,11 @@ export class Buddy {
   }
 
   /**
-   * Check dependency files for updates using ts-pkgx
+   * Check dependency files for updates using ts-pantry
    */
   private async checkDependencyFilesForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
     const { isDependencyFile } = await import('./utils/dependency-file-parser')
-    const { resolveDependencyFile } = await import('ts-pkgx')
+    const { resolveDependencyFile } = await import('ts-pantry')
 
     const updates: PackageUpdate[] = []
 
@@ -568,7 +681,7 @@ export class Buddy {
       try {
         this.logger.info(`Checking dependency file: ${file.path}`)
 
-        // Use ts-pkgx to resolve latest versions
+        // Use ts-pantry to resolve latest versions
         const resolved = await resolveDependencyFile(file.path)
 
         const fileUpdates: PackageUpdate[] = []
@@ -877,6 +990,33 @@ export class Buddy {
     }
     catch {
       return false
+    }
+  }
+
+  /**
+   * Compare versions safely, distinguishing between "comparison succeeded"
+   * and "comparison failed" (e.g., non-semver versions like GitHub Actions `v4`).
+   * Returns:
+   *   'at-or-beyond' — current is at or past the target
+   *   'behind'       — current is behind the target
+   *   'failed'       — could not compare (non-semver, malformed, etc.)
+   */
+  private compareVersionsSafe(current: string, target: string): 'at-or-beyond' | 'behind' | 'failed' {
+    try {
+      const cleanTarget = target.replace(/^[v^~>=<@]+/, '')
+      const cleanCurrent = current.replace(/^[v^~>=<@]+/, '')
+
+      // Ensure both versions look like semver (at least x.y.z)
+      // Short versions like "4" or "v4" are not comparable via semver
+      if (!/^\d+\.\d+/.test(cleanTarget) || !/^\d+\.\d+/.test(cleanCurrent)) {
+        return 'failed'
+      }
+
+      const order = Bun.semver.order(cleanTarget, cleanCurrent)
+      return order > 0 ? 'behind' : 'at-or-beyond'
+    }
+    catch {
+      return 'failed'
     }
   }
 
@@ -1319,22 +1459,27 @@ export class Buddy {
     if (!existingPRBody)
       return false
 
-    // Extract package names and versions from the existing PR body
-    const packageRegex = /([\w@\-./]+):\s*(\d+\.\d+\.\d\S*)\s*→\s*(\d+\.\d+\.\d\S*)/g
+    // Use the unified extraction method that handles all table formats
+    // (both ASCII -> and Unicode → arrows, all package types)
+    const existingPRUpdates = this.extractPackageUpdatesFromPRBody(existingPRBody)
     const existingUpdates = new Map<string, { from: string, to: string }>()
 
-    let match
-
-    while ((match = packageRegex.exec(existingPRBody)) !== null) {
-      const [, packageName, fromVersion, toVersion] = match
-      existingUpdates.set(packageName, { from: fromVersion, to: toVersion })
+    for (const update of existingPRUpdates) {
+      existingUpdates.set(update.name, { from: update.currentVersion, to: update.newVersion })
     }
 
     // Check if all new updates are already covered
     for (const update of newUpdates) {
       const existing = existingUpdates.get(update.name)
-      if (!existing || existing.to !== update.newVersion) {
-        return false // Different or missing update
+      if (!existing) {
+        return false // Missing update
+      }
+
+      // Normalize versions for comparison (strip prefixes like ^, ~, v, >=)
+      const existingTo = existing.to.replace(/^[v^~>=<]+/, '')
+      const newVersion = update.newVersion.replace(/^[v^~>=<]+/, '')
+      if (existingTo !== newVersion) {
+        return false // Different target version
       }
     }
 
@@ -1438,47 +1583,19 @@ export class Buddy {
       return false
     }
 
-    // Check if the existing PR contains updates that would now be filtered out
-    // Look for dynamic version indicators in the PR body
+    // Use the unified extraction method to get actual version data from the PR
+    // This avoids false positives from searching the full body text for words like "main"
     const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
-    const prBody = existingPR.body.toLowerCase()
+    const prUpdates = this.extractPackageUpdatesFromPRBody(existingPR.body)
 
-    // Check if the PR body contains any dynamic version indicators
-    const hasDynamicVersions = dynamicIndicators.some(indicator =>
-      prBody.includes(indicator.toLowerCase()),
-    )
-
-    if (!hasDynamicVersions) {
+    if (prUpdates.length === 0) {
       return false
     }
 
-    // Check if any packages in the PR have dynamic versions
-    const oldPRPackages = this.extractPackagesFromPRBody(existingPR.body)
-
-    // Check if any of the packages had dynamic versions in the old PR
-    const packagesWithDynamicVersions = oldPRPackages.filter((pkg) => {
-      // Look for the package in the PR body table format: | [package](url) | version → newVersion |
-      const packagePattern = new RegExp(`\\|\\s*\\[${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\([^)]+\\)\\s*\\|\\s*([^|]+)\\s*\\|`, 'i')
-      const match = existingPR.body.match(packagePattern)
-      if (!match) {
-        // Fallback: look for the package name anywhere in the body with a version pattern
-        const fallbackPattern = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\\w]*[:=]\\s*["']?([^"'\n]+)["']?`, 'i')
-        const fallbackMatch = existingPR.body.match(fallbackPattern)
-        if (!fallbackMatch)
-          return false
-
-        const version = fallbackMatch[1].toLowerCase().trim()
-        return dynamicIndicators.includes(version)
-      }
-
-      // Extract the version change part (e.g., "* → 3.13.5")
-      const versionChange = match[1].trim()
-      const currentVersionMatch = versionChange.match(/^([^→]+)→/)
-      if (!currentVersionMatch)
-        return false
-
-      const currentVersion = currentVersionMatch[1].trim().toLowerCase()
-      return dynamicIndicators.includes(currentVersion)
+    // Check if any extracted packages have dynamic versions as their "current" version
+    const packagesWithDynamicVersions = prUpdates.filter((update) => {
+      const cleanVersion = update.currentVersion.toLowerCase().trim()
+      return dynamicIndicators.includes(cleanVersion)
     })
 
     return packagesWithDynamicVersions.length > 0
@@ -1697,21 +1814,30 @@ export class Buddy {
    */
   private extractPackageUpdatesFromPRBody(body: string): Array<{ name: string, currentVersion: string, newVersion: string }> {
     const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
+    const seen = new Set<string>()
 
-    // Match table rows with package updates - handles both npm and Composer formats
-    // npm format: | [package] | [`version` -> `version`] |
-    // Composer format: | [package](link) | `version` -> `version` | file | status |
-    const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[?`\^?([^`]+)`\s*->\s*`\^?([^`]+)`\]?/g
+    // Match table rows with package updates - handles npm, Composer, system deps, and GH Actions
+    // npm format:    | [package](link) | [`^version` -> `^version`](diff) | ... |
+    // system format: | [package](link) | `^version` → `^version` | ... |
+    // GH Actions:    | [action](link) | `v1.2.3` → `v2.0.0` | ... |
+    // Composer:      | [package](link) | `version` -> `version` | file | status |
+    // Also handles versions without backticks: | [pkg](url) | * → 3.13.5 | ... |
+    // Handles both ASCII arrow (->) and Unicode arrow (→)
+    const tableRowRegex = /\|\s*\[([^\]]+)\][^|]*\|\s*\[?`?[v^~>=]*([^`|\s]+)`?\s*(?:->|→)\s*`?[v^~>=]*([^`|\s]+)`?\]?/g
 
     let match
 
     while ((match = tableRowRegex.exec(body)) !== null) {
       const [, packageName, currentVersion, newVersion] = match
-      updates.push({
-        name: packageName,
-        currentVersion,
-        newVersion,
-      })
+      // Deduplicate by package name (same package can appear in multiple sections)
+      if (!seen.has(packageName)) {
+        seen.add(packageName)
+        updates.push({
+          name: packageName,
+          currentVersion,
+          newVersion,
+        })
+      }
     }
 
     return updates
@@ -1743,16 +1869,10 @@ export class Buddy {
       // Get all open PRs
       const openPRs = await gitProvider.getPullRequests('open')
 
-      // Filter to buddy-bot PRs and dependency-related PRs
+      // Only check buddy-bot PRs — never close PRs from other tools like Renovate or Dependabot
       const dependencyPRs = openPRs.filter(pr =>
-        // Include buddy-bot PRs
-        (pr.head.startsWith('buddy-bot/') || pr.author === 'github-actions[bot]')
-        // Also include other dependency update PRs that might be obsolete
-        || pr.labels.includes('dependencies')
-        || pr.labels.includes('dependency')
-        || pr.title.toLowerCase().includes('update')
-        || pr.title.toLowerCase().includes('chore(deps)')
-        || pr.title.toLowerCase().includes('composer'),
+        pr.head.startsWith('buddy-bot/')
+        || (pr.author === 'github-actions[bot]' && pr.labels.includes('dependencies')),
       )
 
       this.logger.info(`Found ${dependencyPRs.length} dependency-related PRs to check`)
@@ -1837,22 +1957,47 @@ export class Buddy {
       // Get all open PRs
       const openPRs = await gitProvider.getPullRequests('open')
 
-      // Filter to buddy-bot PRs and dependency-related PRs
+      // Only check buddy-bot PRs — never close PRs from other tools
       const dependencyPRs = openPRs.filter(pr =>
-        pr.head.startsWith('buddy-bot/') || pr.author === 'github-actions[bot]'
-        || pr.labels.includes('dependencies')
-        || pr.labels.includes('dependency'),
+        pr.head.startsWith('buddy-bot/')
+        || (pr.author === 'github-actions[bot]' && pr.labels.includes('dependencies')),
       )
 
-      this.logger.info(`Found ${dependencyPRs.length} dependency PRs to validate`)
+      this.logger.info(`Found ${dependencyPRs.length} buddy-bot dependency PRs to validate`)
+
+      if (dependencyPRs.length === 0) {
+        this.logger.info('📋 No buddy-bot PRs to check')
+        return
+      }
 
       let closedCount = 0
 
-      // Scan current project state once
-      const currentScanResult = await this.scanForUpdates()
+      // Scan current project state once — use strategy 'all' so we see every
+      // available update regardless of the config's strategy.  This prevents
+      // false-positive closures when, e.g., the config says 'patch' but PRs
+      // exist for major updates: without 'all', major updates would be filtered
+      // out of the scan, their packages would be absent from currentUpdatesMap,
+      // and the PR would be incorrectly considered "satisfied".
+      const scanConfig: BuddyBotConfig = {
+        ...this.config,
+        packages: {
+          ...this.config.packages,
+          strategy: 'all',
+        },
+      }
+      const scanBuddy = new Buddy(scanConfig)
+      const currentScanResult = await scanBuddy.scanForUpdates()
       const currentUpdatesMap = new Map<string, PackageUpdate>()
       for (const update of currentScanResult.updates) {
         currentUpdatesMap.set(update.name, update)
+      }
+
+      // Safety: if the scan returned 0 updates, something may be wrong
+      // (bun outdated failure, missing node_modules, rate limiting, etc.).
+      // Never close PRs based on an empty scan — that would wipe them all out.
+      if (currentScanResult.updates.length === 0) {
+        this.logger.warn('⚠️ Scan returned 0 updates — skipping satisfied PR check to avoid false-positive closures')
+        return
       }
 
       for (const pr of dependencyPRs) {
@@ -1865,44 +2010,74 @@ export class Buddy {
             continue
           }
 
+          // Safety: extract the declared total from the PR summary table
+          // If we extracted fewer packages than declared, our extraction is incomplete
+          // and we must NOT close the PR based on partial data
+          const totalMatch = pr.body.match(/\*\*Total\*\*\s*\|\s*\*\*(\d+)\*\*/)
+          const declaredTotal = totalMatch ? Number.parseInt(totalMatch[1], 10) : 0
+          if (declaredTotal > 0 && prUpdates.length < declaredTotal) {
+            this.logger.debug(`PR #${pr.number}: Extracted ${prUpdates.length}/${declaredTotal} updates — incomplete extraction, skipping satisfied check`)
+            continue
+          }
+
+          // Track how many packages we could actually verify vs how many we couldn't find
+          let verifiedSatisfied = 0
+          let verifiedStillNeeded = 0
+          let unverifiable = 0
+
           // Check if all packages in the PR are already satisfied
           // A package is "satisfied" if:
-          // 1. It's no longer a direct dependency (moved to peer/removed)
-          // 2. It's already at the target version or newer
-          const satisfied = prUpdates.every((prUpdate) => {
+          // 1. It's already at the target version or newer (confirmed by scan)
+          // 2. It's no longer a direct dependency AND we have a healthy scan
+          for (const prUpdate of prUpdates) {
             const currentUpdate = currentUpdatesMap.get(prUpdate.name)
 
-            // If package not in current scan, it means it's either:
-            // 1. Already at the target version or newer
-            // 2. No longer a direct dependency (moved to peer dep, transitive, or removed)
-            // In both cases, the PR is no longer needed
             if (!currentUpdate) {
-              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} not in current scan (satisfied - no longer needs direct update)`)
-              return true
+              // Package not in current scan.  This could mean:
+              //   a) Already at the target version (genuinely satisfied)
+              //   b) Scan missed it (strategy filtering, API failure, etc.)
+              // We can't distinguish these cases, so we count it as unverifiable.
+              // The PR will only be closed if we have ZERO unverifiable packages
+              // (i.e., every package was positively confirmed as satisfied).
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} not in current scan (unverifiable)`)
+              unverifiable++
+              continue
             }
 
             // If the PR's target version matches what we currently need,
             // the PR is still relevant
             if (currentUpdate.newVersion === prUpdate.newVersion) {
               this.logger.debug(`PR #${pr.number}: ${prUpdate.name} still needs update to ${prUpdate.newVersion}`)
-              return false
+              verifiedStillNeeded++
+              continue
             }
 
             // Check if current project version is already at or beyond PR target
-            try {
-              const prTargetNewer = this.isNewerVersion(currentUpdate.currentVersion, prUpdate.newVersion)
-              if (!prTargetNewer) {
-                this.logger.debug(`PR #${pr.number}: ${prUpdate.name} already at or beyond ${prUpdate.newVersion}`)
-                return true
-              }
-            }
-            catch {
-              // If we can't compare versions, be conservative and don't close
-              return false
-            }
+            // Use a stricter comparison that distinguishes "comparison failed" from "not newer"
+            const comparisonResult = this.compareVersionsSafe(currentUpdate.currentVersion, prUpdate.newVersion)
 
-            return false
-          })
+            if (comparisonResult === 'at-or-beyond') {
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} already at or beyond ${prUpdate.newVersion}`)
+              verifiedSatisfied++
+            }
+            else if (comparisonResult === 'behind') {
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} still behind ${prUpdate.newVersion}`)
+              verifiedStillNeeded++
+            }
+            else {
+              // comparison-failed: can't determine, treat as unverifiable
+              this.logger.debug(`PR #${pr.number}: ${prUpdate.name} version comparison inconclusive`)
+              unverifiable++
+            }
+          }
+
+          // Only close the PR if:
+          // 1. We found NO packages that still need updating
+          // 2. We had ZERO unverifiable packages (every package was positively confirmed)
+          // 3. We positively verified at least one package as satisfied
+          const satisfied = verifiedStillNeeded === 0 && unverifiable === 0 && verifiedSatisfied > 0
+
+          this.logger.debug(`PR #${pr.number}: verified-satisfied=${verifiedSatisfied}, still-needed=${verifiedStillNeeded}, unverifiable=${unverifiable} → ${satisfied ? 'CLOSE' : 'KEEP'}`)
 
           if (satisfied) {
             this.logger.info(`✅ PR #${pr.number} is satisfied (dependencies at target version): ${pr.title}`)
@@ -1913,29 +2088,15 @@ export class Buddy {
             }
             else {
               try {
-                // Determine the reason for closing
-                const packagesNoLongerDirect = prUpdates.filter(u => !currentUpdatesMap.has(u.name))
+                // All packages were verified as satisfied (no unverifiable ones)
                 const packagesAlreadyUpdated = prUpdates.filter((u) => {
                   const current = currentUpdatesMap.get(u.name)
                   if (!current)
                     return false
-                  try {
-                    return !this.isNewerVersion(current.currentVersion, u.newVersion)
-                  }
-                  catch {
-                    return false
-                  }
+                  return this.compareVersionsSafe(current.currentVersion, u.newVersion) === 'at-or-beyond'
                 })
 
                 let closeComment = `🤖 **Auto-closing satisfied PR**\n\n`
-
-                if (packagesNoLongerDirect.length > 0) {
-                  closeComment += `This PR was automatically closed because the following packages are no longer direct dependencies (possibly moved to peer dependencies, transitive dependencies, or removed):\n\n`
-                  packagesNoLongerDirect.forEach((u) => {
-                    closeComment += `- **${u.name}**: ${u.currentVersion} → ${u.newVersion}\n`
-                  })
-                  closeComment += `\n`
-                }
 
                 if (packagesAlreadyUpdated.length > 0) {
                   closeComment += `The following packages are already at the target version or newer:\n\n`
@@ -2152,6 +2313,7 @@ export class Buddy {
     ])
 
     // Filter PRs to include all dependency updates (from any source: buddy-bot, renovate, etc.)
+    // eslint-disable-next-line pickier/no-unused-vars -- pr IS used in the multi-line filter
     const dependencyPRs = openPRs.filter(pr =>
       // Include any PR that appears to be a dependency update
       pr.labels.includes('dependencies')
