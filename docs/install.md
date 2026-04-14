@@ -157,6 +157,7 @@ When using buddy-bot in GitHub Actions, you don't need a personal token. Just co
 name: Dependency Updates
 on:
   schedule:
+
     - cron: '0 2 * * 1'
 
 jobs:
@@ -168,14 +169,16 @@ jobs:
       actions: write # Update workflow files (optional)
 
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bunx buddy-bot update
+
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Built-in token
+          GITHUB*TOKEN: ${{ secrets.GITHUB*TOKEN }} # Built-in token
 ```
 
-The `GITHUB_TOKEN` is automatically provided by GitHub Actions with the permissions you specify.
+The `GITHUB*TOKEN` is automatically provided by GitHub Actions with the permissions you specify.
 
 ### For Local Development (Optional)
 
@@ -191,7 +194,7 @@ If you want to run buddy-bot locally to create PRs, you'll need a personal acces
 4. Set as environment variable:
 
 ```bash
-export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+export GITHUB*TOKEN=ghp*xxxxxxxxxxxxxxxxxxxx
 ```
 
 #### Fine-grained Personal Access Token
@@ -260,18 +263,21 @@ CMD ["buddy-bot", "scan"]
 name: Dependency Updates
 on:
   schedule:
+
     - cron: '0 2 * * 1' # Weekly on Monday
 
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install
       - run: bunx buddy-bot update
+
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB*TOKEN: ${{ secrets.GITHUB*TOKEN }}
 ```
 
 ### GitLab CI
@@ -280,12 +286,16 @@ jobs:
 dependency-updates:
   image: oven/bun:latest
   script:
+
     - bun install
     - bunx buddy-bot update
+
   only:
+
     - schedules
+
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
+    GITLAB*TOKEN: $CI*JOB*TOKEN
 ```
 
 ## Troubleshooting
@@ -325,6 +335,7 @@ buddy-bot setup
 ```
 
 This comprehensive setup wizard will:
+
 - **🔍 Detect your repository** automatically from git remote
 - **🔑 Guide token setup** for Personal Access Tokens and repository secrets
 - **🔧 Configure permissions** for GitHub Actions

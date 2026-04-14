@@ -9,6 +9,7 @@ Buddy intelligently extracts release notes from multiple sources to provide comp
 ### Data Sources
 
 #### GitHub Releases
+
 ```typescript
 const githubReleasesConfig = {
   releaseNotes: {
@@ -25,6 +26,7 @@ const githubReleasesConfig = {
 ```
 
 #### Changelog Files
+
 ```typescript
 const changelogConfig = {
   releaseNotes: {
@@ -41,6 +43,7 @@ const changelogConfig = {
 ```
 
 #### NPM Registry
+
 ```typescript
 const npmRegistryConfig = {
   releaseNotes: {
@@ -57,6 +60,7 @@ const npmRegistryConfig = {
 ```
 
 #### Git Commits
+
 ```typescript
 const gitCommitsConfig = {
   releaseNotes: {

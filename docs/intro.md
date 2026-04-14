@@ -51,20 +51,24 @@ This comprehensive setup wizard provides a **Renovate-like experience** that aut
 ### Setup Process
 
 **🔍 Step 1: Repository Detection**
+
 - Automatically detects your GitHub repository from git remote
 - Validates repository access and configuration
 
 **🔑 Step 2: GitHub Token Setup**
+
 - Guides you through creating a Personal Access Token (PAT)
 - Explains required scopes (`repo`, `workflow`) for full functionality
 - Helps set up repository secrets for enhanced features
 
 **🔧 Step 3: Repository Settings**
+
 - Walks you through GitHub Actions permissions configuration
 - Ensures proper workflow permissions for PR creation
 
 **⚙️ Step 4: Workflow Configuration**
 Choose from carefully crafted presets:
+
 - **Standard Setup** - Dashboard updates 3x/week, balanced dependency updates
 - **High Frequency** - Check for updates multiple times per day
 - **Security Focused** - Frequent patch updates with security-first approach
@@ -73,16 +77,19 @@ Choose from carefully crafted presets:
 - **Custom Configuration** - Create your own schedule
 
 **📝 Step 5: Configuration Generation**
+
 - Creates `buddy-bot.config.json` with your repository settings
 - Includes sensible defaults and customization options
 
 **🔄 Step 6: Workflow Generation**
 Generates three core GitHub Actions workflows:
+
 - `buddy-dashboard.yml` - Dependency Dashboard Management
 - `buddy-check.yml` - Auto-rebase PR checker
 - `buddy-update.yml` - Scheduled dependency updates
 
 **🎯 Step 7: Final Instructions**
+
 - Provides clear next steps with git commands
 - Links to GitHub settings pages for easy configuration
 - Explains token setup and repository permissions
@@ -90,6 +97,7 @@ Generates three core GitHub Actions workflows:
 ### What You Get
 
 After the enhanced setup completes, you'll have:
+
 - ✅ **Complete automation** - Three production-ready workflows with validation
 - ✅ **Professional dashboard** - Single issue tracking all dependencies
 - ✅ **Interactive rebasing** - Checkbox-based PR updates with conflict resolution
@@ -155,18 +163,21 @@ export default {
 ## Use Cases
 
 ### Enterprise Teams
+
 - **Automated dependency management** across multiple repositories
 - **Security-first updates** with priority scheduling
 - **Team-based review workflows** with automatic assignments
 - **Compliance tracking** with detailed update logs
 
 ### Open Source Projects
+
 - **Community-friendly PRs** with detailed explanations
 - **Contributor onboarding** through automated maintenance
 - **Release coordination** with grouped package updates
 - **Documentation integration** with changelog extraction
 
 ### CI/CD Pipelines
+
 - **Scheduled automation** with GitHub Actions
 - **Multi-strategy updates** (patch, minor, major)
 - **Auto-merge capabilities** for trusted updates
@@ -180,6 +191,7 @@ export default {
 name: Dependency Updates
 on:
   schedule:
+
     - cron: '0 2 * * 1' # Weekly
 
 jobs:
@@ -189,11 +201,13 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bunx buddy-bot update
+
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB*TOKEN: ${{ secrets.GITHUB*TOKEN }}
 ```
 
 ### Multiple Strategies
@@ -271,7 +285,7 @@ For casual chit-chat with others using this package:
 
 ## Postcardware
 
-Two things are true: Buddy-bot will always stay open-source, and we do love to receive postcards from wherever it's used! 🌍 _We also publish them on our website._
+Two things are true: Buddy-bot will always stay open-source, and we do love to receive postcards from wherever it's used! 🌍 *We also publish them on our website.*
 
 Our address: Stacks.js, 12665 Village Ln #2306, Playa Vista, CA 90094
 

@@ -11,6 +11,7 @@ buddy-bot setup
 ```
 
 The migration process will:
+
 - 🔍 Detect Renovate config files (`renovate.json`, `.renovaterc`, `package.json`)
 - ⚙️ Convert settings to Buddy Bot format
 - ⚠️ Identify incompatible features
@@ -227,6 +228,7 @@ The migration process will:
 Some Renovate features don't have direct equivalents in Buddy Bot:
 
 ### ❌ Not Supported
+
 - **Preset Extensions** (`extends`): Use explicit configuration
 - **Regex Managers** (`regexManagers`): Manual configuration needed
 - **Custom Datasources**: Limited to npm, Composer, GitHub Actions
@@ -234,6 +236,7 @@ Some Renovate features don't have direct equivalents in Buddy Bot:
 - **Branch Prefix Customization**: Fixed `buddy-bot/` prefix
 
 ### ⚠️ Requires Manual Setup
+
 - **Custom PR Templates**: Configure in `pullRequest.bodyTemplate`
 - **Platform-specific Settings**: Adapt to GitHub Actions workflows
 - **Complex Grouping Logic**: Simplify to pattern-based groups
@@ -360,6 +363,7 @@ buddy-bot update --dry-run
 ### 4. Validate Generated Workflows
 
 Check the generated GitHub Actions workflows:
+
 - `.github/workflows/buddy-dashboard.yml`
 - `.github/workflows/buddy-check.yml`
 - `.github/workflows/buddy-update.yml`
@@ -416,6 +420,7 @@ npm pkg delete renovate
 ## Best Practices
 
 ### ✅ Do
+
 - Start with automated migration
 - Test thoroughly before removing Renovate
 - Simplify complex configurations
@@ -423,6 +428,7 @@ npm pkg delete renovate
 - Monitor PR quality during transition
 
 ### ❌ Don't
+
 - Remove Renovate immediately
 - Ignore migration warnings
 - Use overly complex grouping

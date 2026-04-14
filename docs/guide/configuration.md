@@ -86,17 +86,17 @@ packages: {
   groups: [
     {
       name: 'TypeScript Types',
-      patterns: ['@types/*'],
+      patterns: ['@types/_'],
       strategy: 'minor'
     },
     {
       name: 'ESLint Ecosystem',
-      patterns: ['eslint*', '@typescript-eslint/*'],
+      patterns: ['eslint_', '@typescript-eslint/_'],
       strategy: 'patch'
     },
     {
       name: 'React',
-      patterns: ['react', 'react-dom', '@types/react*'],
+      patterns: ['react', 'react-dom', '@types/react_'],
       strategy: 'minor'
     }
   ]
@@ -201,37 +201,47 @@ dashboard: {
 Choose from predefined workflow configurations:
 
 ### Standard (Default)
+
 ```bash
 buddy-bot setup --preset standard
 ```
+
 - Dashboard updates 3x/week
 - Balanced dependency updates
 
 ### High Frequency
+
 ```bash
 buddy-bot setup --preset high-frequency
 ```
+
 - Updates multiple times per day
 - Auto-merge patch updates
 
 ### Security Focused
+
 ```bash
 buddy-bot setup --preset security
 ```
+
 - Frequent security patches
 - Prioritizes vulnerability fixes
 
 ### Minimal
+
 ```bash
 buddy-bot setup --preset minimal
 ```
+
 - Weekly checks only
 - Lower frequency
 
 ### Testing
+
 ```bash
 buddy-bot setup --preset testing
 ```
+
 - Every 5 minutes
 - Dry run by default
 - For development/testing
@@ -241,6 +251,7 @@ buddy-bot setup --preset testing
 ### From Renovate
 
 Buddy Bot automatically migrates settings from:
+
 - `renovate.json`
 - `.renovaterc`
 - `package.json` renovate config
@@ -253,10 +264,12 @@ buddy-bot setup
 ### From Dependabot
 
 Migrates from:
+
 - `.github/dependabot.yml`
 - `.github/dependabot.yaml`
 
 Settings mapped:
+
 - Schedule intervals
 - Ignore patterns
 - Package ecosystems

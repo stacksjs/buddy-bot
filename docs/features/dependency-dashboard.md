@@ -79,6 +79,7 @@ export default {
 ### Open Pull Requests
 
 Lists all open dependency-related pull requests with:
+
 - Interactive checkboxes for force retry/rebase
 - Package names being updated
 - Direct links to PRs
@@ -90,6 +91,7 @@ Example:
 The following updates have all been created. To force a retry/rebase of any, click on a checkbox below.
 
  - [ ] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update dependency react to v18](../pull/123) (`react`)
+
 ```
 
 ### Detected Dependencies
@@ -97,16 +99,19 @@ The following updates have all been created. To force a retry/rebase of any, cli
 Categorized view of all detected dependencies:
 
 #### npm Dependencies
+
 - Dependencies from `package.json` files
 - Grouped by dependency type (dependencies, devDependencies, etc.)
 - Shows current versions
 
 #### GitHub Actions
+
 - Actions from `.github/workflows/` files
 - Displays action names and versions
 - Organized by workflow file
 
 #### Dependency Files
+
 - Dependencies from `deps.yaml`, `dependencies.yaml`, etc.
 - Package manager agnostic dependencies
 - Custom dependency file formats
@@ -118,10 +123,13 @@ Categorized view of all detected dependencies:
 Check the box next to any PR to trigger a retry/rebase:
 
 ```markdown
+
  - [x] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update dependency react to v18](../pull/123)
+
 ```
 
 This will:
+
 1. Close the existing PR
 2. Create a new branch with latest updates
 3. Open a fresh PR with current versions
@@ -131,7 +139,9 @@ This will:
 Use the manual trigger at the bottom to force a full repository scan:
 
 ```markdown
+
 - [x] <!-- manual job -->Check this box to trigger a request for Buddy Bot to run again on this repository
+
 ```
 
 ## Automation
@@ -144,16 +154,19 @@ Add dashboard updates to your workflow:
 name: Dependency Dashboard
 on:
   schedule:
-    - cron: '0 9 * * 1,3,5' # Monday, Wednesday, Friday at 9 AM UTC
+
+    - cron: '0 9 _ _ 1,3,5' # Monday, Wednesday, Friday at 9 AM UTC
 
 jobs:
   update-dashboard:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - name: Update Dashboard
+
         run: bunx buddy-bot dashboard
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -164,6 +177,7 @@ jobs:
 ### Auto-Update
 
 The dashboard automatically updates when:
+
 - New dependency PRs are created
 - Existing PRs are merged or closed
 - Dependencies are added/removed from files
@@ -182,6 +196,7 @@ export default {
 Last updated: {{lastUpdated}}
 
 ## Summary
+
 - Open PRs: {{openPRs.count}}
 - Package.json files: {{detectedDependencies.packageJson.count}}
 - GitHub Actions: {{detectedDependencies.githubActions.count}}
@@ -205,14 +220,18 @@ Last updated: {{lastUpdated}}
 | `{{detectedDependencies.dependencyFiles.count}}` | Other dependency files count |
 
 ### Regular Updates
+
 Set up automated dashboard updates in your CI/CD:
 
 ```bash
 # In your GitHub Actions workflow
+
 - run: buddy-bot dashboard
+
 ```
 
 ### Team Assignment
+
 Assign the dashboard to team members for visibility:
 
 ```typescript
@@ -222,6 +241,7 @@ dashboard: {
 ```
 
 ### Clear Labels
+
 Use descriptive labels for easy filtering:
 
 ```typescript
@@ -237,6 +257,7 @@ dashboard: {
 **Issue**: Dashboard command fails with permission errors.
 
 **Solution**: Ensure GitHub token has required permissions:
+
 - `repo` scope for private repositories
 - `public_repo` scope for public repositories
 - `issues:write` permission
@@ -246,6 +267,7 @@ dashboard: {
 **Issue**: Dashboard shows outdated information.
 
 **Solution**:
+
 1. Check if the issue exists and is open
 2. Verify repository configuration
 3. Run with `--verbose` for detailed logs
@@ -255,6 +277,7 @@ dashboard: {
 **Issue**: Some dependencies don't appear in the dashboard.
 
 **Solution**:
+
 1. Verify file paths are correct
 2. Check if files match supported formats
 3. Enable verbose logging to see parsing details
@@ -264,6 +287,7 @@ dashboard: {
 **Issue**: Dashboard is created but not pinned.
 
 **Solution**:
+
 - Issue pinning requires newer GitHub API features
 - Pinning is not critical and failures are gracefully handled
 - Pin manually in GitHub UI if needed

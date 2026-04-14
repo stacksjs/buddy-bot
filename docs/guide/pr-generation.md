@@ -193,7 +193,9 @@ Every PR includes a rebase checkbox:
 
 ```markdown
 ---
+
  - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
+
 ---
 ```
 
@@ -225,6 +227,7 @@ Buddy Bot includes detailed release notes:
 [Compare Source](https://github.com/microsoft/TypeScript/compare/v5.8.2...v5.8.3)
 
 ##### Bug Fixes
+
 - Fix issue with module resolution
 - Improve error messages
 
@@ -240,6 +243,7 @@ Breaking changes are highlighted:
 
 - TypeScript now requires Node.js 18+
 - Deprecated API removed
+
 ```
 
 ## Confidence Metrics
@@ -278,6 +282,7 @@ buddy-bot update --dry-run
 ```
 
 Output shows:
+
 - Packages to be updated
 - PR titles that would be created
 - Files that would be modified

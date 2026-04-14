@@ -44,5 +44,3 @@ features:
     icon: "🛡️"
     details: "Prioritizes security updates with configurable strategies for different package types."
 ---
-
-<Home />

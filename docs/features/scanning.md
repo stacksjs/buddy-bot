@@ -7,12 +7,14 @@ Buddy's dependency scanning engine is built on top of Bun's native dependency ma
 Buddy uses multiple scanning approaches depending on the file type:
 
 ### Package.json Scanning
+
 - **Native Performance**: Direct integration with Bun's C++ engine using `bun outdated`
 - **Accurate Detection**: Uses lockfile analysis for precise version matching
 - **Multi-Registry Support**: npm, JSR, and other registries
 - **Package Manager Agnostic**: Works with npm, yarn, pnpm, and Bun
 
 ### Dependency File Scanning
+
 - **pkgx Integration**: Uses `ts-pkgx` library for parsing dependency files
 - **Registry Compatibility**: Full compatibility with pkgx registry ecosystem
 - **Format Support**: Handles multiple YAML formats (`.yaml`, `.yml`)
@@ -160,12 +162,14 @@ buddy-bot check react --strategy minor
 Buddy provides detailed scan results with:
 
 ### Package Information
+
 - Current version
 - Latest available version
 - Update type (major/minor/patch)
 - Package metadata (description, homepage, license)
 
 ### Update Analysis
+
 - **Security Updates**: Automatically detected security-related packages
 - **Breaking Changes**: Major version updates flagged for review
 - **Release Notes**: Automatically fetched from package registries
@@ -261,16 +265,19 @@ export default {
 ### Common Issues
 
 **Scan finds no updates:**
+
 - Check if packages are in ignore list
 - Verify strategy allows the available update types
 - Ensure package.json is readable
 
 **Incorrect versions detected:**
+
 - Update Bun to latest version
 - Clear Bun cache: `bun install --force`
 - Check for corrupted lockfiles
 
 **Performance issues:**
+
 - Reduce concurrent scans in large monorepos
 - Use more specific package patterns
 - Enable caching in CI environments

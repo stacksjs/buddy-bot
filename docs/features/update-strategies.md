@@ -22,11 +22,13 @@ export default {
 ```
 
 **When to use:**
+
 - Production applications requiring maximum stability
 - Critical systems where breaking changes must be avoided
 - Security-focused updates only
 
 **Example updates:**
+
 - `react@18.2.0` → `react@18.2.1` ✅
 - `react@18.2.0` → `react@18.3.0` ❌
 - `react@18.2.0` → `react@19.0.0` ❌
@@ -45,11 +47,13 @@ export default {
 ```
 
 **When to use:**
+
 - Most production applications
 - Teams that want new features without breaking changes
 - Gradual adoption of improvements
 
 **Example updates:**
+
 - `typescript@5.1.0` → `typescript@5.1.6` ✅ (patch)
 - `typescript@5.1.0` → `typescript@5.2.0` ✅ (minor)
 - `typescript@5.1.0` → `typescript@6.0.0` ❌ (major)
@@ -68,11 +72,13 @@ export default {
 ```
 
 **When to use:**
+
 - Development environments
 - Regular maintenance windows
 - Teams comfortable with handling breaking changes
 
 **Example updates:**
+
 - `vue@2.7.0` → `vue@2.7.16` ✅ (patch)
 - `vue@2.7.0` → `vue@3.4.0` ✅ (major)
 
@@ -89,11 +95,13 @@ export default {
 ```
 
 **When to use:**
+
 - Experimental projects
 - Early adoption teams
 - Testing latest features
 
 **Example updates:**
+
 - `next@14.0.0` → `next@15.0.0-rc.1` ✅ (pre-release)
 - `react@18.2.0` → `react@19.0.0-beta.1` ✅ (beta)
 
@@ -226,8 +234,8 @@ const week3Config = {
 Different strategies for different environments:
 
 ```typescript
-const isProduction = process.env.NODE_ENV === 'production'
-const isCorporate = process.env.CORPORATE_ENVIRONMENT === 'true'
+const isProduction = process.env.NODE*ENV === 'production'
+const isCorporate = process.env.CORPORATE*ENVIRONMENT === 'true'
 
 export default {
   packages: {

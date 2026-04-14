@@ -26,6 +26,7 @@ buddy-bot info react --json
 ```
 
 **Options:**
+
 - `--detailed` - Show extended package information
 - `--include-deps` - Include dependency tree
 - `--versions` - Show available versions
@@ -95,6 +96,7 @@ buddy-bot deps react --graph --output deps.json
 ```
 
 **Options:**
+
 - `--tree` - Show full dependency tree
 - `--depth <number>` - Limit tree depth
 - `--include-dev` - Include devDependencies
@@ -130,6 +132,7 @@ buddy-bot check --group-by-type
 ```
 
 **Options:**
+
 - `--strategy <type>` - Update strategy (patch|minor|major|all)
 - `--security-only` - Security updates only
 - `--pattern <pattern>` - Package name pattern
@@ -187,6 +190,7 @@ buddy-bot search "ui components" --sort popularity
 ```
 
 **Options:**
+
 - `--limit <number>` - Limit search results
 - `--keywords <keywords>` - Search by keywords (comma-separated)
 - `--maintainer <name>` - Filter by maintainer

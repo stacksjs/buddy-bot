@@ -7,13 +7,15 @@ Buddy provides comprehensive support for multiple dependency file formats beyond
 Buddy automatically detects and updates the following dependency file formats:
 
 ### Traditional Package Files
+
 - **package.json** - npm, yarn, pnpm, and Bun dependencies
 
 ### pkgx and Launchpad Dependency Files
-- **deps.yaml** / **deps.yml** - Main dependency format used by pkgx and Launchpad
-- **dependencies.yaml** / **dependencies.yml** - Alternative dependency file naming
-- **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
-- **.deps.yaml** / **.deps.yml** - Hidden dependency configuration files
+
+- **deps.yaml**/**deps.yml** - Main dependency format used by pkgx and Launchpad
+- **dependencies.yaml**/**dependencies.yml** - Alternative dependency file naming
+- **pkgx.yaml**/**pkgx.yml** - pkgx-specific dependency files
+- **.deps.yaml**/**.deps.yml** - Hidden dependency configuration files
 
 ## How It Works
 
@@ -22,7 +24,7 @@ Buddy uses the `ts-pkgx` library to parse and resolve dependency files, ensuring
 ### Automatic Detection
 
 ```bash
-# Buddy automatically scans for these files:
+# Buddy automatically scans for these files
 my-project/
 ├── package.json              # ✅ npm dependencies
 ├── deps.yaml                 # ✅ Launchpad/pkgx dependencies
@@ -66,24 +68,24 @@ devDependencies:
 ```yaml
 # dependencies.yaml
 dependencies:
-  # Runtime dependencies
+# Runtime dependencies
   node: ^20.0.0
   python: ~3.11.0
 
-  # Package managers
+# Package managers
   npm: ^10.0.0
   pip: latest
 
-  # Development tools
+# Development tools
   git: ^2.40.0
 
 devDependencies:
-  # Linting and formatting
+# Linting and formatting
   eslint: ^8.0.0
   prettier: ^3.0.0
   black: ^23.0.0
 
-  # Testing
+# Testing
   jest: ^29.0.0
   pytest: ^7.0.0
 
@@ -98,11 +100,11 @@ optionalDependencies:
 ```yaml
 # .deps.yaml - Hidden configuration file
 dependencies:
-  # System-level dependencies
+# System-level dependencies
   curl: ^8.0.0
   jq: ^1.6.0
 
-  # CI/CD tools
+# CI/CD tools
   gh: ^2.0.0
   act: ^0.2.0
 ```
@@ -115,22 +117,22 @@ Buddy preserves your version constraints when updating dependency files:
 
 ```yaml
 dependencies:
-  # Caret range (compatible updates)
+# Caret range (compatible updates)
   typescript: ^5.0.0 # >=5.0.0 <6.0.0
 
-  # Tilde range (patch updates)
+# Tilde range (patch updates)
   eslint: ~8.45.0 # >=8.45.0 <8.46.0
 
-  # Greater than or equal
+# Greater than or equal
   node: '>=20.0.0' # Any version >= 20.0.0
 
-  # Exact version
+# Exact version
   python: 3.11.5 # Exactly 3.11.5
 
-  # Latest version
+# Latest version
   bun: latest # Always the latest
 
-  # Version ranges
+# Version ranges
   go: '>=1.20.0 <1.22.0' # Between versions
 ```
 
@@ -145,11 +147,11 @@ dependencies:
   vue: 3.0.0 # Exact version
 
 # After update (constraints preserved)
-# dependencies:
-#   express: ^4.18.2    # Caret preserved
-#   lodash: ~4.17.21    # Tilde preserved
-#   react: ">=18.2.0"   # Range preserved
-#   vue: 3.0.5          # Exact updated
+# dependencies
+# express: ^4.18.2    # Caret preserved
+# lodash: ~4.17.21    # Tilde preserved
+# react: ">=18.2.0"   # Range preserved
+# vue: 3.0.5          # Exact updated
 ```
 
 ## Configuration
@@ -224,9 +226,11 @@ This PR updates dependencies across multiple formats:
 | bun | ^1.0.0 | ^1.0.5 | .deps.yaml |
 
 ## Changes Summary
+
 - 2 package.json updates (development dependencies)
 - 2 dependency file updates (tooling and runtime)
 - All updates are backward compatible
+
 ```
 
 ### Separate PRs Option

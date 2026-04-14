@@ -1,4 +1,5 @@
 # Changelog
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.17...v0.9.18)
 
 ### 🚀 Features

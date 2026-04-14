@@ -19,7 +19,9 @@ Every Buddy Bot pull request includes an interactive checkbox:
 
 ```markdown
 ---
+
  - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
+
 ---
 ```
 
@@ -89,10 +91,12 @@ name: Buddy Check
 
 on:
   schedule:
+
     - cron: '*/1 * * * *' # Every minute
-  workflow_dispatch: # Manual trigger
+
+  workflow*dispatch: # Manual trigger
     inputs:
-      dry_run:
+      dry*run:
         description: Dry run (preview only)
         required: false
         default: false
@@ -115,12 +119,13 @@ For complete functionality including workflow file updates:
 2. **Select scopes**:
    - `repo` (Full repository access)
    - `workflow` (Update GitHub Actions workflows)
-3. **Add secret**: Repository Settings → Secrets → Add `BUDDY_BOT_TOKEN`
+3. **Add secret**: Repository Settings → Secrets → Add `BUDDY*BOT*TOKEN`
 4. **Automatic detection**: Workflow uses PAT when available
 
 #### Option 2: Default GitHub Token (Limited)
 
-Uses the built-in `GITHUB_TOKEN` with these limitations:
+Uses the built-in `GITHUB*TOKEN` with these limitations:
+
 - ✅ Updates package.json and dependency files
 - ✅ Updates lock files
 - ❌ Cannot update workflow files (`.github/workflows/*.yml`)
@@ -130,10 +135,10 @@ Uses the built-in `GITHUB_TOKEN` with these limitations:
 
 ```bash
 # Required for PR operations
-GITHUB_TOKEN=<your-token>
+GITHUB*TOKEN=<your-token>
 
 # For rebase functionality
-BUDDY_BOT_TOKEN=<your-pat> # Optional, fallback to GITHUB_TOKEN
+BUDDY*BOT*TOKEN=<your-pat> # Optional, fallback to GITHUB*TOKEN
 ```
 
 ## What Gets Updated
@@ -144,10 +149,10 @@ During rebase, Buddy Bot updates:
 
 | File Type | Examples | Token Required |
 |-----------|----------|----------------|
-| **Package files** | package.json | GITHUB_TOKEN |
-| **Lock files** | package-lock.json, yarn.lock, bun.lockb | GITHUB_TOKEN |
-| **Dependency files** | deps.yaml, dependencies.yaml, pkgx.yaml | GITHUB_TOKEN |
-| **GitHub Actions** | .github/workflows/*.yml | BUDDY_BOT_TOKEN |
+| **Package files** | package.json | GITHUB*TOKEN |
+| **Lock files** | package-lock.json, yarn.lock, bun.lockb | GITHUB*TOKEN |
+| **Dependency files** | deps.yaml, dependencies.yaml, pkgx.yaml | GITHUB*TOKEN |
+| **GitHub Actions** | .github/workflows/*.yml | BUDDY*BOT*TOKEN |
 
 ### PR Content
 
@@ -165,10 +170,10 @@ During rebase, Buddy Bot updates:
 
 **Error**: `refusing to allow a GitHub App to create or update workflow`
 
-**Solution**: Add `BUDDY_BOT_TOKEN` with `workflow` scope:
+**Solution**: Add `BUDDY*BOT*TOKEN` with `workflow` scope:
 ```bash
 # 1. Create PAT with 'repo' and 'workflow' scopes
-# 2. Add as repository secret 'BUDDY_BOT_TOKEN'
+# 2. Add as repository secret 'BUDDY*BOT*TOKEN'
 # 3. Re-run the rebase workflow
 ```
 
@@ -178,7 +183,9 @@ During rebase, Buddy Bot updates:
 
 **Solution**: The workflow automatically configures Git identity, but you can verify:
 ```yaml
+
 - name: Configure Git
+
   run: |
     git config --global user.name "github-actions[bot]"
     git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -189,6 +196,7 @@ During rebase, Buddy Bot updates:
 **Error**: `No buddy-bot PRs found`
 
 **Cause**: Workflow looks for PRs created by:
+
 - Branch names starting with `buddy-bot/`
 - Author `github-actions[bot]`
 - Author containing `buddy`
@@ -198,6 +206,7 @@ During rebase, Buddy Bot updates:
 #### 4. Rebase Not Triggered
 
 **Check**:
+
 1. Checkbox is properly formatted: `- [x] <!-- rebase-check -->`
 2. Workflow has proper permissions
 3. Actions are enabled in repository settings
@@ -212,11 +221,12 @@ You can customize the rebase behavior by modifying the workflow:
 # Custom rebase frequency
 on:
   schedule:
+
     - cron: '*/5 * * * *' # Every 5 minutes instead of 1
 
 # Custom PR detection
 env:
-  CUSTOM_AUTHOR_FILTER: 'my-custom-bot'
+  CUSTOM*AUTHOR*FILTER: 'my-custom-bot'
 ```
 
 ### Integration with Other Tools

@@ -19,6 +19,7 @@ buddy-bot setup
 ```
 
 The setup wizard will automatically:
+
 - 🔍 Detect your repository
 - 🔑 Guide token creation and setup
 - 🔧 Configure GitHub Actions permissions
@@ -43,6 +44,7 @@ buddy-bot setup --non-interactive --preset security --token-setup existing-secre
 ```
 
 Non-interactive mode:
+
 - ✅ Uses sensible defaults without prompts
 - ✅ Supports all preset configurations
 - ✅ Configurable token setup modes
@@ -134,15 +136,17 @@ buddy-bot --version
 Buddy automatically detects and updates dependencies across four categories:
 
 ### Package Dependencies
+
 - **package.json** - npm, Bun, yarn, pnpm dependencies
 - **composer.json** - PHP dependencies from Packagist
 - **composer.lock** - PHP lock file with exact versions
-- **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
-- **dependencies.yaml** / **dependencies.yml** - Alternative dependency format
-- **pkgx.yaml** / **pkgx.yml** - pkgx-specific dependency files
-- **.deps.yaml** / **.deps.yml** - Hidden dependency configuration
+- **deps.yaml**/**deps.yml** - Launchpad/pkgx dependency declarations
+- **dependencies.yaml**/**dependencies.yml** - Alternative dependency format
+- **pkgx.yaml**/**pkgx.yml** - pkgx-specific dependency files
+- **.deps.yaml**/**.deps.yml** - Hidden dependency configuration
 
 ### GitHub Actions
+
 - **.github/workflows/*.yml** - GitHub Actions workflow files
 - **.github/workflows/*.yaml** - Alternative YAML extension
 
@@ -151,12 +155,15 @@ All `uses:` statements in workflow files are automatically detected and updated:
 ```yaml
 # .github/workflows/ci.yml
 steps:
+
   - uses: actions/checkout@v4 # ← Updated to v4.2.2
   - uses: oven-sh/setup-bun@v2 # ← Updated to v2.0.2
   - uses: actions/cache@v4.1.0 # ← Updated to v4.2.3
+
 ```
 
 ### Update Sources
+
 - **npm packages**: Uses `bun outdated` for accurate detection
 - **Composer packages**: Uses `composer outdated` and Packagist API
 - **pkgx/Launchpad packages**: Uses `ts-pkgx` library integration
@@ -238,7 +245,7 @@ const config: BuddyBotConfig = {
   },
 
   schedule: {
-    cron: '0 2 * * 1', // Weekly on Monday at 2 AM
+    cron: '0 2 _ _ 1', // Weekly on Monday at 2 AM
     timezone: 'UTC',
   },
 }
@@ -287,7 +294,9 @@ catch (error) {
 name: Dependency Updates
 on:
   schedule:
-    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
+
+    - cron: '0 2 _ _ 1' # Weekly on Monday at 2 AM
+
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -299,16 +308,21 @@ jobs:
       actions: write # Update workflow files (optional)
 
     steps:
+
       - name: Checkout
+
         uses: actions/checkout@v4
 
       - name: Setup Bun
+
         uses: oven-sh/setup-bun@v1
 
       - name: Install dependencies
+
         run: bun install
 
       - name: Update dependencies
+
         run: bunx buddy-bot update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Built-in token
@@ -327,6 +341,7 @@ on:
         default: 'standard'
         type: choice
         options:
+
           - standard
           - high-frequency
           - security
@@ -337,13 +352,17 @@ jobs:
   setup-buddy-bot:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout
+
         uses: actions/checkout@v4
 
       - name: Setup Bun
+
         uses: oven-sh/setup-bun@v2
 
       - name: Setup Buddy Bot
+
         run: |
           bunx buddy-bot setup \
             --non-interactive \
@@ -354,6 +373,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit generated files
+
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -368,16 +388,19 @@ jobs:
 name: Security Updates
 on:
   schedule:
-    - cron: '0 */6 * * *' # Every 6 hours
+
+    - cron: '0 _/6 _ _ _' # Every 6 hours
 
 jobs:
   security-updates:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install
       - name: Security updates only
+
         run: |
           bunx buddy-bot update \
             --strategy patch \
@@ -393,7 +416,8 @@ jobs:
 name: Multi-Strategy Updates
 on:
   schedule:
-    - cron: '0 2 * * 1'
+
+    - cron: '0 2 _ _ 1'
 
 jobs:
   update:
@@ -403,10 +427,12 @@ jobs:
         strategy: [patch, minor, major]
 
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install
       - name: Update ${{ matrix.strategy }}
+
         run: |
           bunx buddy-bot update \
             --strategy ${{ matrix.strategy }} \
@@ -478,7 +504,7 @@ export NPM_REGISTRY_URL=https://registry.npmjs.org
 export BUN_CONFIG_NO_CACHE=false
 
 # Optional: Debug mode
-export DEBUG=buddy-bot:*
+export DEBUG=buddy-bot:_
 ```
 
 ## Workflow Examples
@@ -486,7 +512,7 @@ export DEBUG=buddy-bot:*
 ### Daily Patch Updates
 
 ```bash
-#!/bin/bash
+# !/bin/bash
 # daily-updates.sh
 
 buddy-bot update \
@@ -498,7 +524,7 @@ buddy-bot update \
 ### Weekly Comprehensive Updates
 
 ```bash
-#!/bin/bash
+# !/bin/bash
 # weekly-updates.sh
 
 buddy-bot update \
@@ -511,7 +537,7 @@ buddy-bot update \
 ### Emergency Security Update
 
 ```bash
-#!/bin/bash
+# !/bin/bash
 # security-update.sh
 
 buddy-bot update \
@@ -536,7 +562,7 @@ dependencies:
 devDependencies:
   eslint: ^8.0.0
 
-# Also supports: deps.yml, dependencies.yaml, dependencies.yml,
+# Also supports: deps.yml, dependencies.yaml, dependencies.yml
 # pkgx.yaml, pkgx.yml, .deps.yaml, .deps.yml
 ```
 
@@ -571,11 +597,11 @@ dependencies:
   vue: 3.0.0 # Exact version
 
 # After update (preserves prefixes)
-# dependencies:
-#   express: ^4.18.2    # Caret preserved
-#   lodash: ~4.17.21    # Tilde preserved
-#   react: >=18.2.0     # Range preserved
-#   vue: 3.0.5          # Exact preserved
+# dependencies
+# express: ^4.18.2    # Caret preserved
+# lodash: ~4.17.21    # Tilde preserved
+# react: >=18.2.0     # Range preserved
+# vue: 3.0.5          # Exact preserved
 ```
 
 ## Monorepo Support
@@ -587,9 +613,9 @@ For monorepos with multiple `package.json` and dependency files:
 export default {
   packages: {
     workspaces: [
-      'packages/*',
-      'apps/*',
-      'tools/*',
+      'packages/_',
+      'apps/_',
+      'tools/_',
     ],
     strategy: 'patch',
     groups: [

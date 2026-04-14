@@ -49,7 +49,7 @@ const config: BuddyBotConfig = {
 
   // Scheduling configuration
   schedule: {
-    cron: '0 2 * * 1', // Weekly on Monday at 2 AM
+    cron: '0 2 _ _ 1', // Weekly on Monday at 2 AM
     timezone: 'UTC',
   },
 }
@@ -101,7 +101,7 @@ const config: BuddyBotConfig = {
       },
       {
         name: 'Testing',
-        packages: ['jest', '@types/jest', 'testing-library/*'],
+        packages: ['jest', '@types/jest', 'testing-library/_'],
         strategy: 'minor',
       },
     ],
@@ -127,9 +127,11 @@ const config: BuddyBotConfig = {
 {releaseNotes}
 
 ## 🔧 Configuration
+
 - Strategy: {strategy}
 - Packages: {packageCount}
 - Labels: {labels}
+
     `,
   },
 }
@@ -155,7 +157,7 @@ const config: BuddyBotConfig = {
     custom: [
       {
         name: 'Security Updates',
-        schedule: '0 */6 * * *', // Every 6 hours
+        schedule: '0 _/6 _ _ _', // Every 6 hours
         strategy: 'patch',
         autoMerge: true,
         reviewers: ['security-team'],
@@ -222,7 +224,7 @@ Buddy validates your configuration on startup:
 # Check configuration validity
 buddy-bot scan --verbose
 
-# Common validation errors:
+# Common validation errors
 # ❌ Repository configuration required for PR creation
 # ❌ Invalid strategy: must be major|minor|patch|all
 # ❌ Invalid cron expression in schedule
@@ -306,7 +308,7 @@ export default {
     groups: [
       {
         name: 'Core Dependencies',
-        packages: ['react*', 'vue*'],
+        packages: ['react_', 'vue*'],
         strategy: 'minor', // More conservative for core
       },
     ],
@@ -334,41 +336,49 @@ Buddy provides comprehensive dependency management across four categories:
 ### Package Dependencies
 
 #### npm Ecosystem
+
 - **package.json** - Traditional npm, Bun, yarn, pnpm dependencies
 - Managed via `bun outdated` for accurate version detection
 
 #### PHP/Composer Ecosystem
+
 - **composer.json** - PHP dependencies from Packagist
 - **composer.lock** - Lock file with exact versions
 - Managed via `composer outdated` and Packagist API integration
 
 #### pkgx/Launchpad Ecosystem
-- **deps.yaml** / **deps.yml** - Launchpad/pkgx dependency declarations
-- **dependencies.yaml** / **dependencies.yml** - Alternative format
-- **pkgx.yaml** / **pkgx.yml** - pkgx-specific files
-- **.deps.yaml** / **.deps.yml** - Hidden configuration files
+
+- **deps.yaml**/**deps.yml** - Launchpad/pkgx dependency declarations
+- **dependencies.yaml**/**dependencies.yml** - Alternative format
+- **pkgx.yaml**/**pkgx.yml** - pkgx-specific files
+- **.deps.yaml**/**.deps.yml** - Hidden configuration files
 - Managed via `ts-pkgx` library integration
 
 ### GitHub Actions
 
 #### Workflow Files
+
 - **.github/workflows/*.yml** - GitHub Actions workflow files
 - **.github/workflows/*.yaml** - Alternative YAML extension
 - Managed via GitHub releases API
 
 #### Action Detection
+
 Buddy automatically detects `uses:` statements in workflow files:
 
 ```yaml
-# All these formats are supported:
+# All these formats are supported
 steps:
+
   - uses: actions/checkout@v4 # Standard format
   - uses: oven-sh/setup-bun@v2 # Quoted
   - uses: actions/cache@v4.1.0 # Single quoted
   - uses: crazy-max/ghaction-docker@v3 # Third-party
+
 ```
 
 #### Excluded Actions
+
 - Local actions: `./local-action`
 - Docker actions: `docker://node:18`
 - Actions without versions: `actions/checkout`
@@ -376,6 +386,7 @@ steps:
 ### Configuration Examples
 
 #### Ignore Specific Packages
+
 ```typescript
 const config: BuddyBotConfig = {
   packages: {
@@ -397,6 +408,7 @@ const config: BuddyBotConfig = {
 ```
 
 #### Strategy Application
+
 Update strategies apply to all dependency types:
 
 ```typescript
@@ -408,6 +420,7 @@ const config: BuddyBotConfig = {
 ```
 
 #### Pull Request Integration
+
 All three dependency types appear in separate tables within pull requests, providing clear organization and appropriate metadata for each ecosystem.
 
 To learn more, head over to the [documentation](https://buddy.sh/).

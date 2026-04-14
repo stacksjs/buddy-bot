@@ -213,7 +213,9 @@ buddy-bot open-settings
 
 ```yaml
 # .github/workflows/dependencies.yml
+
 - name: Update dependencies
+
   run: |
     bunx buddy-bot scan --verbose
     bunx buddy-bot update --strategy patch
@@ -269,7 +271,7 @@ buddy-bot update --help
 
 ### Documentation
 
-- **Full Documentation**: [https://buddy.sh/docs](https://buddy.sh/docs)
+- **Full Documentation**: [<https://buddy.sh/doc>s](https://buddy.sh/docs)
 - **Configuration Guide**: [/config](/config)
 - **GitHub Setup**: [/features/github-actions](/features/github-actions)
 

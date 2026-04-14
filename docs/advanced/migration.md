@@ -15,6 +15,7 @@ buddy-bot setup
 ```
 
 This will:
+
 - 🔍 **Detect** existing Renovate and Dependabot configurations
 - ⚙️ **Convert** settings to Buddy Bot format
 - 📋 **Generate** migration report with compatibility notes
@@ -63,7 +64,9 @@ export default {
 # .github/dependabot.yml
 version: 2
 updates:
+
   - package-ecosystem: "npm"
+
     directory: "/"
     schedule:
       interval: "weekly"
@@ -106,6 +109,7 @@ export default {
 ## Configuration Examples
 
 ### Conservative Migration
+
 For teams wanting minimal disruption:
 
 ```typescript
@@ -135,6 +139,7 @@ export default {
 ```
 
 ### Aggressive Migration
+
 For teams wanting frequent updates:
 
 ```typescript
@@ -185,7 +190,7 @@ Buddy Bot automatically generates optimized GitHub Actions workflows:
 # Run setup to generate workflows
 buddy-bot setup
 
-# Generated files:
+# Generated files
 # .github/workflows/buddy-dashboard.yml
 # .github/workflows/buddy-check.yml
 # .github/workflows/buddy-update.yml
@@ -255,6 +260,7 @@ Solution: Customize PR templates in buddy-bot.config.ts
 ## Best Practices
 
 ### ✅ Do
+
 - Run migration during low-activity periods
 - Test with dry-run first
 - Keep old configurations until Buddy Bot is proven stable
@@ -262,6 +268,7 @@ Solution: Customize PR templates in buddy-bot.config.ts
 - Document any custom configurations needed
 
 ### ❌ Don't
+
 - Migrate during critical deployment periods
 - Remove old tools immediately
 - Ignore migration warnings

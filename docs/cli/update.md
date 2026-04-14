@@ -198,14 +198,18 @@ PRs include this checkbox for manual rebase triggers:
 
 ```markdown
 ---
+
  - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
+
 ---
 ```
 
 When checked (marked with `x`):
 
 ```markdown
+
  - [x] <!-- rebase-check -->If you want to update/retry this PR, check this box
+
 ```
 
 ### Process
@@ -300,16 +304,19 @@ Configure repository.provider, repository.owner, repository.name in buddy-bot.co
 ### Troubleshooting
 
 **No updates found:**
+
 - Check if packages are in ignore list
 - Verify update strategy allows available updates
 - Ensure dependencies are actually outdated
 
 **Permission errors:**
+
 - Verify GitHub token has correct permissions
 - Check repository settings allow Actions to create PRs
 - Use `buddy-bot open-settings` for quick access
 
 **Rebase fails:**
+
 - Ensure PR is still open
 - Check if branch exists
 - Verify PR contains valid package update information
@@ -338,25 +345,31 @@ name: Dependency Updates
 
 on:
   schedule:
-    - cron: '0 2 * * 1' # Weekly on Monday
+
+    - cron: '0 2 _ _ 1' # Weekly on Monday
+
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
+
         run: bun install
 
       - name: Update dependencies
+
         run: bunx buddy-bot update --strategy patch --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auto-rebase existing PRs
+
         run: bunx buddy-bot update-check --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -9,6 +9,7 @@ Buddy automatically applies contextual labels based on package characteristics, 
 ### Default Label Categories
 
 #### Update Type Labels
+
 - `patch-update` - Patch version updates (bug fixes)
 - `minor-update` - Minor version updates (new features)
 - `major-update` - Major version updates (breaking changes)
@@ -16,6 +17,7 @@ Buddy automatically applies contextual labels based on package characteristics, 
 - `dependencies` - General dependency label
 
 #### Package Ecosystem Labels
+
 - `react-ecosystem` - React and related packages
 - `vue-ecosystem` - Vue.js and related packages
 - `angular-ecosystem` - Angular framework packages
@@ -25,6 +27,7 @@ Buddy automatically applies contextual labels based on package characteristics, 
 - `dev-dependencies` - Development-only packages
 
 #### Scope Labels
+
 - `single-package` - Updates affecting one package
 - `multi-package` - Updates affecting multiple packages
 - `monorepo-update` - Monorepo workspace updates

@@ -9,6 +9,7 @@ Buddy automatically creates professional, well-formatted pull requests that matc
 Buddy generates PRs with **three separate dependency tables** based on the types of updates found:
 
 #### npm Dependencies Table
+
 Full table with confidence badges and detailed metrics:
 ```markdown
 ### npm Dependencies
@@ -20,6 +21,7 @@ Full table with confidence badges and detailed metrics:
 ```
 
 #### Launchpad/pkgx Dependencies Table
+
 Simplified table focusing on package updates and file locations:
 ```markdown
 ### Launchpad/pkgx Dependencies
@@ -31,6 +33,7 @@ Simplified table focusing on package updates and file locations:
 ```
 
 #### GitHub Actions Table
+
 Workflow automation updates with direct repository links:
 ```markdown
 ### GitHub Actions
@@ -42,6 +45,7 @@ Workflow automation updates with direct repository links:
 ```
 
 #### Complete Example
+
 ```markdown
 # chore(deps): update dependencies
 
@@ -187,7 +191,9 @@ PRs include a rebase checkbox for manual triggers:
 
 ```markdown
 ---
+
  - [ ] <!-- rebase-check -->If you want to update/retry this PR, check this box
+
 ---
 ```
 

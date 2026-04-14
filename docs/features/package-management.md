@@ -26,6 +26,7 @@ Buddy automatically detects and updates various dependency file formats:
 #### Package Dependencies
 
 ##### npm Ecosystem
+
 ```json
 # package.json - Traditional npm, Bun, yarn, pnpm dependencies
 {
@@ -41,6 +42,7 @@ Buddy automatically detects and updates various dependency file formats:
 ```
 
 ##### PHP/Composer Ecosystem
+
 ```json
 # composer.json - PHP dependencies from Packagist
 {
@@ -58,6 +60,7 @@ Buddy automatically detects and updates various dependency file formats:
 ```
 
 ##### pkgx/Launchpad Ecosystem
+
 ```yaml
 # deps.yaml / deps.yml - pkgx and Launchpad
 dependencies:
@@ -68,21 +71,22 @@ devDependencies:
   eslint: ^8.0.0
 
 # dependencies.yaml / dependencies.yml - Alternative format
-# dependencies:
-#   react: ^18.0.0
-#   lodash: ^4.17.21
+# dependencies
+# react: ^18.0.0
+# lodash: ^4.17.21
 
 # pkgx.yaml / pkgx.yml - pkgx-specific
-# dependencies:
-#   python: ~3.11.0
-#   poetry: ^1.6.0
+# dependencies
+# python: ~3.11.0
+# poetry: ^1.6.0
 
 # .deps.yaml / .deps.yml - Hidden configuration
-# dependencies:
-#   bun: latest
+# dependencies
+# bun: latest
 ```
 
 #### GitHub Actions
+
 ```yaml
 # .github/workflows/ci.yml
 name: CI
@@ -91,12 +95,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v4 # ← Automatically updated
       - uses: oven-sh/setup-bun@v2 # ← Automatically updated
       - uses: actions/cache@v4.1.0 # ← Automatically updated
       - name: Install dependencies
+
         run: bun install
+
       - name: Run tests
+
         run: bun test
 ```
 
@@ -114,9 +122,9 @@ const packageStructure = {
     'dependencies.yaml', // Alternative format
     'pkgx.yaml', // pkgx-specific
     '.deps.yaml', // Hidden config
-    'apps/*/package.json', // Monorepo apps
-    'packages/*/package.json', // Monorepo packages
-    'tools/*/package.json' // Tool packages
+    'apps/_/package.json', // Monorepo apps
+    'packages/_/package.json', // Monorepo packages
+    'tools/_/package.json' // Tool packages
   ]
 }
 ```
@@ -132,7 +140,7 @@ export default {
     // Discovery patterns
     include: [
       'package.json',
-      'apps/*/package.json',
+      'apps/_/package.json',
       'packages/*/package.json'
     ],
 
@@ -282,7 +290,7 @@ Platform requirements are automatically excluded from updates:
 {
   "require": {
     "php": "^8.1",              // ❌ Skipped (platform)
-    "ext-json": "*",             // ❌ Skipped (extension)
+    "ext-json": "_",             // ❌ Skipped (extension)
     "laravel/framework": "^10.0" // ✅ Updated
   }
 }
@@ -302,15 +310,15 @@ export default {
       '@types/node', // Keep Node types stable
       'react', // Manual React updates
       'vue', // Manual Vue updates
-      '@internal/*', // Internal packages
+      '@internal/_', // Internal packages
       'workspace:*' // Workspace packages
     ],
 
     // Ignore by pattern
     ignorePatterns: [
       '**/@types/**', // All type definitions
-      '**/eslint-*', // All ESLint packages
-      'babel-*' // All Babel packages
+      '**/eslint-_', // All ESLint packages
+      'babel-_' // All Babel packages
     ]
   }
 } satisfies BuddyBotConfig
@@ -375,18 +383,18 @@ const patternGroupsConfig = {
     groups: [
       {
         name: 'Type Definitions',
-        pattern: '@types/*',
+        pattern: '@types/_',
         strategy: 'minor',
         autoMerge: true
       },
       {
         name: 'ESLint Ecosystem',
-        pattern: 'eslint*',
+        pattern: 'eslint_',
         strategy: 'patch'
       },
       {
         name: 'Babel Plugins',
-        pattern: 'babel-*',
+        pattern: 'babel-_',
         strategy: 'minor'
       }
     ]
@@ -453,7 +461,7 @@ const customResolversConfig = {
         // Custom logic for React versions
         return available.filter(v => v.major === 18).pop()
       },
-      '@types/*': (current, available) => {
+      '@types/_': (current, available) => {
         // Always get latest types
         return available[available.length - 1]
       }
@@ -477,9 +485,9 @@ export default {
 
       // Manual workspace patterns
       patterns: [
-        'packages/*',
-        'apps/*',
-        'tools/*'
+        'packages/_',
+        'apps/_',
+        'tools/_'
       ],
 
       // Workspace-specific configuration
@@ -675,7 +683,7 @@ buddy-bot deps react --depth 2
 buddy-bot update --packages react,vue,typescript
 
 # Update by pattern
-buddy-bot update --pattern "@types/*"
+buddy-bot update --pattern "@types/_"
 
 # Update by group
 buddy-bot update --group "React Ecosystem"

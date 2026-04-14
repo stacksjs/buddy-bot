@@ -47,21 +47,25 @@ buddy-bot open-settings --type tokens
 ### What Opens
 
 **Repository Settings (`--type repo`)**
+
 - General repository settings
 - Collaborators and teams
 - Branches and protection rules
 
 **Actions Settings (`--type actions`)**
+
 - GitHub Actions permissions
 - Workflow permissions
 - Runner settings
 
 **Organization Settings (`--type org`)**
+
 - Member privileges
 - Third-party access
 - GitHub Apps
 
 **Tokens (`--type tokens`)**
+
 - Personal access tokens management
 - Fine-grained tokens
 
@@ -97,7 +101,7 @@ buddy-bot schedule
 buddy-bot schedule --cron "0 2 * * 1"
 
 # Different timezone
-buddy-bot schedule --timezone "America/New_York"
+buddy-bot schedule --timezone "America/New*York"
 
 # Dry run to preview changes
 buddy-bot schedule --dry-run
@@ -147,6 +151,7 @@ export default {
 name: Scheduled Dependencies
 on:
   schedule:
+
     - cron: '0 2 * * 1'
 
 jobs:
@@ -156,11 +161,13 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bunx buddy-bot schedule
+
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB*TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 **Cron Job**
@@ -181,16 +188,19 @@ The schedule command provides detailed information about:
 ### Troubleshooting
 
 **Schedule not running:**
+
 - Check cron expression syntax
 - Verify timezone settings
 - Ensure GitHub token is valid
 
 **No updates found:**
+
 - Run with `--verbose` for detailed scanning
 - Check package ignore list
 - Verify package.json exists
 
 **Permission errors:**
+
 - Check GitHub token scopes
 - Verify repository access
 - Review workflow permissions

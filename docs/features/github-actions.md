@@ -40,13 +40,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout repository
+
         uses: actions/checkout@v4 # ← Detected & updated
 
       - name: Setup Bun
+
         uses: oven-sh/setup-bun@v2 # ← Detected & updated
 
       - name: Cache dependencies
+
         uses: actions/cache@v4.1.0 # ← Detected & updated
         with:
           path: ~/.bun

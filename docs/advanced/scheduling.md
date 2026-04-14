@@ -88,8 +88,10 @@ Seamless integration with GitHub Actions for automated scheduling.
 name: Dependency Updates
 on:
   schedule:
+
     - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
-  workflow_dispatch: # Allow manual trigger
+
+  workflow*dispatch: # Allow manual trigger
 
 jobs:
   update:
@@ -100,12 +102,14 @@ jobs:
       actions: write
 
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install
       - run: bunx buddy-bot update
+
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB*TOKEN: ${{ secrets.GITHUB*TOKEN }}
 ```
 
 ### Advanced Workflow with Matrix
@@ -114,6 +118,7 @@ jobs:
 name: Multi-Strategy Updates
 on:
   schedule:
+
     - cron: '0 2 * * 1' # Weekly
     - cron: '0 14 * * 3' # Mid-week security check
 
@@ -123,28 +128,36 @@ jobs:
     strategy:
       matrix:
         include:
+
           - strategy: patch
+
             auto-merge: true
             labels: 'patch-update,auto-merge'
+
           - strategy: minor
+
             reviewers: team-lead
             labels: minor-update
+
           - strategy: major
+
             reviewers: 'senior-dev,tech-lead'
             labels: 'major-update,breaking-changes'
 
     steps:
+
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install
       - run: |
+
           bunx buddy-bot update \
             --strategy ${{ matrix.strategy }} \
             --labels "${{ matrix.labels }}" \
             ${{ matrix.reviewers && format('--reviewers "{0}"', matrix.reviewers) || '' }} \
             ${{ matrix.auto-merge && '--auto-merge' || '' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB*TOKEN: ${{ secrets.GITHUB*TOKEN }}
 ```
 
 ## Conditional Scheduling
@@ -289,7 +302,7 @@ const timezoneConfig = {
     timezones: {
       // Team time zones
       team: {
-        alice: 'America/New_York',
+        alice: 'America/New*York',
         bob: 'Europe/London',
         charlie: 'Asia/Tokyo'
       },
@@ -387,14 +400,14 @@ const dashboardConfig = {
       integrations: {
         grafana: {
           endpoint: 'https://grafana.company.com',
-          apiKey: process.env.GRAFANA_API_KEY
+          apiKey: process.env.GRAFANA*API*KEY
         },
         slack: {
-          webhook: process.env.SLACK_WEBHOOK,
+          webhook: process.env.SLACK*WEBHOOK,
           channel: '#dependency-updates'
         },
         teams: {
-          webhook: process.env.TEAMS_WEBHOOK
+          webhook: process.env.TEAMS*WEBHOOK
         }
       }
     }

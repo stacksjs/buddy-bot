@@ -11,6 +11,7 @@ buddy-bot setup
 ```
 
 The migration process will:
+
 - 🔍 Detect `.github/dependabot.yml` or `.github/dependabot.yaml`
 - ⚙️ Convert basic settings to Buddy Bot format
 - ⚠️ Identify configuration gaps (Dependabot is limited)
@@ -50,7 +51,7 @@ schedule:
   interval: "weekly"
   day: "monday"
   time: "04:00"
-  timezone: "America/New_York"
+  timezone: "America/New*York"
 ```
 
 ```typescript
@@ -58,7 +59,7 @@ schedule:
 {
   schedule: {
     cron: '0 4 * * 1', // Monday 4 AM
-    timezone: 'America/New_York'
+    timezone: 'America/New*York'
   }
 }
 ```
@@ -71,13 +72,17 @@ schedule:
 ```yaml
 version: 2
 updates:
+
   - package-ecosystem: "npm"
+
     directory: "/"
     schedule:
       interval: "weekly"
     ignore:
+
       - dependency-name: "react"
       - dependency-name: "typescript"
+
 ```
 
 **After (Buddy Bot):**
@@ -100,35 +105,49 @@ export default {
 ```yaml
 version: 2
 updates:
+
   - package-ecosystem: "npm"
+
     directory: "/"
     schedule:
       interval: "daily"
     assignees:
+
       - "frontend-team"
+
     labels:
+
       - "npm"
       - "dependencies"
 
   - package-ecosystem: "composer"
+
     directory: "/"
     schedule:
       interval: "weekly"
     assignees:
+
       - "backend-team"
+
     labels:
+
       - "composer"
       - "dependencies"
 
   - package-ecosystem: "github-actions"
+
     directory: "/"
     schedule:
       interval: "monthly"
     assignees:
+
       - "devops-team"
+
     labels:
+
       - "github-actions"
       - "dependencies"
+
 ```
 
 **After (Buddy Bot):**
@@ -182,25 +201,37 @@ export default {
 ```yaml
 version: 2
 updates:
+
   - package-ecosystem: "npm"
+
     directory: "/"
     schedule:
       interval: "daily"
       time: "06:00"
       timezone: "Europe/London"
     ignore:
+
       - dependency-name: "react"
+
         versions: [">=17.0.0"]
+
       - dependency-name: "@types/*"
       - dependency-name: "eslint"
+
         update-types: ["version-update:semver-major"]
     assignees:
+
       - "maintainer"
+
     reviewers:
+
       - "security-team"
+
     labels:
+
       - "dependencies"
       - "automerge"
+
 ```
 
 **After (Buddy Bot):**
@@ -363,6 +394,7 @@ buddy-bot dashboard
 ### 5. Validate Workflows
 
 Check generated GitHub Actions:
+
 - `.github/workflows/buddy-dashboard.yml`
 - `.github/workflows/buddy-check.yml`
 - `.github/workflows/buddy-update.yml`
@@ -391,6 +423,7 @@ Check generated GitHub Actions:
 ## Advantages of Migration
 
 ### ✅ Better Features
+
 - **Rich Dashboard**: Visual dependency overview
 - **Smart Grouping**: Advanced pattern-based grouping
 - **Flexible Scheduling**: Full cron expression support
@@ -398,12 +431,14 @@ Check generated GitHub Actions:
 - **Workflow Integration**: Native GitHub Actions
 
 ### ✅ Better Control
+
 - **Granular Configuration**: Per-group settings
 - **Conditional Auto-merge**: Rule-based merging
 - **Custom Templates**: PR title/body customization
 - **Advanced Filtering**: Complex ignore patterns
 
 ### ✅ Better Visibility
+
 - **Centralized Dashboard**: All dependencies in one place
 - **Update Analytics**: Track update patterns
 - **PR Management**: Enhanced PR lifecycle
@@ -439,11 +474,15 @@ You can run both tools for different ecosystems:
 # .github/dependabot.yml (for unsupported ecosystems)
 version: 2
 updates:
+
   - package-ecosystem: "docker"
+
     directory: "/"
     schedule:
       interval: "weekly"
+
   - package-ecosystem: "terraform"
+
     directory: "/infrastructure"
     schedule:
       interval: "weekly"
@@ -462,6 +501,7 @@ export default {
 ## Best Practices
 
 ### ✅ Do
+
 - Start with automated migration
 - Test thoroughly with dry runs
 - Use dashboard for visibility
@@ -469,6 +509,7 @@ export default {
 - Configure auto-merge gradually
 
 ### ❌ Don't
+
 - Remove Dependabot immediately
 - Over-complicate initial setup
 - Ignore migration warnings

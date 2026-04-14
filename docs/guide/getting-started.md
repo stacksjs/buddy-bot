@@ -29,6 +29,7 @@ buddy-bot setup
 ```
 
 This wizard will guide you through:
+
 - Detecting your project type and package manager
 - Migrating from Renovate or Dependabot (if applicable)
 - Setting up GitHub Actions workflows
@@ -47,6 +48,7 @@ buddy-bot setup --non-interactive --preset security --verbose
 ```
 
 **Available presets:**
+
 - `standard` - Balanced updates (default)
 - `high-frequency` - Multiple daily checks
 - `security` - Prioritize security patches
@@ -111,6 +113,7 @@ buddy-bot update-check --verbose
 Buddy Bot automatically detects and updates:
 
 ### Package Managers
+
 - **Bun** (`bun.lockb`)
 - **npm** (`package-lock.json`)
 - **yarn** (`yarn.lock`)
@@ -119,12 +122,14 @@ Buddy Bot automatically detects and updates:
 - **Zig** (`build.zig.zon`)
 
 ### Dependency Files
+
 - `package.json`
 - `deps.yaml` / `dependencies.yaml`
 - `pkgx.yaml`
 - `.deps.yaml`
 
 ### GitHub Actions
+
 - `.github/workflows/*.yml`
 
 ## Generated Workflows
@@ -132,19 +137,25 @@ Buddy Bot automatically detects and updates:
 After setup, Buddy Bot creates three workflows:
 
 ### `buddy-dashboard.yml`
+
 Maintains the dependency dashboard issue:
+
 - Runs Monday, Wednesday, Friday at 9 AM UTC
 - Shows all open PRs and detected dependencies
 - Interactive checkbox controls
 
 ### `buddy-check.yml`
+
 Handles PR rebase requests:
+
 - Runs every minute
 - Detects checked rebase boxes
 - Updates PR content automatically
 
 ### `buddy-update.yml`
+
 Creates dependency update PRs:
+
 - Schedule varies by preset
 - Supports manual triggers
 - Configurable update strategy
