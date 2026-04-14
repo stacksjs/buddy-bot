@@ -199,15 +199,16 @@ describe('PR Deduplication & Rate Limiting', () => {
   })
 
   describe('GitHub Provider Cache TTL', () => {
-    it('should use 30-minute cache TTL', async () => {
+    it('should use a short per-instance cache TTL', async () => {
       const { GitHubProvider } = await import('../src/git/github-provider')
 
       // Construct with a dummy token
       const provider = new GitHubProvider('test-token', 'owner', 'repo')
 
-      // Access the private cacheTTL via any cast — verify it's 30 minutes
+      // Cache is per-instance, so a long TTL just risks stale reads across
+      // concurrent runs — duplicate-PR prevention is the workflow's job.
       const ttl = (provider as any).cacheTTL
-      expect(ttl).toBe(30 * 60 * 1000)
+      expect(ttl).toBe(2 * 60 * 1000)
     })
   })
 

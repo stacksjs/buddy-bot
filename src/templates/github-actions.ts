@@ -99,9 +99,14 @@ permissions:
   checks: read
   statuses: read
 
+concurrency:
+  group: buddy-bot-\${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   dependency-updates:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -252,9 +257,14 @@ permissions:
   checks: read
   statuses: read
 
+concurrency:
+  group: buddy-bot-\${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   determine-strategy:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       strategy: \${{ steps.strategy.outputs.strategy }}
       auto_merge: \${{ steps.strategy.outputs.auto_merge }}
@@ -278,6 +288,7 @@ jobs:
 
   dependency-updates:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: determine-strategy
 
     steps:
@@ -350,9 +361,14 @@ on:
     - cron: '0 2 * * 1' # Weekly on Monday
   workflow_dispatch:
 
+concurrency:
+  group: buddy-bot-\${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   dependency-updates:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     container:
       image: oven/bun:latest
 
@@ -386,9 +402,14 @@ on:
         required: false
         type: string
 
+concurrency:
+  group: buddy-bot-\${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   find-workspaces:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       workspaces: \${{ steps.workspaces.outputs.workspaces }}
     steps:
@@ -407,6 +428,7 @@ jobs:
   update-workspace:
     needs: find-workspaces
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         workspace: \${{ fromJson(needs.find-workspaces.outputs.workspaces) }}
@@ -474,9 +496,14 @@ permissions:
   checks: read
   statuses: read
 
+concurrency:
+  group: buddy-bot-\${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   dependency-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository

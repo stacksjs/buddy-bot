@@ -1,125 +1,45 @@
-/* eslint-disable no-console */
 import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullRequestOptions } from '../types'
 
+/**
+ * Placeholder GitLab provider. Not implemented — every method throws so callers
+ * fail loudly instead of silently no-op'ing on a real GitLab repo. Prior revisions
+ * returned fake data / empty arrays, which masked configuration bugs (PR creation
+ * "succeeded" but nothing happened upstream).
+ *
+ * To implement, map each method to the GitLab REST API:
+ *   https://docs.gitlab.com/ee/api/merge_requests.html
+ *   https://docs.gitlab.com/ee/api/branches.html
+ *   https://docs.gitlab.com/ee/api/issues.html
+ */
 export class GitLabProvider implements GitProvider {
   constructor(
-    private readonly token: string,
-    private readonly projectId: string,
-  ) {}
-
-  async branchExists(branchName: string): Promise<boolean> {
-    // TODO: Implement GitLab API call to check if branch exists
-    console.log(`Would check if branch ${branchName} exists`)
-    return false
+    _token: string,
+    _projectId: string,
+  ) {
+    throw new Error(
+      'GitLabProvider is not implemented. buddy-bot currently supports GitHub only. '
+      + 'See https://github.com/stacksjs/buddy-bot to track GitLab support.',
+    )
   }
 
-  async createBranch(branchName: string, baseBranch: string): Promise<void> {
-    // TODO: Implement GitLab API call to create branch
-    console.log(`Would create branch ${branchName} from ${baseBranch}`)
+  private unsupported(): never {
+    throw new Error('GitLabProvider is not implemented')
   }
 
-  async commitChanges(branchName: string, message: string, files: FileChange[], _baseBranch?: string): Promise<void> {
-    // TODO: Implement GitLab API call to commit changes
-    console.log(`Would commit ${files.length} files to ${branchName} with message: ${message}`)
-  }
-
-  async createPullRequest(options: PullRequestOptions): Promise<PullRequest> {
-    // TODO: Implement GitLab API call to create merge request
-    console.log(`Would create MR: ${options.title}`)
-
-    return {
-      number: 1,
-      title: options.title,
-      body: options.body,
-      head: options.head,
-      base: options.base,
-      state: 'open',
-      url: `https://gitlab.com/project/${this.projectId}/-/merge_requests/1`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      author: 'buddy',
-      reviewers: options.reviewers || [],
-      assignees: options.assignees || [],
-      labels: options.labels || [],
-      draft: options.draft || false,
-    }
-  }
-
-  async getPullRequests(state: 'open' | 'closed' | 'all' = 'open'): Promise<PullRequest[]> {
-    // TODO: Implement GitLab API call to get MRs
-    console.log(`Would get ${state} MRs`)
-    return []
-  }
-
-  async updatePullRequest(prNumber: number, _options: Partial<PullRequestOptions>): Promise<PullRequest> {
-    // TODO: Implement GitLab API call to update MR
-    console.log(`Would update MR #${prNumber}`)
-    throw new Error('Not implemented')
-  }
-
-  async closePullRequest(prNumber: number): Promise<void> {
-    // TODO: Implement GitLab API call to close MR
-    console.log(`Would close MR #${prNumber}`)
-  }
-
-  async reopenPullRequest(prNumber: number): Promise<void> {
-    // TODO: Implement GitLab API call to reopen MR
-    console.log(`Would reopen MR #${prNumber}`)
-  }
-
-  async createComment(prNumber: number, comment: string): Promise<void> {
-    // TODO: Implement GitLab API call to create comment
-    console.log(`Would add comment to MR #${prNumber}: ${comment}`)
-  }
-
-  async mergePullRequest(prNumber: number, strategy: 'merge' | 'squash' | 'rebase' = 'merge'): Promise<void> {
-    // TODO: Implement GitLab API call to merge MR
-    console.log(`Would merge MR #${prNumber} using ${strategy}`)
-  }
-
-  async deleteBranch(branchName: string): Promise<void> {
-    // TODO: Implement GitLab API call to delete branch
-    console.log(`Would delete branch ${branchName}`)
-  }
-
-  async createIssue(options: IssueOptions): Promise<Issue> {
-    // TODO: Implement GitLab API call to create issue
-    console.log(`Would create issue: ${options.title}`)
-
-    return {
-      number: 1,
-      title: options.title,
-      body: options.body,
-      state: 'open',
-      url: `https://gitlab.com/project/${this.projectId}/-/issues/1`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      author: 'buddy',
-      assignees: options.assignees || [],
-      labels: options.labels || [],
-      pinned: false,
-    }
-  }
-
-  async getIssues(state: 'open' | 'closed' | 'all' = 'open'): Promise<Issue[]> {
-    // TODO: Implement GitLab API call to get issues
-    console.log(`Would get ${state} issues`)
-    return []
-  }
-
-  async updateIssue(issueNumber: number, _options: Partial<IssueOptions>): Promise<Issue> {
-    // TODO: Implement GitLab API call to update issue
-    console.log(`Would update issue #${issueNumber}`)
-    throw new Error('Not implemented')
-  }
-
-  async closeIssue(issueNumber: number): Promise<void> {
-    // TODO: Implement GitLab API call to close issue
-    console.log(`Would close issue #${issueNumber}`)
-  }
-
-  async unpinIssue(_issueNumber: number): Promise<void> {
-    // GitLab doesn't have issue pinning functionality
-    console.log(`ℹ️ GitLab does not support issue pinning`)
-  }
+  async branchExists(_branchName: string): Promise<boolean> { return this.unsupported() }
+  async createBranch(_branchName: string, _baseBranch: string): Promise<void> { return this.unsupported() }
+  async commitChanges(_branchName: string, _message: string, _files: FileChange[], _baseBranch?: string): Promise<void> { return this.unsupported() }
+  async createPullRequest(_options: PullRequestOptions): Promise<PullRequest> { return this.unsupported() }
+  async getPullRequests(_state?: 'open' | 'closed' | 'all'): Promise<PullRequest[]> { return this.unsupported() }
+  async updatePullRequest(_prNumber: number, _options: Partial<PullRequestOptions>): Promise<PullRequest> { return this.unsupported() }
+  async closePullRequest(_prNumber: number): Promise<void> { return this.unsupported() }
+  async reopenPullRequest(_prNumber: number): Promise<void> { return this.unsupported() }
+  async createComment(_prNumber: number, _comment: string): Promise<void> { return this.unsupported() }
+  async mergePullRequest(_prNumber: number, _strategy?: 'merge' | 'squash' | 'rebase'): Promise<void> { return this.unsupported() }
+  async deleteBranch(_branchName: string): Promise<void> { return this.unsupported() }
+  async createIssue(_options: IssueOptions): Promise<Issue> { return this.unsupported() }
+  async getIssues(_state?: 'open' | 'closed' | 'all'): Promise<Issue[]> { return this.unsupported() }
+  async updateIssue(_issueNumber: number, _options: Partial<IssueOptions>): Promise<Issue> { return this.unsupported() }
+  async closeIssue(_issueNumber: number): Promise<void> { return this.unsupported() }
+  async unpinIssue(_issueNumber: number): Promise<void> { return this.unsupported() }
 }

@@ -46,9 +46,11 @@ export class VersionResolver {
    * Determine update type between two versions
    */
   static getUpdateType(fromVersion: string, toVersion: string): 'major' | 'minor' | 'patch' {
-    // Clean version strings for comparison, including @ prefix for version ranges
-    const cleanFrom = fromVersion.replace(/^[\^~>=<@]+/, '')
-    const cleanTo = toVersion.replace(/^[\^~>=<@]+/, '')
+    // Strip leading semver range operators. Do NOT strip `@` — scoped npm package
+    // names start with `@` (e.g. @scope/pkg), so stripping it here would corrupt
+    // any caller that accidentally passed a full spec instead of a version.
+    const cleanFrom = fromVersion.replace(/^[\^~>=<]+/, '')
+    const cleanTo = toVersion.replace(/^[\^~>=<]+/, '')
 
     const fromParts = cleanFrom.split('.').map((part) => {
       const num = Number(part)

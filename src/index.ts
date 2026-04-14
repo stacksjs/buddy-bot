@@ -14,7 +14,6 @@ export { ReleaseNotesFetcher } from './services/release-notes-fetcher'
 export { GitHubActionsTemplate } from './templates/github-actions'
 
 export * from './types'
-export { UpdateProcessor } from './update/update-processor'
 // Utility functions
 export {
   detectPackageManager,

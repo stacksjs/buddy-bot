@@ -260,30 +260,36 @@ export class PullRequestGenerator {
       },
     })
 
-    // Deduplicate GitHub Actions updates by name (multiple files may reference same action)
-    const uniqueGithubActionsUpdates = githubActionsUpdates.reduce((acc, update) => {
-      const existing = acc.find(u => u.name === update.name && u.currentVersion === update.currentVersion && u.newVersion === update.newVersion)
-      if (!existing) {
-        // Create consolidated update with unique files only
-        const allFilesForAction = [...new Set(githubActionsUpdates
-          .filter(u => u.name === update.name && u.currentVersion === update.currentVersion && u.newVersion === update.newVersion)
-          .map(u => u.file))]
-        acc.push({
-          ...update,
-          file: allFilesForAction.join(', '), // Combine all unique affected files
-        })
+    // Deduplicate GitHub Actions updates by (name, currentVersion, newVersion).
+    // Multiple workflow files may reference the same action — group them so the
+    // PR table shows one row with all affected files joined.
+    // Single pass O(n): group by key, then materialize.
+    const actionGroups = new Map<string, { update: typeof githubActionsUpdates[number], files: Set<string> }>()
+    for (const update of githubActionsUpdates) {
+      const key = `${update.name}@${update.currentVersion}=>${update.newVersion}`
+      const group = actionGroups.get(key)
+      if (group) {
+        group.files.add(update.file)
       }
-      return acc
-    }, [] as typeof githubActionsUpdates)
+      else {
+        actionGroups.set(key, { update, files: new Set([update.file]) })
+      }
+    }
+    const uniqueGithubActionsUpdates = Array.from(actionGroups.values()).map(({ update, files }) => ({
+      ...update,
+      file: Array.from(files).join(', '),
+    }))
 
-    // Deduplicate Composer updates by name and version (similar to GitHub Actions)
-    const uniqueComposerUpdates = composerUpdates.reduce((acc, update) => {
-      const existing = acc.find(u => u.name === update.name && u.currentVersion === update.currentVersion && u.newVersion === update.newVersion)
-      if (!existing) {
-        acc.push(update)
+    // Deduplicate Composer updates by (name, currentVersion, newVersion). O(n).
+    const composerSeen = new Set<string>()
+    const uniqueComposerUpdates: typeof composerUpdates = []
+    for (const update of composerUpdates) {
+      const key = `${update.name}@${update.currentVersion}=>${update.newVersion}`
+      if (!composerSeen.has(key)) {
+        composerSeen.add(key)
+        uniqueComposerUpdates.push(update)
       }
-      return acc
-    }, [] as typeof composerUpdates)
+    }
 
     // Fetch package information for package.json updates only
     const packageInfos = new Map<string, { packageInfo: PackageInfo, releaseNotes: ReleaseNote[], compareUrl?: string }>()

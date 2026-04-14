@@ -5,7 +5,7 @@ import type {
 } from '../types'
 import { Glob } from 'bun'
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
@@ -544,11 +544,9 @@ export class PackageScanner {
           }
           else if (stats.isFile() && entry === fileName) {
             // Convert absolute path to relative path from project root
-            // eslint-disable-next-line ts/no-require-imports
-            const path = require('node:path')
-            const relativePath = path.relative(this.projectPath, fullPath)
+            const relativePath = relative(this.projectPath, fullPath)
             // Normalize path separators to forward slashes for consistency
-            files.push(relativePath.split(path.sep).join('/'))
+            files.push(relativePath.split(sep).join('/'))
           }
         }
         catch {
@@ -595,11 +593,9 @@ export class PackageScanner {
 
         if (stats.isFile() && entry.endsWith(`.${extension}`)) {
           // Convert absolute path to relative path from project root
-          // eslint-disable-next-line ts/no-require-imports
-          const path = require('node:path')
-          const relativePath = path.relative(this.projectPath, fullPath)
+          const relativePath = relative(this.projectPath, fullPath)
           // Normalize path separators to forward slashes for consistency
-          files.push(relativePath.split(path.sep).join('/'))
+          files.push(relativePath.split(sep).join('/'))
         }
         else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
           // Recursively search subdirectories
@@ -631,11 +627,9 @@ export class PackageScanner {
 
         if (stats.isFile() && entry.endsWith(`.${extension}`)) {
           // Convert absolute path to relative path from project root
-          // eslint-disable-next-line ts/no-require-imports
-          const path = require('node:path')
-          const relativePath = path.relative(this.projectPath, fullPath)
+          const relativePath = relative(this.projectPath, fullPath)
           // Normalize path separators to forward slashes for consistency
-          files.push(relativePath.split(path.sep).join('/'))
+          files.push(relativePath.split(sep).join('/'))
         }
         else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
           const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)
@@ -703,11 +697,9 @@ export class PackageScanner {
    * Get relative path from project root
    */
   private getRelativePath(absolutePath: string): string {
-    // eslint-disable-next-line ts/no-require-imports
-    const path = require('node:path')
-    const relativePath = path.relative(this.projectPath, absolutePath)
+    const relativePath = relative(this.projectPath, absolutePath)
     // Normalize path separators to forward slashes for consistency
-    return relativePath.split(path.sep).join('/')
+    return relativePath.split(sep).join('/')
   }
 
   /**

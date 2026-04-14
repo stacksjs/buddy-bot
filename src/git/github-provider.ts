@@ -5,6 +5,52 @@ import { spawn } from 'node:child_process'
 import process from 'node:process'
 import { detectRequiredPackageManagers, getAllLockFilePaths, regenerateLockFile } from '../utils/lock-file'
 
+// Match GitHub token formats (ghp_*, gho_*, ghs_*, ghu_*, ghr_*, github_pat_*)
+// plus any 40+ char alphanumeric blob that looks like a credential.
+const TOKEN_PATTERN = /\b(?:gh[pousr]_[A-Z0-9_]{20,}|github_pat_[A-Z0-9_]{20,}|[A-Z0-9]{40,})\b/gi
+
+function sanitizeStderr(stderr: string, token?: string): string {
+  let out = stderr.replace(TOKEN_PATTERN, '[REDACTED]')
+  if (token && token.length >= 8)
+    out = out.split(token).join('[REDACTED]')
+  return out
+}
+
+// Minimal shapes for the GitHub REST responses buddy-bot consumes. These exist
+// to replace scattered `as any` casts with narrowed types at the API boundary.
+interface GitHubUser { login: string }
+interface GitHubLabel { name: string }
+interface GitHubRef { ref: string }
+interface GitHubPullResponse {
+  number: number
+  title: string
+  body: string | null
+  head: GitHubRef
+  base: GitHubRef
+  state: string
+  html_url: string
+  created_at: string
+  updated_at: string
+  merged_at: string | null
+  draft: boolean
+  user: GitHubUser
+  requested_reviewers?: GitHubUser[]
+  assignees?: GitHubUser[]
+  labels?: GitHubLabel[]
+}
+
+/**
+ * Thrown when lockfile regeneration fails. Not a transient git error —
+ * must bubble past the API fallback so we don't silently open a PR with
+ * stale lockfiles.
+ */
+class LockfileRegenerationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'LockfileRegenerationError'
+  }
+}
+
 export class GitHubProvider implements GitProvider {
   private readonly apiUrl = 'https://api.github.com'
 
@@ -17,9 +63,12 @@ export class GitHubProvider implements GitProvider {
     issues: new Map(),
   }
 
-  // Cache TTL in milliseconds (30 minutes - prevents concurrent runs within
-  // the same workflow from missing each other's PRs and creating duplicates)
-  private readonly cacheTTL = 30 * 60 * 1000
+  // Cache TTL in milliseconds. Kept short (2 minutes) because the cache is
+  // per-instance: a different workflow run has its own cache anyway, so a long
+  // TTL just risks serving stale data (e.g. missing a PR that another parallel
+  // run just created). Duplicate-PR prevention is handled by the workflow-level
+  // `concurrency:` group, not by extending this cache.
+  private readonly cacheTTL = 2 * 60 * 1000
 
   constructor(
     private readonly token: string,
@@ -89,6 +138,12 @@ export class GitHubProvider implements GitProvider {
       await this.commitChangesWithGit(branchName, message, files, baseBranch)
     }
     catch (gitError) {
+      // Lockfile regeneration failures must NOT fall through to the API path —
+      // the API path can't regenerate lockfiles either, so it would just produce
+      // a PR with an updated manifest and stale lockfile. Bubble the error up.
+      if (gitError instanceof LockfileRegenerationError)
+        throw gitError
+
       console.warn(`⚠️ Git CLI commit failed, falling back to GitHub API: ${gitError}`)
       await this.commitChangesWithAPI(branchName, message, files, baseBranch)
     }
@@ -124,11 +179,11 @@ export class GitHubProvider implements GitProvider {
             // Try to create a minimal README update instead
             try {
               const readmePath = 'README.md'
-              const fs = await import('node:fs')
-              if (fs.existsSync(readmePath)) {
-                const content = fs.readFileSync(readmePath, 'utf-8')
+              const readmeFile = Bun.file(readmePath)
+              if (await readmeFile.exists()) {
+                const content = await readmeFile.text()
                 const updatedContent = `${content}\n\n<!-- Updated by Buddy Bot -->\n`
-                fs.writeFileSync(readmePath, updatedContent)
+                await Bun.write(readmePath, updatedContent)
                 await this.runCommand('git', ['add', readmePath])
                 await this.runCommand('git', ['commit', '-m', 'Update README for workflow-only PR'])
                 console.log(`✅ Created README update for workflow-only PR`)
@@ -207,33 +262,29 @@ export class GitHubProvider implements GitProvider {
           }
         }
         else {
-          // Write file content
-          const fs = await import('node:fs')
-          const path = await import('node:path')
-
-          // Ensure directory exists
-          const dir = path.dirname(cleanPath)
-          if (dir !== '.') {
-            fs.mkdirSync(dir, { recursive: true })
-          }
-
-          fs.writeFileSync(cleanPath, file.content, 'utf8')
+          // Bun.write creates parent directories automatically and is async
+          await Bun.write(cleanPath, file.content)
           await this.runCommand('git', ['add', cleanPath])
         }
       }
 
-      // Regenerate lock files after manifest changes (skip in test environments)
+      // Regenerate lock files after manifest changes (skip in test environments).
+      // We HARD-FAIL if regeneration fails for any required manager: a PR with an
+      // updated manifest but stale lockfile is a correctness bug — consumers will
+      // install the wrong versions. Fail loudly so the caller can retry or
+      // investigate instead of silently opening a broken PR.
       const isTestEnv = process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test'
       if (!isTestEnv) {
-        try {
-          const updatedPaths = files.map(f => f.path.replace(/^\.\//, '').replace(/^\/+/, ''))
-          const requiredManagers = detectRequiredPackageManagers(updatedPaths)
+        const updatedPaths = files.map(f => f.path.replace(/^\.\//, '').replace(/^\/+/, ''))
+        const requiredManagers = detectRequiredPackageManagers(updatedPaths)
 
-          if (requiredManagers.length > 0) {
-            console.log(`🔒 Regenerating lock files for: ${requiredManagers.join(', ')}`)
-            const cwd = process.cwd()
+        if (requiredManagers.length > 0) {
+          console.log(`🔒 Regenerating lock files for: ${requiredManagers.join(', ')}`)
+          const cwd = process.cwd()
+          const failures: string[] = []
 
-            for (const manager of requiredManagers) {
+          for (const manager of requiredManagers) {
+            try {
               const result = await regenerateLockFile(manager, cwd)
               if (result.success) {
                 // Stage any regenerated lock files
@@ -247,15 +298,20 @@ export class GitHubProvider implements GitProvider {
                 }
               }
               else {
-                console.warn(`⚠️ Lock file regeneration failed for ${manager}: ${result.message}`)
-                console.warn(`   PR will proceed without updated lock files.`)
+                failures.push(`${manager}: ${result.message}`)
               }
             }
+            catch (lockError) {
+              failures.push(`${manager}: ${lockError instanceof Error ? lockError.message : String(lockError)}`)
+            }
           }
-        }
-        catch (lockError) {
-          console.warn(`⚠️ Lock file regeneration failed: ${lockError}`)
-          console.warn(`   PR will proceed without updated lock files.`)
+
+          if (failures.length > 0) {
+            const detail = failures.map(f => `  - ${f}`).join('\n')
+            throw new LockfileRegenerationError(
+              `Lock file regeneration failed; refusing to open PR with stale lockfiles.\n${detail}`,
+            )
+          }
         }
       }
 
@@ -651,7 +707,9 @@ export class GitHubProvider implements GitProvider {
           resolve(stdout)
         }
         else {
-          reject(new Error(`Command failed with code ${code}: ${stderr}`))
+          // Scrub any token-shaped strings (including the effective token itself)
+          // before surfacing stderr — stderr is logged and can end up in CI output.
+          reject(new Error(`Command failed with code ${code}: ${sanitizeStderr(stderr, effectiveToken)}`))
         }
       })
 
@@ -674,21 +732,21 @@ export class GitHubProvider implements GitProvider {
       // Use apiRequestWithRetry for rate limit handling
       const response = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/pulls?state=${state}&per_page=100`)
 
-      const prs = response.map((pr: any) => ({
+      const prs: PullRequest[] = (response as GitHubPullResponse[]).map(pr => ({
         number: pr.number,
         title: pr.title,
-        body: pr.body || '',
+        body: pr.body ?? '',
         head: pr.head.ref,
         base: pr.base.ref,
-        state: pr.state,
+        state: pr.state as PullRequest['state'],
         url: pr.html_url,
         createdAt: new Date(pr.created_at),
         updatedAt: new Date(pr.updated_at),
         mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
         author: pr.user.login,
-        reviewers: pr.requested_reviewers?.map((r: any) => r.login) || [],
-        assignees: pr.assignees?.map((a: any) => a.login) || [],
-        labels: pr.labels?.map((l: any) => l.name) || [],
+        reviewers: pr.requested_reviewers?.map(r => r.login) ?? [],
+        assignees: pr.assignees?.map(a => a.login) ?? [],
+        labels: pr.labels?.map(l => l.name) ?? [],
         draft: pr.draft,
       }))
 
@@ -1377,7 +1435,7 @@ export class GitHubProvider implements GitProvider {
     if (!response.ok) {
       const errorBody = await response.text()
       const tokenHint = effectiveToken
-        ? `token present (${effectiveToken.substring(0, 4)}...)`
+        ? 'token present ([REDACTED])'
         : 'NO TOKEN — ensure GITHUB_TOKEN or BUDDY_BOT_TOKEN is set'
       throw new Error(
         `GitHub API error: ${response.status} ${response.statusText}\n`

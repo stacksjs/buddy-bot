@@ -290,7 +290,8 @@ export class RegistryClient {
     }
     catch (error) {
       this.logger.error('Failed to run bun outdated:', error)
-      throw new PackageRegistryError('bun outdated command failed')
+      const cause = error instanceof Error ? error.message : String(error)
+      throw new PackageRegistryError(`bun outdated command failed: ${cause}`)
     }
   }
 

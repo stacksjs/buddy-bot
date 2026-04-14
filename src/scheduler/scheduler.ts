@@ -271,7 +271,8 @@ export class Scheduler {
   }
 
   /**
-   * Parse individual cron field
+   * Parse individual cron field. Returns [] for malformed input rather than throwing,
+   * so the caller can fall back to a safe default instead of crashing.
    */
   private parseCronField(field: string, min: number, max: number): number[] {
     if (field === '*') {
@@ -279,22 +280,31 @@ export class Scheduler {
     }
 
     if (field.includes(',')) {
-      return field.split(',').map(Number).filter(n => n >= min && n <= max)
+      return field.split(',').map(Number).filter(n => Number.isFinite(n) && n >= min && n <= max)
     }
 
     if (field.includes('-')) {
-      const [start, end] = field.split('-').map(Number)
-      return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+      const parts = field.split('-').map(Number)
+      const start = parts[0]
+      const end = parts[1]
+      if (parts.length !== 2 || !Number.isFinite(start) || !Number.isFinite(end) || end < start)
+        return []
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i).filter(n => n >= min && n <= max)
     }
 
     if (field.includes('/')) {
-      const [range, step] = field.split('/')
-      const values = range === '*' ? Array.from({ length: max - min + 1 }, (_, i) => min + i) : [Number(range)]
-      return values.filter((_, i) => i % Number(step) === 0)
+      const [range, stepStr] = field.split('/')
+      const step = Number(stepStr)
+      if (!Number.isFinite(step) || step <= 0)
+        return []
+      if (range === '*')
+        return Array.from({ length: max - min + 1 }, (_, i) => min + i).filter((_, i) => i % step === 0)
+      const startNum = Number(range)
+      return Number.isFinite(startNum) ? [startNum].filter(n => n >= min && n <= max) : []
     }
 
     const num = Number(field)
-    return Number.isNaN(num) ? [] : [num]
+    return Number.isFinite(num) && num >= min && num <= max ? [num] : []
   }
 
   /**

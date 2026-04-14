@@ -1178,10 +1178,18 @@ permissions:
   checks: read
   statuses: read
 
+# Serialize runs per ref so parallel scheduled + manual triggers don't race
+# on the same branches/PRs. cancel-in-progress: false lets the currently
+# running job finish cleanly instead of being killed mid-commit.
+concurrency:
+  group: buddy-bot-\${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # Job to determine which jobs should run based on trigger
   determine-jobs:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       run_check: \${{ steps.determine.outputs.run_check }}
       run_update: \${{ steps.determine.outputs.run_update }}
@@ -1234,6 +1242,7 @@ jobs:
   # Shared setup job for common dependencies
   setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: determine-jobs
     if: \${{ needs.determine-jobs.outputs.run_check == 'true' || needs.determine-jobs.outputs.run_update == 'true' || needs.determine-jobs.outputs.run_dashboard == 'true' }}
     steps:
@@ -1258,6 +1267,7 @@ ${generateComposerSetupSteps()}
   # Check job (handles both rebase requests and auto-closing PRs)
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [determine-jobs, setup]
     if: \${{ needs.determine-jobs.outputs.run_check == 'true' }}
 
@@ -1339,6 +1349,7 @@ ${generateComposerSetupSteps()}
   # Dependency update job
   dependency-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [determine-jobs, setup]
     if: \${{ needs.determine-jobs.outputs.run_update == 'true' }}
 
@@ -1436,6 +1447,7 @@ ${generateComposerSetupSteps()}
   # Dashboard update job
   dashboard-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [determine-jobs, setup, dependency-update]
     if: \${{ needs.determine-jobs.outputs.run_dashboard == 'true' && always() }}
 

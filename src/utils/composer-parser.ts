@@ -222,10 +222,13 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
           // and just update the version numbers
           let newVersion: string
           if (currentVersionInFile.includes(',')) {
-            // Complex constraint - update version numbers while preserving structure
+            // Complex constraint - update version numbers while preserving structure.
+            // Capture the first version token once (not on every replace callback) so
+            // a null match short-circuit can't silently skip the replacement.
+            const firstVersionMatch = currentVersionInFile.match(/\d+\.\d+(?:\.\d+)?/)
+            const firstVersion = firstVersionMatch ? firstVersionMatch[0] : null
             newVersion = currentVersionInFile.replace(/\d+\.\d+(?:\.\d+)?/g, (match) => {
-              // Replace first occurrence with new version, keep others as is for upper bounds
-              return match === currentVersionInFile.match(/\d+\.\d+(?:\.\d+)?/)?.[0] ? update.newVersion : match
+              return firstVersion !== null && match === firstVersion ? update.newVersion : match
             })
           }
           else {
@@ -253,10 +256,10 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
           // and just update the version numbers
           let newVersion: string
           if (currentVersionInFile.includes(',')) {
-            // Complex constraint - update version numbers while preserving structure
+            const firstVersionMatch = currentVersionInFile.match(/\d+\.\d+(?:\.\d+)?/)
+            const firstVersion = firstVersionMatch ? firstVersionMatch[0] : null
             newVersion = currentVersionInFile.replace(/\d+\.\d+(?:\.\d+)?/g, (match) => {
-              // Replace first occurrence with new version, keep others as is for upper bounds
-              return match === currentVersionInFile.match(/\d+\.\d+(?:\.\d+)?/)?.[0] ? update.newVersion : match
+              return firstVersion !== null && match === firstVersion ? update.newVersion : match
             })
           }
           else {
