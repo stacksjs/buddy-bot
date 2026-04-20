@@ -1362,8 +1362,8 @@ The dashboard automatically organizes your dependencies and shows:
 
 The following updates have all been created. To force a retry/rebase of any, click on a checkbox below.
 
- - [ ] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update react to v18](../pull/123) (`react`)
- - [ ] <!-- rebase-branch=buddy-bot/update-types -->[chore(deps): update @types/node](../pull/124) (`@types/node`)
+- [&nbsp;] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update react to v18](../pull/123) (`react`)
+- [&nbsp;] <!-- rebase-branch=buddy-bot/update-types -->[chore(deps): update @types/node](../pull/124) (`@types/node`)
 
 ## Detected dependencies
 

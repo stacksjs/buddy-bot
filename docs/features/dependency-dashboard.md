@@ -90,7 +90,7 @@ Example:
 
 The following updates have all been created. To force a retry/rebase of any, click on a checkbox below.
 
- - [ ] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update dependency react to v18](../pull/123) (`react`)
+- [&nbsp;] <!-- rebase-branch=buddy-bot/update-react-18 -->[chore(deps): update dependency react to v18](../pull/123) (`react`)
 
 ```
 

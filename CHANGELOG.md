@@ -2,7 +2,7 @@
 
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.17...v0.9.18)
 
-### 🚀 Features
+## 🚀 Features
 
 - add pantry.lock support for dependency scanning ([44060c9](https://github.com/stacksjs/buddy-bot/commit/44060c9)) _(by glennmichael123 <gtorregosa@gmail.com>)_
 
