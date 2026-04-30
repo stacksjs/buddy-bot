@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import * as fs from 'node:fs'
 import { generateComposerUpdates } from '../src/utils/composer-parser'
 
@@ -19,9 +19,18 @@ describe('Composer Individual Updates', () => {
 
   const mockComposerJsonString = JSON.stringify(mockComposerJson, null, 2)
 
+  let readFileSpy: any
+
   beforeEach(() => {
     // Mock readFileSync to return our test composer.json
-    spyOn(fs, 'readFileSync').mockReturnValue(mockComposerJsonString)
+    readFileSpy = spyOn(fs, 'readFileSync').mockReturnValue(mockComposerJsonString)
+  })
+
+  afterEach(() => {
+    // Restore the spy so fs.readFileSync isn't left mocked for the rest of the
+    // Bun test process — leaving it mocked makes any later test that reads a
+    // real file get back the composer.json mock content instead.
+    readFileSpy?.mockRestore?.()
   })
 
   it('should update ONLY the target package for individual major updates', async () => {

@@ -9,6 +9,8 @@ describe('RegistryClient - Composer Integration', () => {
   let mockLogger: Logger
   let runCommandSpy: any
   let fetchSpy: any
+  let beforeEachExistsSpy: any
+  let beforeEachReadFileSpy: any
 
   const mockConfig: BuddyBotConfig = {
     packages: {
@@ -29,9 +31,12 @@ describe('RegistryClient - Composer Integration', () => {
 
     registryClient = new RegistryClient('/test/project', mockLogger, mockConfig)
 
-    // Mock file system operations
-    spyOn(fs, 'existsSync').mockReturnValue(true)
-    spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({
+    // Mock file system operations. Track the spies so afterEach can restore
+    // them — without restoration these leaks bleed into later test files
+    // (e.g. configuration-migration.test.ts), which read real files via
+    // fs.readFileSync and silently get this composer mock content back.
+    beforeEachExistsSpy = spyOn(fs, 'existsSync').mockReturnValue(true)
+    beforeEachReadFileSpy = spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify({
       'require': {
         'php': '^8.1',
         'laravel/framework': '^10.0',
@@ -59,6 +64,8 @@ describe('RegistryClient - Composer Integration', () => {
   afterEach(() => {
     runCommandSpy?.mockRestore?.()
     fetchSpy?.mockRestore?.()
+    beforeEachExistsSpy?.mockRestore?.()
+    beforeEachReadFileSpy?.mockRestore?.()
   })
 
   describe('getComposerOutdatedPackages', () => {

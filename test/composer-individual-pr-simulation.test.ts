@@ -6,6 +6,7 @@ import { Buddy } from '../src/buddy'
 describe('Composer Individual PR Simulation', () => {
   let buddy: Buddy
   let readFileSpy: any
+  let nodeReadFileSpy: any
   let existsSyncSpy: any
   let writeFileSpy: any
   let mkdirSyncSpy: any
@@ -77,7 +78,7 @@ describe('Composer Individual PR Simulation', () => {
     })
 
     // Also mock the named import (nodeFs.readFileSync) which is used by composer-parser
-    const nodeReadFileSpy = spyOn(nodeFs, 'readFileSync')
+    nodeReadFileSpy = spyOn(nodeFs, 'readFileSync')
     nodeReadFileSpy.mockImplementation((filePath: any, _options?: any): any => {
       // Always return our specific composer.json content
       if (typeof filePath === 'string' && (filePath === 'composer.json' || filePath.endsWith('composer.json'))) {
@@ -100,6 +101,9 @@ describe('Composer Individual PR Simulation', () => {
     // Clean up filesystem mocks to prevent contamination of other tests
     if (readFileSpy && typeof readFileSpy.mockRestore === 'function') {
       readFileSpy.mockRestore()
+    }
+    if (nodeReadFileSpy && typeof nodeReadFileSpy.mockRestore === 'function') {
+      nodeReadFileSpy.mockRestore()
     }
     if (existsSyncSpy && typeof existsSyncSpy.mockRestore === 'function') {
       existsSyncSpy.mockRestore()
