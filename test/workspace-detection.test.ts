@@ -5,6 +5,22 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { RegistryClient } from '../src/registry/registry-client'
 
+// Walks a wrapper object created via `{ readFileSync: spyOn(fs, 'readFileSync'), ... }`
+// (sometimes nested, e.g. `{ promises: { readdir: spyOn(...) } }`) and restores
+// every Bun spy it finds. Plain `wrapper?.mockRestore?.()` on the wrapper object
+// silently no-ops because `mockRestore` lives on the inner spies, not the
+// wrapper — leaving fs/path globals mocked across test files.
+function restoreSpiesIn(obj: any): void {
+  if (!obj || typeof obj !== 'object')
+    return
+  for (const value of Object.values(obj)) {
+    if (typeof value === 'function' && typeof (value as any).mockRestore === 'function')
+      (value as any).mockRestore()
+    else if (value && typeof value === 'object')
+      restoreSpiesIn(value)
+  }
+}
+
 describe('RegistryClient - Workspace Detection', () => {
   let registryClient: RegistryClient
   let mockLogger: Logger
@@ -37,8 +53,10 @@ describe('RegistryClient - Workspace Detection', () => {
 
   afterEach(() => {
     runCommandSpy?.mockRestore?.()
-    fsSpy?.mockRestore?.()
-    pathSpy?.mockRestore?.()
+    restoreSpiesIn(fsSpy)
+    restoreSpiesIn(pathSpy)
+    fsSpy = undefined
+    pathSpy = undefined
   })
 
   describe('getWorkspaceNames', () => {
