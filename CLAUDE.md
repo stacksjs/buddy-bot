@@ -886,14 +886,14 @@ buddy-bot setup --non-interactive --preset security --token-setup existing-secre
 
 The setup process includes:
 
-**🔍 Pre-flight Validation**
+#### 🔍 Pre-flight Validation
 
 - **Environment checks** - Validates git repository, Node.js/Bun installation
 - **Conflict detection** - Scans for existing dependency management tools (Renovate, Dependabot)
 - **Git configuration** - Ensures proper git user setup
 - **GitHub CLI detection** - Suggests helpful tools for authentication
 
-**📊 Smart Project Analysis**
+#### 📊 Smart Project Analysis
 
 - **Project type detection** - Identifies library, application, monorepo, or unknown projects
 - **Package manager detection** - Detects Bun, npm, yarn, pnpm with lock file validation
@@ -901,7 +901,7 @@ The setup process includes:
 - **GitHub Actions discovery** - Scans existing workflows for updates
 - **Intelligent recommendations** - Suggests optimal setup based on project characteristics
 
-**📈 Interactive Progress Tracking**
+#### 📈 Interactive Progress Tracking
 
 - **Visual progress bar** - Real-time completion percentage with progress indicators
 - **Step-by-step guidance** - Clear indication of current and completed steps
@@ -915,7 +915,7 @@ The setup process includes:
 - **Compatibility Analysis** - Identifies incompatible features and provides alternatives
 - **Migration Report** - Detailed summary of migrated settings and confidence levels
 
-**🔌 Step 2: Integration Discovery**
+#### 🔌 Step 2: Integration Discovery
 
 - **Plugin Discovery** - Automatically detects available integrations (Slack, Discord, Jira)
 - **Environment Detection** - Scans for webhook URLs, API tokens, and configuration files
@@ -929,14 +929,14 @@ The setup process includes:
 - **Repository health checks** - Validates issues, permissions, and settings
 - **Private repository support** - Enhanced validation for private repositories
 
-**🔑 Step 4: Enhanced Token Setup**
+#### 🔑 Step 4: Enhanced Token Setup
 
 - Guides you through creating a Personal Access Token (PAT)
 - **Scope validation** - Explains required scopes (`repo`, `workflow`) with examples
 - **Token testing** - Validates token permissions before proceeding
 - Helps set up repository secrets for enhanced features
 
-**🔧 Step 5: Repository Settings Validation**
+#### 🔧 Step 5: Repository Settings Validation
 
 - Walks you through GitHub Actions permissions configuration
 - **Permission verification** - Tests workflow permissions in real-time
@@ -953,7 +953,7 @@ Choose from several carefully crafted presets with smart recommendations:
 - **Development/Testing** - Manual triggers + frequent checks for testing
 - **Custom Configuration** - Advanced schedule builder with cron preview
 
-**📝 Step 7: Enhanced Configuration Generation**
+#### 📝 Step 7: Enhanced Configuration Generation
 
 - Creates `buddy-bot.config.json` with repository-specific settings
 - **Project-aware defaults** - Configuration optimized for detected project type
@@ -978,7 +978,7 @@ Choose from several carefully crafted presets with smart recommendations:
 - **Documentation links** - Direct links to GitHub settings pages
 - **Troubleshooting guide** - Common issues and solutions
 
-**🔌 Step 10: Integration Notifications**
+#### 🔌 Step 10: Integration Notifications
 
 - **Plugin Execution** - Executes loaded integration hooks for setup completion
 - **Slack Notifications** - Rich setup completion messages with repository details

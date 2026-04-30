@@ -46,25 +46,25 @@ buddy-bot open-settings --type tokens
 
 ### What Opens
 
-**Repository Settings (`--type repo`)**
+#### Repository Settings (`--type repo`)
 
 - General repository settings
 - Collaborators and teams
 - Branches and protection rules
 
-**Actions Settings (`--type actions`)**
+#### Actions Settings (`--type actions`)
 
 - GitHub Actions permissions
 - Workflow permissions
 - Runner settings
 
-**Organization Settings (`--type org`)**
+#### Organization Settings (`--type org`)
 
 - Member privileges
 - Third-party access
 - GitHub Apps
 
-**Tokens (`--type tokens`)**
+#### Tokens (`--type tokens`)
 
 - Personal access tokens management
 - Fine-grained tokens

@@ -50,18 +50,18 @@ This comprehensive setup wizard provides a **Renovate-like experience** that aut
 
 ### Setup Process
 
-**🔍 Step 1: Repository Detection**
+#### 🔍 Step 1: Repository Detection
 
 - Automatically detects your GitHub repository from git remote
 - Validates repository access and configuration
 
-**🔑 Step 2: GitHub Token Setup**
+#### 🔑 Step 2: GitHub Token Setup
 
 - Guides you through creating a Personal Access Token (PAT)
 - Explains required scopes (`repo`, `workflow`) for full functionality
 - Helps set up repository secrets for enhanced features
 
-**🔧 Step 3: Repository Settings**
+#### 🔧 Step 3: Repository Settings
 
 - Walks you through GitHub Actions permissions configuration
 - Ensures proper workflow permissions for PR creation
@@ -76,7 +76,7 @@ Choose from carefully crafted presets:
 - **Development/Testing** - Manual triggers + frequent checks for testing
 - **Custom Configuration** - Create your own schedule
 
-**📝 Step 5: Configuration Generation**
+#### 📝 Step 5: Configuration Generation
 
 - Creates `buddy-bot.config.json` with your repository settings
 - Includes sensible defaults and customization options
@@ -88,7 +88,7 @@ Generates three core GitHub Actions workflows:
 - `buddy-check.yml` - Auto-rebase PR checker
 - `buddy-update.yml` - Scheduled dependency updates
 
-**🎯 Step 7: Final Instructions**
+#### 🎯 Step 7: Final Instructions
 
 - Provides clear next steps with git commands
 - Links to GitHub settings pages for easy configuration

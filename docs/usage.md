@@ -26,7 +26,7 @@ The setup wizard will automatically:
 - ⚙️ Generate workflows and configuration
 - 🎯 Provide clear next steps
 
-**[📖 Complete Setup Guide →](/cli/setup)**
+#### [📖 Complete Setup Guide →](/cli/setup)
 
 ### Option 1a: Non-Interactive Setup
 
