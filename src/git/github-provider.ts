@@ -1088,16 +1088,7 @@ export class GitHubProvider implements GitProvider {
     try {
       const buddyBranches = await this.getBuddyBotBranches()
 
-      // Try to get PR branches using local git first
-      let prBranches: Set<string>
-      try {
-        prBranches = await this.getOpenPRBranchesViaGit()
-      }
-      catch (error) {
-        console.warn('⚠️ Failed to get PR branches via git, falling back to API:', error)
-        const openPRs = await this.getPullRequests('open')
-        prBranches = new Set(openPRs.map(pr => pr.head))
-      }
+      const prBranches = await this.getOpenPRBranches()
 
       // Filter out branches that have active PRs
       const orphanedBranches = buddyBranches.filter(branch => !prBranches.has(branch.name))
@@ -1111,173 +1102,39 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Check if a PR is open by making HTTP request to GitHub PR page (no API auth needed)
+   * Tracks whether the most recent open-PR detection succeeded authoritatively
+   * (via the GitHub API). Consumed by cleanupStaleBranches to decide between
+   * "delete every orphan" and "fall back to age-based protection".
    */
-  private async isPROpen(prNumber: number): Promise<boolean> {
-    try {
-      const url = `https://github.com/${this.owner}/${this.repo}/pull/${prNumber}`
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'buddy-bot/1.0',
-        },
-      })
-
-      if (!response.ok) {
-        // If we can't fetch the PR page, assume it might be open (be conservative)
-        return true
-      }
-
-      const html = await response.text()
-
-      // Look for PR status indicators in the HTML
-      // Open PRs have: class="State State--open"
-      // Closed PRs have: class="State State--closed" or class="State State--merged"
-      const isOpen = html.includes('State--open') && !html.includes('State--closed') && !html.includes('State--merged')
-
-      return isOpen
-    }
-    catch (error) {
-      // If HTTP request fails, be conservative and assume PR might be open
-      console.warn(`⚠️ Could not check PR #${prNumber} status via HTTP:`, error)
-      return true
-    }
-  }
+  private prDetectionSuccessful = false
 
   /**
-   * Get branches that have open PRs using HTTP requests to GitHub (no API auth needed)
+   * Get the set of buddy-bot branches that currently have open PRs.
+   *
+   * Uses the GitHub REST API as the authoritative source. Earlier versions
+   * scraped the PR HTML page for `State--open` CSS classes, which silently
+   * broke when GitHub removed those classes — every open PR was misreported
+   * as closed, causing cleanupStaleBranches to delete the live PR's branch
+   * (which in turn auto-closed the PR).
    */
-  private httpDetectionSuccessful = false
+  private async getOpenPRBranches(): Promise<Set<string>> {
+    this.prDetectionSuccessful = false
 
-  private async getOpenPRBranchesViaGit(): Promise<Set<string>> {
     try {
-      const protectedBranches = new Set<string>()
-      this.httpDetectionSuccessful = false
+      const openPRs = await this.getPullRequests('open')
+      const protectedBranches = new Set<string>(
+        openPRs
+          .map(pr => pr.head)
+          .filter(head => head.startsWith('buddy-bot/')),
+      )
 
-      console.log('🔍 Using HTTP requests to check actual PR status (no API auth needed)...')
-
-      // Method 1: Get PR numbers from GitHub PR refs and check their status via HTTP
-      try {
-        const prRefsOutput = await this.runCommand('git', ['ls-remote', 'origin', 'refs/pull/*/head'])
-        const prNumbers: number[] = []
-        const prBranchMap = new Map<number, string[]>() // PR number -> branch names
-
-        for (const line of prRefsOutput.split('\n')) {
-          if (line.trim()) {
-            // Extract PR number from ref: "sha refs/pull/123/head"
-            const parts = line.trim().split('\t')
-            if (parts.length === 2) {
-              const ref = parts[1] // refs/pull/123/head
-              const sha = parts[0]
-              const prMatch = ref.match(/refs\/pull\/(\d+)\/head/)
-
-              if (prMatch) {
-                const prNumber = Number.parseInt(prMatch[1])
-                prNumbers.push(prNumber)
-
-                // Find which buddy-bot branch has this SHA
-                try {
-                  const branchOutput = await this.runCommand('git', ['branch', '-r', '--contains', sha])
-                  const branches: string[] = []
-
-                  for (const branchLine of branchOutput.split('\n')) {
-                    const branchName = branchLine.trim().replace(/^origin\//, '')
-                    if (branchName.startsWith('buddy-bot/')) {
-                      branches.push(branchName)
-                    }
-                  }
-
-                  if (branches.length > 0) {
-                    prBranchMap.set(prNumber, branches)
-                  }
-                }
-                catch {
-                  // Ignore errors finding branches for specific SHAs
-                }
-              }
-            }
-          }
-        }
-
-        // Only check PRs that have associated buddy-bot branches
-        const prNumbersToCheck = Array.from(prBranchMap.keys())
-        console.log(`📋 Found ${prNumbers.length} PR refs, ${prNumbersToCheck.length} have buddy-bot branches`)
-        console.log(`🔍 Checking ${prNumbersToCheck.length} PRs via HTTP (skipping ${prNumbers.length - prNumbersToCheck.length} non-buddy-bot PRs)...`)
-
-        // Check each PR's status via HTTP (in batches to be nice to GitHub)
-        const batchSize = 5
-        let checkedCount = 0
-        let openCount = 0
-
-        for (let i = 0; i < prNumbersToCheck.length; i += batchSize) {
-          const batch = prNumbersToCheck.slice(i, i + batchSize)
-
-          // Process batch with small delay between requests
-          const batchPromises = batch.map(async (prNumber, index) => {
-            // Small delay to avoid overwhelming GitHub
-            await new Promise(resolve => setTimeout(resolve, index * 100))
-
-            const isOpen = await this.isPROpen(prNumber)
-            checkedCount++
-
-            if (isOpen) {
-              openCount++
-              // Protect all branches associated with this open PR
-              const branches = prBranchMap.get(prNumber) || []
-              for (const branch of branches) {
-                protectedBranches.add(branch)
-              }
-            }
-
-            return { prNumber, isOpen }
-          })
-
-          await Promise.all(batchPromises)
-
-          // Small delay between batches
-          if (i + batchSize < prNumbers.length) {
-            await new Promise(resolve => setTimeout(resolve, 500))
-          }
-        }
-
-        console.log(`✅ Checked ${checkedCount} buddy-bot PRs via HTTP: ${openCount} open, ${checkedCount - openCount} closed`)
-        console.log(`   (Skipped ${prNumbers.length - prNumbersToCheck.length} non-buddy-bot PRs)`)
-        console.log(`🛡️ Protected ${protectedBranches.size} branches with confirmed open PRs`)
-        console.log(`🎯 HTTP detection successful - no age-based protection needed`)
-        this.httpDetectionSuccessful = true
-      }
-      catch (error) {
-        console.warn('⚠️ Could not check PR status via HTTP, applying conservative fallback:', error)
-
-        // Only apply fallback protection if HTTP detection completely failed
-        try {
-          const allBuddyBranches = await this.getBuddyBotBranches()
-          const oneDayAgo = new Date()
-          oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-
-          let fallbackCount = 0
-          for (const branch of allBuddyBranches) {
-            if (branch.lastCommitDate > oneDayAgo && !protectedBranches.has(branch.name)) {
-              protectedBranches.add(branch.name)
-              fallbackCount++
-            }
-          }
-
-          if (fallbackCount > 0) {
-            console.log(`🛡️ Emergency fallback: ${fallbackCount} very recent branches (< 1 day) protected due to HTTP failure`)
-          }
-        }
-        catch {
-          console.log('⚠️ Could not apply emergency fallback protection')
-        }
-      }
-
-      console.log(`🎯 HTTP-based analysis complete: protecting ${protectedBranches.size} branches total`)
-
+      console.log(`🔍 GitHub API reports ${openPRs.length} open PR(s); ${protectedBranches.size} are buddy-bot branches`)
+      console.log(`🛡️ Protecting ${protectedBranches.size} branches with confirmed open PRs`)
+      this.prDetectionSuccessful = true
       return protectedBranches
     }
     catch (error) {
-      console.warn('⚠️ HTTP-based analysis failed, using conservative fallback:', error)
+      console.warn('⚠️ Failed to fetch open PRs via API, falling back to age-based protection:', error)
 
       // Conservative fallback: protect branches less than 30 days old
       try {
@@ -1296,8 +1153,9 @@ export class GitHubProvider implements GitProvider {
         return conservativeBranches
       }
       catch {
-        // Ultimate fallback: protect everything
-        console.log('🛡️ Ultimate fallback: protecting all branches')
+        // Ultimate fallback: leave prDetectionSuccessful=false so cleanupStaleBranches
+        // applies its age-based filter against whatever branches it can enumerate.
+        console.log('⚠️ Could not enumerate branches for age-based fallback')
         return new Set<string>()
       }
     }
@@ -1312,21 +1170,20 @@ export class GitHubProvider implements GitProvider {
     const orphanedBranches = await this.getOrphanedBuddyBotBranches()
     console.log(`🔍 Found ${orphanedBranches.length} orphaned buddy-bot branches (no associated open PRs)`)
 
-    // Since we have 100% accurate HTTP-based PR detection, we can clean up ALL orphaned branches
-    // Only apply age filter if HTTP detection failed (indicated by very conservative protection)
+    // When PR detection succeeded authoritatively, every orphan is a true orphan.
+    // If detection fell back to age-based protection, only delete branches older
+    // than the configured threshold to avoid wiping out branches whose live PRs
+    // we couldn't verify.
     let branchesToDelete = orphanedBranches
 
-    // Use the HTTP detection success flag to determine cleanup strategy
-    if (this.httpDetectionSuccessful) {
-      // HTTP detection worked perfectly - clean up ALL orphaned branches regardless of age
-      console.log(`🎯 HTTP detection successful - cleaning up ALL ${branchesToDelete.length} orphaned branches (any age)`)
+    if (this.prDetectionSuccessful) {
+      console.log(`🎯 PR detection successful - cleaning up ALL ${branchesToDelete.length} orphaned branches (any age)`)
     }
     else {
-      // HTTP detection failed - apply conservative age filter
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
       branchesToDelete = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
-      console.log(`⚠️ HTTP detection failed - only deleting branches older than ${olderThanDays} days`)
+      console.log(`⚠️ PR detection failed - only deleting branches older than ${olderThanDays} days`)
       console.log(`🔍 Found ${branchesToDelete.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
     }
 
