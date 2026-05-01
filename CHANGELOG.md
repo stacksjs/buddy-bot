@@ -1,4 +1,42 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.18...v0.9.19)
+
+### 🐛 Bug Fixes
+
+- **test**: restore leaked fs spies in composer test files ([608f506](https://github.com/stacksjs/buddy-bot/commit/608f506)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **test**: restore fs/path spies properly in workspace-detection tests ([9bf8da3](https://github.com/stacksjs/buddy-bot/commit/9bf8da3)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **github-provider**: use API for open-PR detection instead of HTML scraping ([2df5b67](https://github.com/stacksjs/buddy-bot/commit/2df5b67)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- add setup-bun to publish-commit job ([1a8677e](https://github.com/stacksjs/buddy-bot/commit/1a8677e)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- use absolute paths for file writes in configuration migration tests ([720e76d](https://github.com/stacksjs/buddy-bot/commit/720e76d)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- correct corrupted actions/checkout version ([5a2029a](https://github.com/stacksjs/buddy-bot/commit/5a2029a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🤖 Continuous Integration
+
+- drop redundant setup-bun (pantry installs bun via deps.yaml) ([b9b49c3](https://github.com/stacksjs/buddy-bot/commit/b9b49c3)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.9.19 ([89e07db](https://github.com/stacksjs/buddy-bot/commit/89e07db)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- refresh bun.lock ([d18d2d6](https://github.com/stacksjs/buddy-bot/commit/d18d2d6)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- lint:fix ([2f01045](https://github.com/stacksjs/buddy-bot/commit/2f01045)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- refresh bun.lock to pick up latest pickier ([46113e3](https://github.com/stacksjs/buddy-bot/commit/46113e3)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix CI errors ([840cc69](https://github.com/stacksjs/buddy-bot/commit/840cc69)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fresh install to pick up dtsx 0.9.14 and bunfig 0.15.9 ([c105dc0](https://github.com/stacksjs/buddy-bot/commit/c105dc0)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fresh install to pick up pickier 0.1.21 ([586ec6b](https://github.com/stacksjs/buddy-bot/commit/586ec6b)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- fix lint errors ([2e1ceea](https://github.com/stacksjs/buddy-bot/commit/2e1ceea)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- gitignore pantry directory ([455afac](https://github.com/stacksjs/buddy-bot/commit/455afac)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- minor improvements ([d584c48](https://github.com/stacksjs/buddy-bot/commit/d584c48)) _(by Chris <chrisbreuer93@gmail.com>)_
+- auto-fix lint errors ([5dd81d6](https://github.com/stacksjs/buddy-bot/commit/5dd81d6)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- include md in pickier lint extensions ([1bd897a](https://github.com/stacksjs/buddy-bot/commit/1bd897a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **deps**: update github actions (rebased) (#1350) ([7859374](https://github.com/stacksjs/buddy-bot/commit/7859374)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1350](https://github.com/stacksjs/buddy-bot/issues/1350), [#1350](https://github.com/stacksjs/buddy-bot/issues/1350))
+- update vscode config ([b46400a](https://github.com/stacksjs/buddy-bot/commit/b46400a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- update vscode config ([bdbc971](https://github.com/stacksjs/buddy-bot/commit/bdbc971)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- resolve type issues ([069f978](https://github.com/stacksjs/buddy-bot/commit/069f978)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
 
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.17...v0.9.18)
 
