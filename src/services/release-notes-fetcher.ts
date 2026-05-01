@@ -1,4 +1,62 @@
+import { semver } from 'bun'
 import process from 'node:process'
+
+// Shapes for third-party API responses this service consumes. Narrow and
+// defensive — fields we don't touch aren't declared.
+interface NpmPackument {
+  'dist-tags'?: { latest?: string }
+  'description'?: string
+  'homepage'?: string
+  'repository'?: { type?: string, url?: string } | string
+  'license'?: string
+  'author'?: unknown
+  'keywords'?: string[]
+  'time'?: Record<string, string>
+  'maintainers'?: unknown[]
+}
+
+interface NpmDownloadsResponse {
+  downloads?: number
+}
+
+interface GitHubReleaseAsset {
+  name: string
+  browser_download_url: string
+  size: number
+  content_type: string
+}
+
+interface GitHubReleaseResponse {
+  tag_name: string
+  name?: string
+  body?: string
+  html_url: string
+  published_at: string
+  prerelease: boolean
+  author?: { login?: string }
+  assets?: GitHubReleaseAsset[]
+}
+
+interface GitHubContentsResponse {
+  content?: string
+}
+
+interface PackagistServiceVersion {
+  description?: string
+  homepage?: string
+  license?: string[] | string
+  keywords?: string[]
+  authors?: unknown[]
+  source?: { url?: string }
+  time?: string
+}
+
+interface PackagistServiceResponse {
+  package?: {
+    name?: string
+    versions?: Record<string, PackagistServiceVersion>
+  }
+}
 
 export interface ReleaseNote {
   version: string
@@ -140,7 +198,7 @@ export class ReleaseNotesFetcher {
         throw new Error(`NPM registry responded with ${response.status}`)
       }
 
-      const data = await response.json() as any
+      const data = await response.json() as NpmPackument
       const latest = data['dist-tags']?.latest
 
       // Fetch weekly downloads
@@ -151,7 +209,7 @@ export class ReleaseNotesFetcher {
           { headers: { 'User-Agent': this.userAgent } },
         )
         if (downloadsResponse.ok) {
-          const downloadsData = await downloadsResponse.json() as any
+          const downloadsData = await downloadsResponse.json() as NpmDownloadsResponse
           weeklyDownloads = downloadsData.downloads
         }
       }
@@ -159,17 +217,42 @@ export class ReleaseNotesFetcher {
         // Ignore download fetch errors
       }
 
+      // Normalize the polymorphic npm fields into the PackageInfo shape.
+      // npm registry returns `repository` as either a string or an object;
+      // `author` as either a string or an object; `maintainers` as objects
+      // with at least { name, email? }.
+      const repository: PackageInfo['repository'] = typeof data.repository === 'string'
+        ? { type: 'git', url: data.repository }
+        : data.repository?.url
+          ? { type: data.repository.type ?? 'git', url: data.repository.url }
+          : undefined
+
+      const rawAuthor = data.author
+      const author: PackageInfo['author']
+        = typeof rawAuthor === 'string'
+          ? rawAuthor
+          : rawAuthor && typeof rawAuthor === 'object' && 'name' in rawAuthor && typeof (rawAuthor as any).name === 'string'
+            ? rawAuthor as { name: string, email?: string, url?: string }
+            : undefined
+
+      const maintainers: PackageInfo['maintainers'] = Array.isArray(data.maintainers)
+        ? data.maintainers
+          .filter((m): m is { name: string, email?: string } =>
+            !!m && typeof m === 'object' && 'name' in m && typeof (m as any).name === 'string',
+          )
+        : undefined
+
       return {
         name: packageName,
         description: data.description,
         homepage: data.homepage,
-        repository: data.repository,
+        repository,
         license: data.license,
-        author: data.author,
+        author,
         keywords: data.keywords,
         weeklyDownloads,
-        lastPublish: data.time?.[latest],
-        maintainers: data.maintainers,
+        lastPublish: latest ? data.time?.[latest] : undefined,
+        maintainers,
       }
     }
     catch (error) {
@@ -235,29 +318,29 @@ export class ReleaseNotesFetcher {
         return []
       }
 
-      const releases = await response.json() as any[]
+      const releases = await response.json() as GitHubReleaseResponse[]
 
       // Filter releases between current and new version
       return releases
-        .filter((release: any) => {
+        .filter((release) => {
           const releaseVersion = release.tag_name.replace(/^v/, '')
           return this.isVersionBetween(releaseVersion, currentVersion, newVersion)
         })
-        .map((release: any) => ({
+        .map(release => ({
           version: release.tag_name,
           date: release.published_at,
-          title: release.name || release.tag_name,
-          body: release.body || '',
+          title: release.name ?? release.tag_name,
+          body: release.body ?? '',
           htmlUrl: release.html_url,
           compareUrl: this.generateCompareUrl(owner, repo, currentVersion, release.tag_name),
           author: release.author?.login,
           isPrerelease: release.prerelease,
-          assets: release.assets?.map((asset: any) => ({
+          assets: release.assets?.map(asset => ({
             name: asset.name,
             downloadUrl: asset.browser_download_url,
             size: asset.size,
             contentType: asset.content_type,
-          })) || [],
+          })) ?? [],
         }))
     }
     catch (error) {
@@ -281,7 +364,7 @@ export class ReleaseNotesFetcher {
         )
 
         if (response.ok) {
-          const data = await response.json() as any
+          const data = await response.json() as GitHubContentsResponse
           if (data.content) {
             const content = atob(data.content)
             return this.parseChangelog(content)
@@ -362,14 +445,18 @@ export class ReleaseNotesFetcher {
    * Check if version is between current and new version
    */
   private isVersionBetween(version: string, current: string, target: string): boolean {
-    // This is a simplified version comparison
-    // In production, you'd want to use a proper semver library
     const cleanVersion = version.replace(/^v/, '')
     const cleanCurrent = current.replace(/^v/, '')
     const cleanTarget = target.replace(/^v/, '')
 
-    // For now, just check if version equals target or is "newer" than current
-    return cleanVersion === cleanTarget || cleanVersion > cleanCurrent
+    // Proper semver compare — lexicographic ordering gets `1.10.0 > 1.9.0` wrong.
+    // Fall back to string equality if either side isn't valid semver.
+    try {
+      return cleanVersion === cleanTarget || semver.order(cleanVersion, cleanCurrent) > 0
+    }
+    catch {
+      return cleanVersion === cleanTarget || cleanVersion > cleanCurrent
+    }
   }
 
   /**
@@ -422,25 +509,32 @@ export class ReleaseNotesFetcher {
         throw new Error(`Packagist responded with ${response.status}`)
       }
 
-      const data = await response.json() as any
+      const data = await response.json() as PackagistServiceResponse
       const packageData = data.package
 
-      if (!packageData) {
+      if (!packageData?.versions) {
         return { name: packageName }
       }
 
       // Get the latest stable version info
-      const versions = Object.keys(packageData.versions || {})
-      const latestVersion = versions.find(v => !v.includes('dev') && !v.includes('alpha') && !v.includes('beta')) || versions[0]
-      const versionData = packageData.versions[latestVersion] || {}
+      const versions = Object.keys(packageData.versions)
+      const latestVersion = versions.find(v => !v.includes('dev') && !v.includes('alpha') && !v.includes('beta')) ?? versions[0]
+      const versionData: PackagistServiceVersion = (latestVersion ? packageData.versions[latestVersion] : undefined) ?? {}
+      const license = Array.isArray(versionData.license) ? versionData.license[0] : versionData.license
+
+      const firstAuthor = versionData.authors?.[0]
+      const author: PackageInfo['author']
+        = firstAuthor && typeof firstAuthor === 'object' && 'name' in firstAuthor && typeof (firstAuthor as any).name === 'string'
+          ? firstAuthor as { name: string, email?: string, url?: string }
+          : undefined
 
       return {
-        name: packageData.name,
+        name: packageData.name ?? packageName,
         description: versionData.description,
         homepage: versionData.homepage,
-        repository: versionData.source ? { type: 'git', url: versionData.source.url } : undefined,
-        license: versionData.license?.[0] || versionData.license,
-        author: versionData.authors?.[0],
+        repository: versionData.source?.url ? { type: 'git', url: versionData.source.url } : undefined,
+        license,
+        author,
         keywords: versionData.keywords,
         // Packagist doesn't provide download stats like npm, so we'll skip weeklyDownloads
         lastPublish: versionData.time,

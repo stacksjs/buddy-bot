@@ -17,6 +17,57 @@ export interface BunOutdatedResult {
   file?: string
 }
 
+// Narrow shapes for the external API responses this file consumes.
+// Everything is `?` because the providers can and do change fields — we only
+// assert that what we actually touch is at least structurally present.
+interface NpmRegistryPackument {
+  versions?: Record<string, unknown>
+}
+
+interface NpmSearchResponse {
+  objects?: Array<{
+    package: {
+      name: string
+      version: string
+      description?: string
+      keywords?: string[]
+    }
+  }>
+}
+
+interface PackagistVersionEntry {
+  description?: string
+  homepage?: string
+  license?: string | string[]
+  keywords?: string[]
+  authors?: Array<{ name?: string }>
+  source?: { url?: string }
+  require?: Record<string, string>
+  'require-dev'?: Record<string, string>
+}
+
+interface PackagistResponse {
+  package?: {
+    name?: string
+    versions?: Record<string, PackagistVersionEntry>
+    downloads?: { monthly?: number }
+  }
+}
+
+// Package / workspace identifiers are the only things we ever pass to `bun`
+// as CLI args. spawn() doesn't invoke a shell, but permissive args could still
+// inject unintended flags (e.g. `--cwd=…`) or confuse the parser. Constrain to
+// npm package name characters + common glob/workspace punctuation.
+const SAFE_PKG_ARG = /^[\w.@/*+-]+$/
+
+function assertSafePkgArg(arg: string, label: string): void {
+  if (!SAFE_PKG_ARG.test(arg)) {
+    throw new PackageRegistryError(
+      `Refusing to pass untrusted ${label} to bun: ${JSON.stringify(arg)}`,
+    )
+  }
+}
+
 export class RegistryClient {
   constructor(
     private readonly projectPath: string,
@@ -157,6 +208,7 @@ export class RegistryClient {
    */
   async getPackageMetadata(packageName: string): Promise<PackageMetadata | undefined> {
     try {
+      assertSafePkgArg(packageName, 'package name')
       // Use bun info to get package metadata
       const result = await this.runCommand('bun', ['info', packageName, '--json'])
       const data = JSON.parse(result)
@@ -227,8 +279,8 @@ export class RegistryClient {
         return null
       }
 
-      const data = await response.json() as any
-      const versions = Object.keys(data.versions || {})
+      const data = await response.json() as NpmRegistryPackument
+      const versions = Object.keys(data.versions ?? {})
 
       if (versions.length === 0) {
         return null
@@ -281,7 +333,12 @@ export class RegistryClient {
   private async runBunOutdated(filter?: string): Promise<BunOutdatedResult[]> {
     const args = ['outdated']
     if (filter) {
-      args.push(...filter.split(' '))
+      // Filter is a space-separated list of package specs from user config / CLI.
+      // Validate each token so a value like `--cwd=/tmp` can't sneak in as an arg.
+      for (const token of filter.split(/\s+/).filter(Boolean)) {
+        assertSafePkgArg(token, 'package filter')
+        args.push(token)
+      }
     }
 
     try {
@@ -376,11 +433,35 @@ export class RegistryClient {
         return []
       }
 
-      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-      const allDeps = {
-        ...packageJson.dependencies,
-        ...packageJson.devDependencies,
-        ...packageJson.peerDependencies,
+      let packageJson: Record<string, unknown>
+      try {
+        const raw = fs.readFileSync(packageJsonPath, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new PackageRegistryError(`package.json at ${packageJsonPath} is not a JSON object`)
+        }
+        packageJson = parsed as Record<string, unknown>
+      }
+      catch (parseError) {
+        if (parseError instanceof PackageRegistryError)
+          throw parseError
+        const cause = parseError instanceof Error ? parseError.message : String(parseError)
+        throw new PackageRegistryError(`Failed to parse ${packageJsonPath}: ${cause}`)
+      }
+
+      // Only spread fields that are actually plain objects — a string or array
+      // here (malformed but valid JSON) would otherwise produce garbage keys
+      // downstream that fail in confusing ways inside `bun info`.
+      const depsOf = (field: string): Record<string, string> => {
+        const value = packageJson[field]
+        return value && typeof value === 'object' && !Array.isArray(value)
+          ? value as Record<string, string>
+          : {}
+      }
+      const allDeps: Record<string, string> = {
+        ...depsOf('dependencies'),
+        ...depsOf('devDependencies'),
+        ...depsOf('peerDependencies'),
       }
 
       const results: BunOutdatedResult[] = []
@@ -530,6 +611,7 @@ export class RegistryClient {
    */
   async getUpdatesForWorkspace(workspaceName: string): Promise<PackageUpdate[]> {
     try {
+      assertSafePkgArg(workspaceName, 'workspace name')
       const args = ['outdated', '--filter', workspaceName]
       const output = await this.runCommand('bun', args)
       const bunResults = this.parseBunOutdatedOutput(output)
@@ -581,14 +663,14 @@ export class RegistryClient {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      const data = await response.json() as any
+      const data = await response.json() as NpmSearchResponse
 
-      return data.objects?.map((obj: any) => ({
+      return data.objects?.map(obj => ({
         name: obj.package.name,
         version: obj.package.version,
         description: obj.package.description,
         keywords: obj.package.keywords,
-      })) || []
+      })) ?? []
     }
     catch (error) {
       this.logger.warn(`Failed to search packages via registry API:`, error)
@@ -893,22 +975,22 @@ export class RegistryClient {
         return undefined
       }
 
-      const data = await response.json() as any
+      const data = await response.json() as PackagistResponse
       const packageData = data.package
 
-      if (!packageData) {
+      if (!packageData?.versions) {
         return undefined
       }
 
       // Get the latest version info
-      const versions = Object.keys(packageData.versions || {})
-      const latestVersion = versions.find(v => !v.includes('dev') && !v.includes('alpha') && !v.includes('beta')) || versions[0]
-      const versionData = packageData.versions[latestVersion] || {}
+      const versions = Object.keys(packageData.versions)
+      const latestVersion = versions.find(v => !v.includes('dev') && !v.includes('alpha') && !v.includes('beta')) ?? versions[0]
+      const versionData: PackagistVersionEntry = (latestVersion ? packageData.versions[latestVersion] : undefined) ?? {}
 
       return {
-        name: packageData.name,
+        name: packageData.name ?? packageName,
         description: versionData.description,
-        repository: versionData.source?.url || versionData.homepage,
+        repository: versionData.source?.url ?? versionData.homepage,
         homepage: versionData.homepage,
         license: Array.isArray(versionData.license) ? versionData.license.join(', ') : versionData.license,
         author: versionData.authors?.[0]?.name,
@@ -950,7 +1032,7 @@ export class RegistryClient {
         return null
       }
 
-      const data = await response.json() as any
+      const data = await response.json() as PackagistResponse
       const packageData = data.package
 
       if (!packageData?.versions) {
@@ -1489,6 +1571,7 @@ export class RegistryClient {
    */
   private async runBunOutdatedForWorkspace(workspaceName: string): Promise<BunOutdatedResult[]> {
     try {
+      assertSafePkgArg(workspaceName, 'workspace name')
       const output = await this.runCommand('bun', ['outdated', '--filter', workspaceName])
       const results = this.parseBunOutdatedOutput(output)
 

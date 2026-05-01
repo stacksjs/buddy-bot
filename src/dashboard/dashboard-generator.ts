@@ -67,6 +67,27 @@ export class DashboardGenerator {
   }
 
   /**
+   * Convert `pr.url` to a relative pull link ONLY if it really is a github.com
+   * PR URL whose path looks like `/owner/repo/pull/<number>`. Returns null for
+   * anything else so the caller can fall back to the raw URL safely.
+   */
+  private toRelativePrUrl(url: string, prNumber: number): string | null {
+    try {
+      const parsed = new URL(url)
+      if (parsed.hostname !== 'github.com')
+        return null
+      // Path must end with /pull/<prNumber> for some owner/repo pair
+      const match = parsed.pathname.match(/^\/[^/]+\/[^/]+\/pull\/(\d+)$/)
+      if (!match || Number(match[1]) !== prNumber)
+        return null
+      return `../pull/${prNumber}`
+    }
+    catch {
+      return null
+    }
+  }
+
+  /**
    * Generate the Open PRs section
    */
   private generateOpenPRsSection(openPRs: PullRequest[]): string {
@@ -79,12 +100,17 @@ The following updates have all been created. To force a retry/rebase of any, cli
     for (const pr of openPRs) {
       // Extract package names from PR title or body if possible
       const packageInfo = this.extractPackageInfo(pr)
-      const rebaseBranch = pr.head
 
-      // Convert full GitHub URL to relative format
-      const relativeUrl = pr.url.includes('/pull/') && pr.url.includes('github.com')
-        ? `../pull/${pr.number}`
-        : pr.url
+      // Sanitize branch name before embedding in an HTML comment. git allows a
+      // lot of characters in refs; `-->` would close the comment and let the
+      // rest of the branch name render as markdown/HTML. Valid ref characters
+      // never include `<`, `>`, or whitespace, so stripping these is safe.
+      const rebaseBranch = pr.head.replace(/[<>\s]|-->/g, '')
+
+      // Build the relative URL only when pr.url is a real github.com PR link
+      // for THIS repo. A simple `.includes()` check accepts attacker-controlled
+      // URLs that happen to contain the substring (e.g. `?x=github.com/pull/1`).
+      const relativeUrl = this.toRelativePrUrl(pr.url, pr.number) ?? pr.url
 
       // Sanitize PR title to prevent #123 references from creating links/notifications
       const sanitizedTitle = this.sanitizeReferences(pr.title)

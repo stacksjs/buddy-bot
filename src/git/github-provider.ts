@@ -729,10 +729,25 @@ export class GitHubProvider implements GitProvider {
     }
 
     try {
-      // Use apiRequestWithRetry for rate limit handling
-      const response = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/pulls?state=${state}&per_page=100`)
+      // GitHub caps per_page at 100. Repos with many buddy-bot PRs would
+      // silently truncate at the first page, causing duplicate-PR creation
+      // because lookup misses existing entries. Walk pages until we get a
+      // short one, or cap after 20 pages (2000 PRs) as a sanity stop.
+      const perPage = 100
+      const maxPages = 20
+      const all: GitHubPullResponse[] = []
+      for (let page = 1; page <= maxPages; page++) {
+        const response = await this.apiRequestWithRetry(
+          `GET /repos/${this.owner}/${this.repo}/pulls?state=${state}&per_page=${perPage}&page=${page}`,
+        ) as GitHubPullResponse[]
+        if (!Array.isArray(response) || response.length === 0)
+          break
+        all.push(...response)
+        if (response.length < perPage)
+          break
+      }
 
-      const prs: PullRequest[] = (response as GitHubPullResponse[]).map(pr => ({
+      const prs: PullRequest[] = all.map(pr => ({
         number: pr.number,
         title: pr.title,
         body: pr.body ?? '',
@@ -1336,6 +1351,9 @@ export class GitHubProvider implements GitProvider {
         throw error
       }
     }
+    // Unreachable: every loop iteration either returns (success) or throws.
+    // Explicit throw keeps the Promise<any> contract — callers never see `undefined`.
+    throw new Error(`apiRequestWithRetry: exhausted ${maxRetries} retries for ${endpoint}`)
   }
 
   async createIssue(options: IssueOptions): Promise<Issue> {
@@ -1384,10 +1402,23 @@ export class GitHubProvider implements GitProvider {
     }
 
     try {
-      // Use apiRequestWithRetry for rate limit handling
-      const response = await this.apiRequestWithRetry(`GET /repos/${this.owner}/${this.repo}/issues?state=${state}&sort=updated&direction=desc&per_page=100`)
+      // Paginate — without this, the dashboard issue can be missed on repos
+      // with 100+ open issues, causing duplicate dashboard creation.
+      const perPage = 100
+      const maxPages = 20
+      const all: any[] = []
+      for (let page = 1; page <= maxPages; page++) {
+        const response = await this.apiRequestWithRetry(
+          `GET /repos/${this.owner}/${this.repo}/issues?state=${state}&sort=updated&direction=desc&per_page=${perPage}&page=${page}`,
+        )
+        if (!Array.isArray(response) || response.length === 0)
+          break
+        all.push(...response)
+        if (response.length < perPage)
+          break
+      }
 
-      const issues = response
+      const issues = all
         .filter((issue: any) => !issue.pull_request) // Filter out PRs (they're returned as issues by GitHub API)
         .map((issue: any) => ({
           number: issue.number,

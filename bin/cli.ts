@@ -612,7 +612,7 @@ cli
           ...config.dashboard,
           enabled: true,
           title: options.title ?? config.dashboard?.title,
-          issueNumber: options.issueNumber ? Number.parseInt(options.issueNumber) : config.dashboard?.issueNumber,
+          issueNumber: options.issueNumber ? Number.parseInt(options.issueNumber, 10) : config.dashboard?.issueNumber,
         },
       }
 
@@ -730,7 +730,7 @@ cli
         process.env.BUDDY_BOT_TOKEN,
       )
 
-      const prNum = Number.parseInt(prNumber)
+      const prNum = Number.parseInt(prNumber, 10)
       if (Number.isNaN(prNum)) {
         logger.error('❌ Invalid PR number provided')
         process.exit(1)

@@ -1305,18 +1305,36 @@ export class Buddy {
       for (const groupConfig of this.config.packages.groups) {
         const groupUpdates: PackageUpdate[] = []
 
-        // Find updates matching group patterns
+        // Find updates matching group patterns. Use Bun's Glob (already used
+        // elsewhere in this file for ignorePaths) instead of the naive
+        // `pattern.replace('*', '.*')` → new RegExp, which
+        //   (a) didn't escape other regex metacharacters (ReDoS + parse errors), and
+        //   (b) only replaced the FIRST `*`, so `@types/*-foo` never matched.
+        // Track claimed updates by index for O(n) removal instead of indexOf+splice.
+        // eslint-disable-next-line ts/no-require-imports
+        const { Glob } = require('bun')
+        const claimedIndices = new Set<number>()
         for (const pattern of groupConfig.patterns) {
-          const regex = new RegExp(pattern.replace('*', '.*'))
-          const matchingUpdates = ungroupedUpdates.filter(update => regex.test(update.name))
-          groupUpdates.push(...matchingUpdates)
-
-          // Remove from ungrouped
-          matchingUpdates.forEach((update) => {
-            const index = ungroupedUpdates.indexOf(update)
-            if (index > -1)
-              ungroupedUpdates.splice(index, 1)
+          let glob: InstanceType<typeof Glob>
+          try {
+            glob = new Glob(pattern)
+          }
+          catch (error) {
+            this.logger.warn(`Invalid group pattern '${pattern}':`, error)
+            continue
+          }
+          ungroupedUpdates.forEach((update, index) => {
+            if (!claimedIndices.has(index) && glob.match(update.name)) {
+              groupUpdates.push(update)
+              claimedIndices.add(index)
+            }
           })
+        }
+        if (claimedIndices.size > 0) {
+          for (let i = ungroupedUpdates.length - 1; i >= 0; i--) {
+            if (claimedIndices.has(i))
+              ungroupedUpdates.splice(i, 1)
+          }
         }
 
         if (groupUpdates.length > 0) {
