@@ -1,7 +1,8 @@
 # Changelog
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.18...v0.9.19)
 
-### 🐛 Bug Fixes
+## 🐛 Bug Fixes
 
 - **test**: restore leaked fs spies in composer test files ([608f506](https://github.com/stacksjs/buddy-bot/commit/608f506)) _(by glennmichael123 <gtorregosa@gmail.com>)_
 - **test**: restore fs/path spies properly in workspace-detection tests ([9bf8da3](https://github.com/stacksjs/buddy-bot/commit/9bf8da3)) _(by glennmichael123 <gtorregosa@gmail.com>)_
