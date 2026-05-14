@@ -652,4 +652,48 @@ jobs:
       labels: customConfig.labels || config?.pullRequest?.labels || [],
     })
   }
+
+  /**
+   * Generate the security-audit workflow that runs `@stacksjs/gh-audit`
+   * against `.github/workflows/*` on push, PR, schedule, and manual
+   * dispatch. Output is emitted as inline annotations via the `github`
+   * reporter when running on a runner.
+   *
+   * Driver: protect against supply-chain attack patterns (Shai-Hulud-class
+   * worms) by failing CI on workflow misconfiguration.
+   */
+  static generateSecurityAuditWorkflow(): string {
+    return `name: GH Actions Security Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  schedule:
+    - cron: '0 6 * * 1' # Monday 06:00 UTC — weekly drift check
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit GitHub Actions workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Run gh-audit
+        run: bunx --bun @stacksjs/gh-audit
+`
+  }
 }

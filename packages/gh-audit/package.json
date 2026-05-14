@@ -1,0 +1,50 @@
+{
+  "name": "@stacksjs/gh-audit",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Static analysis for GitHub Actions workflows. Catches supply-chain footguns (unpinned actions, excessive token permissions, pull_request_target traps, ${{ }} injection, missing timeouts, self-hosted runner exposure).",
+  "author": "Chris Breuer <chris@stacksjs.org>",
+  "license": "MIT",
+  "homepage": "https://github.com/stacksjs/buddy-bot/tree/main/packages/gh-audit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stacksjs/buddy-bot.git",
+    "directory": "packages/gh-audit"
+  },
+  "bugs": {
+    "url": "https://github.com/stacksjs/buddy-bot/issues"
+  },
+  "keywords": [
+    "github-actions",
+    "security",
+    "static-analysis",
+    "supply-chain",
+    "linter",
+    "workflow",
+    "bun",
+    "typescript"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "module": "./dist/src/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "gh-audit": "./bin/cli.ts"
+  },
+  "files": [
+    "README.md",
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build.ts",
+    "test": "bun test",
+    "lint": "bunx --bun pickier .",
+    "lint:fix": "bunx --bun pickier . --fix",
+    "typecheck": "bunx tsc --noEmit"
+  }
+}

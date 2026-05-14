@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
 import prompts from 'prompts'
+import { GitHubActionsTemplate } from './templates/github-actions'
 
 const execAsync = promisify(exec)
 
@@ -1631,6 +1632,13 @@ export async function generateCoreWorkflows(_preset: WorkflowPreset, _repoInfo: 
   const unifiedWorkflow = generateUnifiedWorkflow(hasCustomToken)
   fs.writeFileSync(path.join(outputDir, 'buddy-bot.yml'), unifiedWorkflow)
   logger.info('Generated unified buddy-bot workflow (combines check, update, and dashboard)')
+
+  // Generate the gh-audit security workflow alongside. Lives as its own
+  // file so it runs (and triggers on workflow path filters) independently
+  // of the dependency-update pipeline.
+  const securityWorkflow = GitHubActionsTemplate.generateSecurityAuditWorkflow()
+  fs.writeFileSync(path.join(outputDir, 'gh-audit.yml'), securityWorkflow)
+  logger.info('Generated GitHub Actions security audit workflow (gh-audit.yml)')
 
   // Clean up old workflow files if they exist
   const oldFiles = ['buddy-check.yml', 'buddy-update.yml', 'buddy-dashboard.yml']

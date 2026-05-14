@@ -42,6 +42,9 @@
     "bin",
     "dist"
   ],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "bun build.ts",
     "fresh": "bunx rimraf node_modules/ bun.lock && bun i",

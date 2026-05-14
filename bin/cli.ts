@@ -2051,6 +2051,42 @@ cli
     }
   })
 
+cli
+  .command('security [path]', '🛡  Static-analyse GitHub Actions workflows for supply-chain footguns (uses @stacksjs/gh-audit)')
+  .option('-f, --format <format>', 'Reporter (pretty | json | github). Defaults to github on a runner, pretty otherwise.')
+  .option('--ignore <ids>', 'Comma-separated rule ids to skip (e.g. missing-timeout,unpinned-action)')
+  .option('--no-color', 'Disable ANSI colours in pretty output')
+  .action(async (path: string | undefined, options: { format?: string, ignore?: string, color?: boolean }) => {
+    const { audit } = await import('../packages/gh-audit/src/engine')
+    const { formatPretty } = await import('../packages/gh-audit/src/reporters/pretty')
+    const { formatJson } = await import('../packages/gh-audit/src/reporters/json')
+    const { formatGitHub } = await import('../packages/gh-audit/src/reporters/github')
+
+    const ignore = options.ignore?.split(',').filter(Boolean) ?? []
+    const result = await audit(path ?? '.', { ignore })
+
+    const format = options.format ?? (process.env.GITHUB_ACTIONS === 'true' ? 'github' : 'pretty')
+    let output: string
+    switch (format) {
+      case 'json':
+        output = formatJson(result)
+        break
+      case 'github':
+        output = formatGitHub(result)
+        break
+      case 'pretty':
+        output = formatPretty(result, { color: options.color !== false })
+        break
+      default:
+        process.stderr.write(`Unknown --format ${format}. Use pretty | json | github.\n`)
+        process.exit(2)
+        return
+    }
+    if (output)
+      process.stdout.write(`${output}\n`)
+    process.exit(result.failed ? 1 : 0)
+  })
+
 cli.command('version', 'Show the version of Buddy Bot').action(() => {
   console.log(version)
 })
