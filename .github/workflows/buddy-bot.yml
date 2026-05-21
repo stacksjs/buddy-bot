@@ -1,9 +1,12 @@
 name: Buddy Bot
 
 on:
+  # Rebase checkbox: fires instantly when a PR body is edited (e.g. checkbox ticked).
+  # No polling needed — this replaces the old every-minute cron for rebase detection.
+  pull_request:
+    types: [edited]
+
   schedule:
-    # Check for rebase requests every 20 minutes
-    - cron: '*/20 * * * *'
     # Update dependencies every 2 hours
     - cron: '0 */2 * * *'
     # Update dashboard 15 minutes after dependency updates (ensures updates are reflected)
@@ -58,10 +61,10 @@ on:
         type: boolean
 
 env:
-  # For workflow file updates, you need a Personal Access Token with 'repo' and 'workflow' scopes
-  # Create a PAT at: https://github.com/settings/tokens
-  # Add it as a repository secret named 'BUDDY_BOT_TOKEN'
-  # If BUDDY_BOT_TOKEN is not available, falls back to GITHUB_TOKEN (limited permissions)
+  # Use the built-in GITHUB_TOKEN for commits and PRs — contributions are attributed
+  # to github-actions[bot] instead of a personal account.
+  # BUDDY_BOT_TOKEN (a PAT with 'repo' and 'workflow' scopes) is only used when
+  # workflow file updates are needed. Create one at: https://github.com/settings/tokens
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
@@ -73,10 +76,18 @@ permissions:
   checks: read
   statuses: read
 
+# Serialize runs per ref so parallel scheduled + manual triggers don't race
+# on the same branches/PRs. cancel-in-progress: false lets the currently
+# running job finish cleanly instead of being killed mid-commit.
+concurrency:
+  group: buddy-bot-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # Job to determine which jobs should run based on trigger
   determine-jobs:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       run_check: ${{ steps.determine.outputs.run_check }}
       run_update: ${{ steps.determine.outputs.run_update }}
@@ -90,7 +101,23 @@ jobs:
           echo "run_update=false" >> $GITHUB_OUTPUT
           echo "run_dashboard=false" >> $GITHUB_OUTPUT
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR body was edited — check if it's a buddy-bot PR with rebase checkbox
+            # Only run the check job (lightweight: just scans for the checkbox and rebases)
+            ACTOR="${{ github.actor }}"
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+
+            # Skip if the edit was made by a bot (prevents cascade loops where
+            # buddy-bot updates a PR body → fires edited event → re-triggers workflow)
+            if [[ "$ACTOR" == *"[bot]"* ]] || [[ "$ACTOR" == "github-actions[bot]" ]] || [[ "$ACTOR" == "buddy-bot" ]]; then
+              echo "ℹ️ Skipping — PR edit was made by bot actor: $ACTOR"
+            elif [[ "$BRANCH" == buddy-bot/* ]]; then
+              echo "run_check=true" >> $GITHUB_OUTPUT
+              echo "ℹ️ buddy-bot PR edited by user — running rebase check for branch: $BRANCH"
+            else
+              echo "ℹ️ Non-buddy-bot PR edited — skipping (branch: $BRANCH)"
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             JOB="${{ github.event.inputs.job || 'all' }}"
             if [ "$JOB" = "all" ] || [ "$JOB" = "check" ]; then
               echo "run_check=true" >> $GITHUB_OUTPUT
@@ -103,9 +130,7 @@ jobs:
             fi
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             # Determine based on cron schedule
-            if [ "${{ github.event.schedule }}" = "5,25,45 * * * *" ]; then
-              echo "run_check=true" >> $GITHUB_OUTPUT
-            elif [ "${{ github.event.schedule }}" = "0 */2 * * *" ]; then
+            if [ "${{ github.event.schedule }}" = "0 */2 * * *" ]; then
               echo "run_update=true" >> $GITHUB_OUTPUT
             elif [ "${{ github.event.schedule }}" = "15 */2 * * *" ]; then
               echo "run_dashboard=true" >> $GITHUB_OUTPUT
@@ -115,22 +140,23 @@ jobs:
   # Shared setup job for common dependencies
   setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: determine-jobs
     if: ${{ needs.determine-jobs.outputs.run_check == 'true' || needs.determine-jobs.outputs.run_update == 'true' || needs.determine-jobs.outputs.run_dashboard == 'true' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0 # Fetch full history for rebasing
           persist-credentials: true
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2.1.3
+        uses: oven-sh/setup-bun@v2
 
       - name: Setup PHP and Composer (if needed)
         if: ${{ hashFiles('composer.json') != '' }}
-        uses: shivammathur/setup-php@2.37.0
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           tools: composer
@@ -151,25 +177,23 @@ jobs:
   # Check job (handles both rebase requests and auto-closing PRs)
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [determine-jobs, setup]
     if: ${{ needs.determine-jobs.outputs.run_check == 'true' }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           persist-credentials: true
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2.1.3
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: bun install
-
-      - name: Build local buddy-bot
-        run: bun run build
 
       - name: Configure Git
         run: |
@@ -190,16 +214,10 @@ jobs:
 
       - name: Check for PRs that need attention
         run: |
-          echo "🔍 Checking for PRs that need attention..."
-          echo "   - Rebase requests (checked checkbox)"
-          echo "   - Satisfied dependencies (already at target version)"
-          echo "   - Obsolete PRs (removed files)"
-          echo "   - Stale branches cleanup"
-          echo ""
+          echo "🔍 Checking for PRs that need attention (rebase requests or auto-closing)..."
           echo "🔧 Environment info:"
           echo "Current directory: $(pwd)"
           echo "GITHUB_TOKEN set: $([[ -n "$GITHUB_TOKEN" ]] && echo "Yes" || echo "No")"
-          echo "BUDDY_BOT_TOKEN set: $([[ -n "$BUDDY_BOT_TOKEN" ]] && echo "Yes" || echo "No")"
           echo "Repository: ${{ github.repository }}"
           echo "Event: ${{ github.event_name }}"
           echo ""
@@ -209,11 +227,15 @@ jobs:
 
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "📋 Running in DRY RUN mode..."
-            bun run dist/bin/cli.js update-check --dry-run --verbose
+            bunx buddy-bot update-check --dry-run --verbose
           else
             echo "🔄 Running in LIVE mode..."
-            bun run dist/bin/cli.js update-check --verbose
+            bunx buddy-bot update-check --verbose
           fi
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Create check summary
         if: always()
@@ -226,40 +248,35 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "⏰ **Scheduled Check**: Automatically checks every 20 minutes" >> $GITHUB_STEP_SUMMARY
+            echo "⏰ **Scheduled Check**: Automatically checks every minute" >> $GITHUB_STEP_SUMMARY
           else
             echo "🖱️ **Manual Check**: Manually triggered from Actions tab" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📋 **What was checked:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Rebase requests (PRs with checked rebase checkbox)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Satisfied dependencies (PRs where versions are already installed)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Obsolete PRs (references to removed dependency files)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Stale branches cleanup (orphaned branches older than 7 days)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📋 View detailed logs above for check results." >> $GITHUB_STEP_SUMMARY
+          echo "📋 View detailed logs above for check results (rebase requests, auto-closing, and branch cleanup)." >> $GITHUB_STEP_SUMMARY
 
   # Dependency update job
   dependency-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [determine-jobs, setup]
     if: ${{ needs.determine-jobs.outputs.run_update == 'true' }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           persist-credentials: true
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2.1.3
+        uses: oven-sh/setup-bun@v2
 
       - name: Setup PHP and Composer (if needed)
         if: ${{ hashFiles('composer.json') != '' }}
-        uses: shivammathur/setup-php@2.37.0
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           tools: composer
@@ -271,9 +288,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      - name: Build local buddy-bot
-        run: bun run build
 
       - name: Configure Git
         run: |
@@ -306,20 +320,20 @@ jobs:
 
           if [ "$PACKAGES" != "" ]; then
             if [ "$VERBOSE" = "true" ]; then
-              bun run dist/bin/cli.js update --packages "$PACKAGES" --verbose
+              bunx buddy-bot update --packages "$PACKAGES" --verbose
             else
-              bun run dist/bin/cli.js update --packages "$PACKAGES"
+              bunx buddy-bot update --packages "$PACKAGES"
             fi
           else
             if [ "$VERBOSE" = "true" ]; then
-              bun run dist/bin/cli.js update --strategy "$STRATEGY" --verbose
+              bunx buddy-bot update --strategy "$STRATEGY" --verbose
             else
-              bun run dist/bin/cli.js update --strategy "$STRATEGY"
+              bunx buddy-bot update --strategy "$STRATEGY"
             fi
           fi
 
         env:
-          GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
@@ -355,17 +369,18 @@ jobs:
   # Dashboard update job
   dashboard-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [determine-jobs, setup, dependency-update]
     if: ${{ needs.determine-jobs.outputs.run_dashboard == 'true' && always() }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2.1.3
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: bun install
@@ -428,11 +443,6 @@ jobs:
           # Build the command
           COMMAND="bunx buddy-bot dashboard"
 
-          # TODO: Uncomment this when we have a way to pin the dashboard
-          # if [ "$PIN" = "true" ]; then
-          #   COMMAND="$COMMAND --pin"
-          # fi
-
           if [ "$TITLE" != "" ]; then
             COMMAND="$COMMAND --title \"$TITLE\""
           fi
@@ -466,7 +476,7 @@ jobs:
           fi
 
         env:
-          GITHUB_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUDDY_BOT_TOKEN: ${{ secrets.BUDDY_BOT_TOKEN }}
 
       - name: Dry run notification
