@@ -145,7 +145,7 @@ jobs:
     if: ${{ needs.determine-jobs.outputs.run_check == 'true' || needs.determine-jobs.outputs.run_update == 'true' || needs.determine-jobs.outputs.run_dashboard == 'true' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0 # Fetch full history for rebasing
@@ -183,7 +183,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -265,7 +265,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -375,7 +375,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
