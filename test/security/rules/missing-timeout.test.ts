@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { parseWorkflow } from '../../src/parser'
-import { missingTimeout } from '../../src/rules/missing-timeout'
+import { parseWorkflow } from '../../../src/security/parser'
+import { missingTimeout } from '../../../src/security/rules/missing-timeout'
 
 function check(yaml: string) {
   const wf = parseWorkflow('test.yml', yaml)!

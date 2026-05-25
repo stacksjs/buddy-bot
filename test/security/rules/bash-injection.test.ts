@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { parseWorkflow } from '../../src/parser'
-import { bashInjection } from '../../src/rules/bash-injection'
+import { parseWorkflow } from '../../../src/security/parser'
+import { bashInjection } from '../../../src/security/rules/bash-injection'
 
 function check(yaml: string) {
   const wf = parseWorkflow('test.yml', yaml)!

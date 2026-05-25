@@ -654,7 +654,7 @@ jobs:
   }
 
   /**
-   * Generate the security-audit workflow that runs `@stacksjs/gh-audit`
+   * Generate the security-audit workflow that runs `buddy-bot security`
    * against `.github/workflows/*` on push, PR, schedule, and manual
    * dispatch. Output is emitted as inline annotations via the `github`
    * reporter when running on a runner.
@@ -692,8 +692,8 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Run gh-audit
-        run: bunx --bun @stacksjs/gh-audit
+      - name: Run buddy-bot security
+        run: bunx --bun buddy-bot security
 `
   }
 }

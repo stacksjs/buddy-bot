@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { parseWorkflow } from '../../src/parser'
-import { selfHostedExposure } from '../../src/rules/self-hosted-exposure'
+import { parseWorkflow } from '../../../src/security/parser'
+import { selfHostedExposure } from '../../../src/security/rules/self-hosted-exposure'
 
 function check(yaml: string) {
   const wf = parseWorkflow('test.yml', yaml)!

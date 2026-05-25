@@ -3,7 +3,7 @@ import type { ParsedWorkflow, WorkflowData } from './types'
 /**
  * Parse a workflow file. Returns `null` if the YAML is unparseable so the
  * caller can carry on with the rest of the suite — broken YAML is the
- * checker's user's problem to fix, not gh-audit's to crash on.
+ * checker's user's problem to fix, not buddy-bot's to crash on.
  */
 export function parseWorkflow(file: string, raw: string): ParsedWorkflow | null {
   try {

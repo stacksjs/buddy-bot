@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { parseWorkflow } from '../../src/parser'
-import { unpinnedAction } from '../../src/rules/unpinned-action'
+import { parseWorkflow } from '../../../src/security/parser'
+import { unpinnedAction } from '../../../src/security/rules/unpinned-action'
 
 function check(yaml: string) {
   const wf = parseWorkflow('test.yml', yaml)!

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { parseWorkflow } from '../../src/parser'
-import { dangerousPullRequestTarget } from '../../src/rules/dangerous-pull-request-target'
+import { parseWorkflow } from '../../../src/security/parser'
+import { dangerousPullRequestTarget } from '../../../src/security/rules/dangerous-pull-request-target'
 
 function check(yaml: string) {
   const wf = parseWorkflow('test.yml', yaml)!

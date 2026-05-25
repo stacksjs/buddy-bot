@@ -1639,15 +1639,16 @@ export async function generateCoreWorkflows(_preset: WorkflowPreset, _repoInfo: 
   fs.writeFileSync(path.join(outputDir, 'buddy-bot.yml'), unifiedWorkflow)
   logger.info('Generated unified buddy-bot workflow (combines check, update, and dashboard)')
 
-  // Generate the gh-audit security workflow alongside. Lives as its own
+  // Generate the security-audit workflow alongside. Lives as its own
   // file so it runs (and triggers on workflow path filters) independently
   // of the dependency-update pipeline.
   const securityWorkflow = GitHubActionsTemplate.generateSecurityAuditWorkflow()
-  fs.writeFileSync(path.join(outputDir, 'gh-audit.yml'), securityWorkflow)
-  logger.info('Generated GitHub Actions security audit workflow (gh-audit.yml)')
+  fs.writeFileSync(path.join(outputDir, 'buddy-security.yml'), securityWorkflow)
+  logger.info('Generated GitHub Actions security audit workflow (buddy-security.yml)')
 
-  // Clean up old workflow files if they exist
-  const oldFiles = ['buddy-check.yml', 'buddy-update.yml', 'buddy-dashboard.yml']
+  // Clean up old workflow files if they exist (`gh-audit.yml` was the
+  // previous name of `buddy-security.yml` before the monorepo flatten).
+  const oldFiles = ['buddy-check.yml', 'buddy-update.yml', 'buddy-dashboard.yml', 'gh-audit.yml']
   let cleanedUp = 0
 
   for (const oldFile of oldFiles) {

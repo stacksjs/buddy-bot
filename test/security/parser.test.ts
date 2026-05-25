@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { findLine, parseWorkflow } from '../src/parser'
+import { findLine, parseWorkflow } from '../../src/security/parser'
 
 describe('parseWorkflow', () => {
   it('returns null for unparseable yaml', () => {

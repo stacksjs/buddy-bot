@@ -2052,15 +2052,15 @@ cli
   })
 
 cli
-  .command('security [path]', '🛡  Static-analyse GitHub Actions workflows for supply-chain footguns (uses @stacksjs/gh-audit)')
+  .command('security [path]', '🛡  Static-analyse GitHub Actions workflows for supply-chain footguns')
   .option('-f, --format <format>', 'Reporter (pretty | json | github). Defaults to github on a runner, pretty otherwise.')
   .option('--ignore <ids>', 'Comma-separated rule ids to skip (e.g. missing-timeout,unpinned-action)')
   .option('--no-color', 'Disable ANSI colours in pretty output')
   .action(async (path: string | undefined, options: { format?: string, ignore?: string, color?: boolean }) => {
-    const { audit } = await import('../packages/gh-audit/src/engine')
-    const { formatPretty } = await import('../packages/gh-audit/src/reporters/pretty')
-    const { formatJson } = await import('../packages/gh-audit/src/reporters/json')
-    const { formatGitHub } = await import('../packages/gh-audit/src/reporters/github')
+    const { audit } = await import('../src/security/engine')
+    const { formatPretty } = await import('../src/security/reporters/pretty')
+    const { formatJson } = await import('../src/security/reporters/json')
+    const { formatGitHub } = await import('../src/security/reporters/github')
 
     const ignore = options.ignore?.split(',').filter(Boolean) ?? []
     const result = await audit(path ?? '.', { ignore })

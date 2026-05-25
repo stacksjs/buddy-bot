@@ -26,10 +26,10 @@ export function formatPretty(result: AuditResult, opts: { color?: boolean } = {}
   const c = (code: string, text: string): string => (color ? `${code}${text}${RESET}` : text)
 
   if (result.workflows.length === 0)
-    return c(GRAY, 'gh-audit: no workflows found under .github/workflows.')
+    return c(GRAY, 'buddy-bot security: no workflows found under .github/workflows.')
 
   if (result.findings.length === 0)
-    return c(GREEN, `gh-audit: ${result.workflows.length} workflow${result.workflows.length === 1 ? '' : 's'} clean.`)
+    return c(GREEN, `buddy-bot security: ${result.workflows.length} workflow${result.workflows.length === 1 ? '' : 's'} clean.`)
 
   const grouped = new Map<string, Finding[]>()
   for (const f of result.findings) {

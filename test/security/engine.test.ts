@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { auditParsed } from '../src/engine'
-import { parseWorkflow } from '../src/parser'
+import { auditParsed } from '../../src/security/engine'
+import { parseWorkflow } from '../../src/security/parser'
 
 const goodYaml = `
 name: clean

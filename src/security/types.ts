@@ -72,7 +72,7 @@ export interface Rule {
   id: string
   /** Default severity if the rule fires. Reporters honour this. */
   defaultSeverity: Severity
-  /** One-line description shown by `gh-audit rules`. */
+  /** One-line description shown by `buddy-bot security`. */
   description: string
   /** Run the rule against a single parsed workflow. */
   check: (workflow: ParsedWorkflow) => Finding[]
@@ -86,7 +86,7 @@ export interface AuditOptions {
   rules?: Rule[]
   /**
    * Rule IDs to skip even when enabled. Useful for repository-level
-   * `.gh-auditignore` style overrides without rewriting the rule list.
+   * `.buddy-ignore` style overrides without rewriting the rule list.
    */
   ignore?: string[]
 }

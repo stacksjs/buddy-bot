@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { parseWorkflow } from '../../src/parser'
-import { excessivePermissions } from '../../src/rules/excessive-permissions'
+import { parseWorkflow } from '../../../src/security/parser'
+import { excessivePermissions } from '../../../src/security/rules/excessive-permissions'
 
 function check(yaml: string) {
   const wf = parseWorkflow('test.yml', yaml)!
