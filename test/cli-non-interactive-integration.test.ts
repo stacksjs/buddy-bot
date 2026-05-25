@@ -3,14 +3,19 @@ import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+// Anchor the restore-target at module load, not inside beforeEach. If a
+// previous test (in this file or another) left process.cwd() inside its
+// own tmpdir, capturing it in beforeEach would point our afterEach at a
+// directory that the prior test then deleted — and the next chdir back
+// would throw ENOENT, failing the otherwise-passing test.
+const originalCwd = process.cwd()
+
 describe('CLI Non-Interactive Integration Tests', () => {
   let testDir: string
-  let originalCwd: string
 
   beforeEach(async () => {
     // Create a temporary directory for each test
     testDir = await fs.mkdtemp(join(tmpdir(), 'buddy-bot-cli-test-'))
-    originalCwd = process.cwd()
     process.chdir(testDir)
 
     // Create a mock Git repository structure
@@ -37,7 +42,14 @@ describe('CLI Non-Interactive Integration Tests', () => {
   })
 
   afterEach(async () => {
-    process.chdir(originalCwd)
+    // Defensive fallback in case originalCwd was captured while a prior
+    // test had cwd set inside a since-deleted tmpdir.
+    try {
+      process.chdir(originalCwd)
+    }
+    catch {
+      process.chdir(tmpdir())
+    }
     await fs.rm(testDir, { recursive: true, force: true })
   })
 
