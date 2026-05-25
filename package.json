@@ -1,7 +1,7 @@
 {
   "name": "buddy-bot",
   "type": "module",
-  "version": "0.9.20",
+  "version": "0.9.19",
   "description": "Automated & optimized dependency updates for JavaScript & TypeScript projects. Like Renovate & Dependabot.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
@@ -81,6 +81,7 @@
     "bunfig": "^0.15.9",
     "pickier": "^0.1.26",
     "typescript": "^6.0.2"
+
   },
   "git-hooks": {
     "pre-commit": {
