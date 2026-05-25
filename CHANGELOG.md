@@ -1,4 +1,33 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.19...v0.9.20)
+
+### 🚀 Features
+
+- add @stacksjs/gh-audit + buddy-bot security command ([f9cee31](https://github.com/stacksjs/buddy-bot/commit/f9cee31)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🐛 Bug Fixes
+
+- **test**: make cli-non-interactive afterEach resilient to cwd churn ([252e48a](https://github.com/stacksjs/buddy-bot/commit/252e48a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **update**: skip groups that can't open a PR before any branch ops ([8408d29](https://github.com/stacksjs/buddy-bot/commit/8408d29)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- **template**: add daily cleanup cron back to unified workflow ([0d459cf](https://github.com/stacksjs/buddy-bot/commit/0d459cf)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### 🤖 Continuous Integration
+
+- **buddy-bot**: add daily cleanup cron to workflow ([25ef28a](https://github.com/stacksjs/buddy-bot/commit/25ef28a)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_
+- **buddy-bot**: regenerate workflow from current template ([596ad9d](https://github.com/stacksjs/buddy-bot/commit/596ad9d)) _(by Glenn Michael Torregosa <gtorregosa@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.9.20 ([48c5e7c](https://github.com/stacksjs/buddy-bot/commit/48c5e7c)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+- update deps ([860fb47](https://github.com/stacksjs/buddy-bot/commit/860fb47)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([e7ee6ab](https://github.com/stacksjs/buddy-bot/commit/e7ee6ab)) _(by Chris <chrisbreuer93@gmail.com>)_
+- refresh bun.lock and apply pickier --fix ([7f1af8a](https://github.com/stacksjs/buddy-bot/commit/7f1af8a)) _(by glennmichael123 <gtorregosa@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+- _Glenn Michael Torregosa <gtorregosa@gmail.com>_
+- _glennmichael123 <gtorregosa@gmail.com>_
 
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.18...v0.9.19)
 

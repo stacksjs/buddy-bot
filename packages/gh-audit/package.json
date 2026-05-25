@@ -1,7 +1,7 @@
 {
   "name": "@stacksjs/gh-audit",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.9.20",
   "description": "Static analysis for GitHub Actions workflows. Catches supply-chain footguns (unpinned actions, excessive token permissions, pull_request_target traps, ${{ }} injection, missing timeouts, self-hosted runner exposure).",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
