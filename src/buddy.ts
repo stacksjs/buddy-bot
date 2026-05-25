@@ -225,6 +225,51 @@ export class Buddy {
           const groupStartTime = Date.now()
           this.logger.info(`Creating PR for group: ${group.name} (${group.updates.length} updates)`)
 
+          // (#1359) Groups that only touch .github/workflows/* require BUDDY_BOT_TOKEN
+          // with the `workflow` scope — GITHUB_TOKEN can't push to workflow files,
+          // and the PR-creation API call also fails ("GitHub Actions is not permitted
+          // to create or approve pull requests"). Without elevated permissions, the
+          // run would create a branch + empty commit and then fail to open the PR,
+          // leaving an orphan. Detect-and-skip so no branch ops happen.
+          const isWorkflowOnlyGroup = group.updates.length > 0
+            && group.updates.every(u => u.file.includes('.github/workflows/'))
+          if (isWorkflowOnlyGroup && !hasWorkflowPermissions) {
+            this.logger.warn(`⚠️ Skipping group ${group.name} — workflow-file updates require BUDDY_BOT_TOKEN with the workflow scope`)
+            continue
+          }
+
+          // (#1360) For pantry/pkgx-style deps, generateAllFileUpdates may
+          // legitimately return [] (no JS lock/yaml writer for that dep type).
+          // The branch-ops paths below would then delete + recreate the branch
+          // and skip PR creation, leaving a fresh orphan every run. Check for
+          // actual file changes up front and skip the whole group if there's
+          // nothing to commit. File generation reads the current working tree,
+          // so first reset to base in case a previous group iteration left us
+          // on its branch.
+          try {
+            const { spawn } = await import('node:child_process')
+            const runGitCommand = (command: string, args: string[]): Promise<void> => {
+              return new Promise((resolve, reject) => {
+                const child = spawn(command, args, { stdio: 'pipe' })
+                child.on('close', code => code === 0 ? resolve() : reject(new Error(`Git command failed with code ${code}`)))
+                child.on('error', reject)
+              })
+            }
+            const baseBranch = this.config.repository.baseBranch || 'main'
+            await runGitCommand('git', ['checkout', baseBranch])
+            await runGitCommand('git', ['reset', '--hard', 'HEAD'])
+            await runGitCommand('git', ['clean', '-fd'])
+          }
+          catch (resetError) {
+            console.warn(`⚠️ Failed to reset to clean state for early file-change check, continuing anyway:`, resetError)
+          }
+
+          const earlyFileUpdates = await this.generateAllFileUpdates(group.updates)
+          if (earlyFileUpdates.length === 0) {
+            this.logger.info(`ℹ️ No file changes for group ${group.name}, skipping — leaving branches untouched`)
+            continue
+          }
+
           // Generate PR content first to check for existing PRs
           const prTitle = group.title
           const prBodyStartTime = Date.now()
