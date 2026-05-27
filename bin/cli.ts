@@ -821,6 +821,25 @@ cli
       // Generate new file changes (package.json, dependency files, GitHub Actions)
       const packageJsonUpdates = await buddy.generateAllFileUpdates(group.updates)
 
+      // (#1361) When the generator returns no file changes — common for
+      // pantry/pkgx-style deps that don't have a JS lock/yaml writer —
+      // do NOT force-push an empty commit onto the PR branch. Same bug
+      // pattern as #1360 but in the rebase code path. Just untick the
+      // rebase checkbox in-place so the workflow doesn't loop on it.
+      if (packageJsonUpdates.length === 0) {
+        logger.info(`ℹ️ No file changes generated for PR #${prNum} — likely a pantry/pkgx-style dep with no JS writer. Skipping commit to avoid an empty force-push.`)
+        const currentBody = pr.body || ''
+        const untickedBody = currentBody.replace(
+          /- \[x\] <!-- rebase-check -->/g,
+          '- [ ] <!-- rebase-check -->',
+        )
+        if (untickedBody !== currentBody) {
+          await gitProvider.updatePullRequest(prNum, { body: untickedBody })
+          logger.info('✅ Unticked rebase checkbox to prevent the next update-check run from re-triggering this no-op rebase.')
+        }
+        return
+      }
+
       // Recreate branch from base with latest dependency changes (Renovate-style)
       const baseBranch = config.repository?.baseBranch || 'main'
       await gitProvider.commitChanges(pr.head, group.title, packageJsonUpdates, baseBranch)
