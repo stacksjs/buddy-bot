@@ -57,11 +57,12 @@
     "typecheck": "bunx tsc --noEmit",
     "dev:docs": "bun --bun vitepress dev docs",
     "build:docs": "bun --bun vitepress build docs",
-    "preview:docs": "bun --bun vitepress preview docs"
+    "preview:docs": "bun --bun vitepress preview docs",
+    "release:patch": "bunx --bun bumpx patch --recursive --commit --tag --push --yes"
   },
   "dependencies": {
     "prompts": "^2.4.2",
-    "ts-pantry": "^0.9.30"
+    "ts-pantry": "^0.10.11"
   },
   "devDependencies": {
     "@stacksjs/bunpress": "^0.1.4",
