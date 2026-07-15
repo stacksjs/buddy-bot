@@ -1,4 +1,17 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.21...v0.9.22)
+
+### ⚡ Performance Improvements
+
+- **build**: drop external sourcemaps from published package ([3fb2223](https://github.com/stacksjs/buddy-bot/commit/3fb2223)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.9.22 ([2c99ecc](https://github.com/stacksjs/buddy-bot/commit/2c99ecc)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
 
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.19...v0.9.20)
 
