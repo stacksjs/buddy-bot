@@ -9,7 +9,7 @@ await Bun.build({
   target: 'bun',
   minify: true,
   splitting: true,
-  sourcemap: 'external',
+  sourcemap: 'none',
   plugins: [dts()],
 })
 
