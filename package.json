@@ -78,7 +78,7 @@
     "bun-plugin-dtsx": "^0.9.14",
     "bunfig": "^0.15.9",
     "pickier": "^0.1.26",
-    "typescript": "^6.0.2"
+    "typescript": "^7.0.2"
   },
   "git-hooks": {
     "pre-commit": {
