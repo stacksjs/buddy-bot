@@ -1,4 +1,25 @@
 # Changelog
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.22...v0.9.23)
+
+### 🐛 Bug Fixes
+
+- **test**: isolate temporary working directories ([f027615](https://github.com/stacksjs/buddy-bot/commit/f027615)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **pr**: render version ranges safely ([3794248](https://github.com/stacksjs/buddy-bot/commit/3794248)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **git**: reject missing update targets ([a32cd52](https://github.com/stacksjs/buddy-bot/commit/a32cd52)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **scanner**: ignore generated dependency trees ([a358b78](https://github.com/stacksjs/buddy-bot/commit/a358b78)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 📚 Documentation
+
+- resolve markdown lint violations ([d24f287](https://github.com/stacksjs/buddy-bot/commit/d24f287)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### 🧹 Chores
+
+- release v0.9.23 ([f0449bc](https://github.com/stacksjs/buddy-bot/commit/f0449bc)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **deps**: declare bun ^1.3.14 in deps.yaml ([28b5b24](https://github.com/stacksjs/buddy-bot/commit/28b5b24)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+### Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
 
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.21...v0.9.22)
 
