@@ -16,7 +16,7 @@ GitHub Actions integration provides:
 
 Buddy automatically detects GitHub Actions in:
 
-```
+```text
 .github/
 └── workflows/
     ├── ci.yml
