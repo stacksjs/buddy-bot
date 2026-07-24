@@ -28,14 +28,11 @@ const mockResolveDependencyFile = mock(() => Promise.resolve({
 
 describe('Bun deps.yaml Update Tests', () => {
   let testDir: string
-  let originalCwd: string
   let config: BuddyBotConfig
 
   beforeAll(async () => {
     // Create a temporary directory for testing
     testDir = await mkdtemp(join(tmpdir(), 'buddy-test-'))
-    originalCwd = process.cwd()
-    process.chdir(testDir)
 
     // Create a basic package.json file
     await writeFile(
@@ -95,7 +92,6 @@ describe('Bun deps.yaml Update Tests', () => {
 
   afterAll(async () => {
     // Clean up
-    process.chdir(originalCwd)
     await rm(testDir, { recursive: true, force: true })
   })
 

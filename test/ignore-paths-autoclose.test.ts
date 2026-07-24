@@ -13,7 +13,6 @@ describe('IgnorePaths Auto-Close Functionality', () => {
 
   beforeEach(async () => {
     testDir = await mkdtemp(join(tmpdir(), 'buddy-ignore-paths-autoclose-'))
-    process.chdir(testDir)
     logger = new Logger(false) // Quiet logger for tests
   })
 
