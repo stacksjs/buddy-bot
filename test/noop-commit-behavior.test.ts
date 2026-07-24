@@ -46,6 +46,30 @@ describe('No-op commit prevention', () => {
     expect(hasPush).toBeTrue()
   })
 
+  it('does not fall back to an API create when an update target is missing from base', async () => {
+    const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
+    const commands: Array<{ cmd: string, args: string[] }> = []
+    let apiCalled = false
+
+    prov.runCommand = async (command: string, args: string[]) => {
+      commands.push({ cmd: command, args })
+      if (command === 'git' && args[0] === 'cat-file')
+        throw new Error('missing from base')
+      return ''
+    }
+    prov.apiRequest = async () => {
+      apiCalled = true
+      return {}
+    }
+
+    await expect(prov.commitChanges('buddy/test-branch', 'test message', filesChanged)).rejects.toThrow(
+      'Refusing to create missing update target: test-package.json',
+    )
+
+    expect(apiCalled).toBeFalse()
+    expect(commands.some(command => command.args[0] === 'add')).toBeFalse()
+  })
+
   it('skips API commit when new tree equals current tree (API fallback path)', async () => {
     const prov = new GitHubProvider('token', 'owner', 'repo', true) as any
     const apiCalls: Array<{ endpoint: string, data: any }> = []

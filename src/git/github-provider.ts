@@ -3,6 +3,7 @@ import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullReq
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
+import { assertUpdateTargetsExist, FileChangeValidationError, normalizeRepositoryPath } from '../utils/file-changes'
 import { detectRequiredPackageManagers, getAllLockFilePaths, regenerateLockFile } from '../utils/lock-file'
 
 // Match GitHub token formats (ghp_*, gho_*, ghs_*, ghu_*, ghr_*, github_pat_*)
@@ -141,7 +142,7 @@ export class GitHubProvider implements GitProvider {
       // Lockfile regeneration failures must NOT fall through to the API path —
       // the API path can't regenerate lockfiles either, so it would just produce
       // a PR with an updated manifest and stale lockfile. Bubble the error up.
-      if (gitError instanceof LockfileRegenerationError)
+      if (gitError instanceof LockfileRegenerationError || gitError instanceof FileChangeValidationError)
         throw gitError
 
       console.warn(`⚠️ Git CLI commit failed, falling back to GitHub API: ${gitError}`)
@@ -240,9 +241,19 @@ export class GitHubProvider implements GitProvider {
       await this.runCommand('git', ['clean', '-fd'])
       console.log(`✅ Reset ${branchName} to origin/${baseBranch}`)
 
+      await assertUpdateTargetsExist(files, async (cleanPath) => {
+        try {
+          await this.runCommand('git', ['cat-file', '-e', `origin/${baseBranch}:${cleanPath}`])
+          return true
+        }
+        catch {
+          return false
+        }
+      })
+
       // Apply file changes
       for (const file of files) {
-        const cleanPath = file.path.replace(/^\.\//, '').replace(/^\/+/, '')
+        const cleanPath = normalizeRepositoryPath(file.path)
 
         // Safety check: prevent writing to sensitive files during tests
         if (process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test') {
@@ -395,11 +406,23 @@ export class GitHubProvider implements GitProvider {
       const baseCommit = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/commits/${baseSha}`)
       const baseTreeSha = baseCommit.tree.sha
 
+      await assertUpdateTargetsExist(files, async (cleanPath) => {
+        const encodedPath = cleanPath.split('/').map(segment => encodeURIComponent(segment)).join('/')
+        try {
+          await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/contents/${encodedPath}?ref=${encodeURIComponent(baseBranch)}`)
+          return true
+        }
+        catch (error: any) {
+          if (error.message?.includes('404'))
+            return false
+          throw error
+        }
+      })
+
       // Create new tree with file changes
       const tree = []
       for (const file of files) {
-        // Ensure path doesn't start with ./ or have leading slashes (GitHub API requires clean relative paths)
-        const cleanPath = file.path.replace(/^\.\//, '').replace(/^\/+/, '')
+        const cleanPath = normalizeRepositoryPath(file.path)
 
         if (file.type === 'delete') {
           tree.push({
