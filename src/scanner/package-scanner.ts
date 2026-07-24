@@ -10,6 +10,7 @@ import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
+import { shouldSkipPackageDirectory } from '../utils/package-paths'
 import { parsePantryLockFile } from '../utils/pantry-parser'
 import { parseZigManifest } from '../utils/zig-parser'
 
@@ -537,7 +538,7 @@ export class PackageScanner {
 
           if (stats.isDirectory()) {
             // Skip node_modules and other common ignored directories
-            if (!this.shouldSkipDirectory(entry)) {
+            if (!shouldSkipPackageDirectory(entry)) {
               const subFiles = await this.findFiles(fileName, fullPath)
               files.push(...subFiles)
             }
@@ -597,7 +598,7 @@ export class PackageScanner {
           // Normalize path separators to forward slashes for consistency
           files.push(relativePath.split(sep).join('/'))
         }
-        else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
+        else if (stats.isDirectory() && !shouldSkipPackageDirectory(entry)) {
           // Recursively search subdirectories
           const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)
           files.push(...subFiles)
@@ -631,7 +632,7 @@ export class PackageScanner {
           // Normalize path separators to forward slashes for consistency
           files.push(relativePath.split(sep).join('/'))
         }
-        else if (stats.isDirectory() && !this.shouldSkipDirectory(entry)) {
+        else if (stats.isDirectory() && !shouldSkipPackageDirectory(entry)) {
           const subFiles = await this.findFilesByPatternInDir(pattern, fullPath)
           files.push(...subFiles)
         }
@@ -668,29 +669,6 @@ export class PackageScanner {
     }
 
     return false
-  }
-
-  /**
-   * Check if a directory should be skipped during scanning
-   */
-  private shouldSkipDirectory(dirName: string): boolean {
-    const skipDirs = [
-      'node_modules',
-      '.git',
-      '.next',
-      '.nuxt',
-      'dist',
-      'build',
-      'coverage',
-      '.nyc_output',
-      'tmp',
-      'temp',
-      '.cache',
-      '.vscode',
-      '.idea',
-    ]
-
-    return skipDirs.includes(dirName) || dirName.startsWith('.')
   }
 
   /**

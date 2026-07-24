@@ -7,6 +7,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { PackageRegistryError } from '../types'
 import { getUpdateType } from '../utils/helpers'
+import { shouldSkipPackageDirectory } from '../utils/package-paths'
 
 export interface BunOutdatedResult {
   name: string
@@ -1342,26 +1343,10 @@ export class RegistryClient {
   }
 
   /**
-   * Check if a directory should be skipped during scanning
+   * Check if a directory is safe to descend into during package discovery.
    */
   private shouldSkipDirectory(dirName: string): boolean {
-    const skipDirs = [
-      'node_modules',
-      '.git',
-      '.next',
-      '.nuxt',
-      'dist',
-      'build',
-      'coverage',
-      '.nyc_output',
-      'tmp',
-      'temp',
-      '.cache',
-      '.vscode',
-      '.idea',
-    ]
-
-    return skipDirs.includes(dirName) || dirName.startsWith('.')
+    return shouldSkipPackageDirectory(dirName)
   }
 
   /**
