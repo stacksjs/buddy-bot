@@ -1,5 +1,20 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.23...v0.9.24)
+
+## 📝 Documentation
+
+- normalize v0.9.23 changelog headings ([8081067](https://github.com/stacksjs/buddy-bot/commit/8081067)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.9.24 ([d7d36c0](https://github.com/stacksjs/buddy-bot/commit/d7d36c0)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **deps**: update release toolchain ([e4f9202](https://github.com/stacksjs/buddy-bot/commit/e4f9202)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.22...v0.9.23)
 
 ## 🐛 Bug Fixes
