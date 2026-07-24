@@ -139,7 +139,7 @@ export class ReleaseNotesFetcher {
         },
         releaseNotes: [],
         changelog: [],
-        compareUrl: `https://github.com/${repoInfo.owner}/${repoInfo.repo}/compare/v${currentVersion}...v${newVersion}`,
+        compareUrl: this.generateCompareUrl(repoInfo.owner, repoInfo.repo, currentVersion, newVersion),
       }
     }
 
@@ -435,28 +435,67 @@ export class ReleaseNotesFetcher {
   /**
    * Generate compare URL between versions
    */
-  private generateCompareUrl(owner: string, repo: string, fromVersion: string, toVersion: string): string {
-    const cleanFrom = fromVersion.startsWith('v') ? fromVersion : `v${fromVersion}`
-    const cleanTo = toVersion.startsWith('v') ? toVersion : `v${toVersion}`
-    return `https://github.com/${owner}/${repo}/compare/${cleanFrom}...${cleanTo}`
+  private generateCompareUrl(owner: string, repo: string, fromVersion: string, toVersion: string): string | undefined {
+    const cleanFrom = this.getComparableVersion(fromVersion)
+    const cleanTo = this.getComparableVersion(toVersion)
+    if (!cleanFrom || !cleanTo)
+      return undefined
+
+    return `https://github.com/${owner}/${repo}/compare/${encodeURIComponent(`v${cleanFrom}`)}...${encodeURIComponent(`v${cleanTo}`)}`
   }
 
   /**
    * Check if version is between current and new version
    */
   private isVersionBetween(version: string, current: string, target: string): boolean {
-    const cleanVersion = version.replace(/^v/, '')
-    const cleanCurrent = current.replace(/^v/, '')
-    const cleanTarget = target.replace(/^v/, '')
+    const cleanVersion = this.getComparableVersion(version)
+    const cleanCurrent = this.getComparableVersion(current)
+    const cleanTarget = this.getComparableVersion(target)
+    if (!cleanVersion || !cleanCurrent || !cleanTarget)
+      return false
 
-    // Proper semver compare — lexicographic ordering gets `1.10.0 > 1.9.0` wrong.
-    // Fall back to string equality if either side isn't valid semver.
     try {
-      return cleanVersion === cleanTarget || semver.order(cleanVersion, cleanCurrent) > 0
+      return semver.order(cleanVersion, cleanCurrent) > 0
+        && semver.order(cleanVersion, cleanTarget) <= 0
     }
     catch {
-      return cleanVersion === cleanTarget || cleanVersion > cleanCurrent
+      return cleanVersion > cleanCurrent && cleanVersion <= cleanTarget
     }
+  }
+
+  /**
+   * Derive a concrete lower-bound version for compare links and ordering.
+   * For OR ranges, use the highest alternative's lower bound.
+   */
+  private getComparableVersion(version: string): string | null {
+    const candidates = version.split('||').flatMap((alternative) => {
+      const trimmed = alternative.trim()
+      if (trimmed.startsWith('<'))
+        return []
+
+      const match = trimmed.match(/^(?:[~^]|>=?|=)?\s*v?(\d+(?:\.\d+){0,2}(?:-[0-9A-Z.-]+)?)/i)
+      if (!match)
+        return []
+
+      const [core, prerelease] = match[1].split('-', 2)
+      const parts = core.split('.')
+      while (parts.length < 3)
+        parts.push('0')
+
+      return [`${parts.join('.')}${prerelease ? `-${prerelease}` : ''}`]
+    })
+
+    if (candidates.length === 0)
+      return null
+
+    return candidates.reduce((highest, candidate) => {
+      try {
+        return semver.order(candidate, highest) > 0 ? candidate : highest
+      }
+      catch {
+        return candidate > highest ? candidate : highest
+      }
+    })
   }
 
   /**

@@ -383,8 +383,10 @@ export class PullRequestGenerator {
         }
 
         // Generate version change with diff link (Renovate style)
-        const diffUrl = `https://renovatebot.com/diffs/npm/${encodeURIComponent(cleanPackageName)}/${update.currentVersion}/${update.newVersion}`
-        const change = `[\`${update.currentVersion}\` -> \`${update.newVersion}\`](${diffUrl})`
+        const diffUrl = `https://renovatebot.com/diffs/npm/${encodeURIComponent(cleanPackageName)}/${encodeURIComponent(update.currentVersion)}/${encodeURIComponent(update.newVersion)}`
+        const currentVersion = this.escapeMarkdownTableValue(update.currentVersion)
+        const newVersion = this.escapeMarkdownTableValue(update.newVersion)
+        const change = `[\`${currentVersion}\` -> \`${newVersion}\`](${diffUrl})`
 
         // Generate confidence badges with clean package name
         const badges = this.releaseNotesFetcher.generatePackageBadges(
@@ -975,6 +977,13 @@ export class PullRequestGenerator {
     const newConstraint = `^${cleanNew}`
 
     return `${currentConstraint} -> ${newConstraint}`
+  }
+
+  /**
+   * Escape delimiters that would otherwise split a GitHub Markdown table row.
+   */
+  private escapeMarkdownTableValue(value: string): string {
+    return value.replaceAll('|', '\\|').replaceAll(/\r?\n/g, ' ')
   }
 
   /**
