@@ -279,4 +279,4 @@ buddy-bot update --help
 
 - **GitHub Issues**: [Report bugs and feature requests](https://github.com/stacksjs/buddy-bot/issues)
 - **Discussions**: [Community discussions](https://github.com/stacksjs/buddy-bot/discussions)
-- **Discord**: [Join our Discord](https://discord.gg/stacksjs)
+- **Discord**: [Join our Discord](https://stacksjs.com/discord)

@@ -255,7 +255,7 @@ Solution: Customize PR templates in buddy-bot.config.ts
 
 - 📖 Check the [Configuration Guide](/config)
 - 🐛 Review [GitHub Issues](https://github.com/stacksjs/buddy/issues)
-- 💬 Ask in [Discord](https://discord.gg/stacksjs)
+- 💬 Ask in [Discord](https://stacksjs.com/discord)
 
 ## Best Practices
 

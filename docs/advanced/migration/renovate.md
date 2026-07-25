@@ -414,7 +414,7 @@ npm pkg delete renovate
 
 - 📖 Check the main [Migration Guide](/advanced/migration)
 - 🔧 Review [Configuration](/config) options
-- 💬 Ask in [Discord](https://discord.gg/stacksjs)
+- 💬 Ask in [Discord](https://stacksjs.com/discord)
 - 🐛 Report issues on [GitHub](https://github.com/stacksjs/buddy/issues)
 
 ## Best Practices
