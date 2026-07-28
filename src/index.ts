@@ -26,6 +26,8 @@ export {
   sortUpdatesByPriority,
 } from './utils/helpers'
 
+export { formatError, GitHubApiError } from './utils/errors'
+
 export {
   detectRequiredPackageManagers,
   getAllLockFilePaths,

@@ -3,6 +3,7 @@ import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullReq
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
+import { formatError, GitHubApiError } from '../utils/errors'
 import { assertUpdateTargetsExist, FileChangeValidationError, normalizeRepositoryPath } from '../utils/file-changes'
 import { detectRequiredPackageManagers, getAllLockFilePaths, regenerateLockFile } from '../utils/lock-file'
 
@@ -108,7 +109,7 @@ export class GitHubProvider implements GitProvider {
         return false
 
       // For other errors, log and return false (conservative approach)
-      console.warn(`⚠️ Error checking branch ${branchName}:`, error)
+      console.warn(`⚠️ Error checking branch ${branchName}: ${formatError(error)}`)
       return false
     }
   }
@@ -128,7 +129,7 @@ export class GitHubProvider implements GitProvider {
       console.log(`✅ Created branch ${branchName} from ${baseBranch}`)
     }
     catch (error) {
-      console.error(`❌ Failed to create branch ${branchName}:`, error)
+      console.error(`❌ Failed to create branch ${branchName}: ${formatError(error)}`)
       throw error
     }
   }
@@ -355,7 +356,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to commit changes to ${branchName} with Git CLI:`, error)
+      console.error(`❌ Failed to commit changes to ${branchName} with Git CLI: ${formatError(error)}`)
       throw error
     }
   }
@@ -485,7 +486,7 @@ export class GitHubProvider implements GitProvider {
       console.log(`✅ Committed changes to ${branchName}: ${message}`)
     }
     catch (error) {
-      console.error(`❌ Failed to commit changes to ${branchName}:`, error)
+      console.error(`❌ Failed to commit changes to ${branchName}: ${formatError(error)}`)
       throw error
     }
   }
@@ -592,7 +593,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create PR with GitHub CLI: ${options.title}`, error)
+      console.error(`❌ Failed to create PR with GitHub CLI: ${options.title}: ${formatError(error)}`)
       throw error
     }
   }
@@ -683,7 +684,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create PR with API: ${options.title}`, error)
+      console.error(`❌ Failed to create PR with API: ${options.title}: ${formatError(error)}`)
       throw error
     }
   }
@@ -795,7 +796,7 @@ export class GitHubProvider implements GitProvider {
       return prs
     }
     catch (error) {
-      console.error(`❌ Failed to get PRs:`, error)
+      console.error(`❌ Failed to get PRs: ${formatError(error)}`)
       throw error
     }
   }
@@ -890,7 +891,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to update PR #${prNumber}:`, error)
+      console.error(`❌ Failed to update PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -908,7 +909,7 @@ export class GitHubProvider implements GitProvider {
       // Automatically deleting the branch here prevents reopening PRs later.
     }
     catch (error) {
-      console.error(`❌ Failed to close PR #${prNumber}:`, error)
+      console.error(`❌ Failed to close PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -924,7 +925,7 @@ export class GitHubProvider implements GitProvider {
       console.log(`✅ Reopened PR #${prNumber}`)
     }
     catch (error) {
-      console.error(`❌ Failed to reopen PR #${prNumber}:`, error)
+      console.error(`❌ Failed to reopen PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -937,7 +938,7 @@ export class GitHubProvider implements GitProvider {
       console.log(`💬 Added comment to PR #${prNumber}`)
     }
     catch (error) {
-      console.error(`❌ Failed to add comment to PR #${prNumber}:`, error)
+      console.error(`❌ Failed to add comment to PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -966,7 +967,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to merge PR #${prNumber}:`, error)
+      console.error(`❌ Failed to merge PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -992,7 +993,7 @@ export class GitHubProvider implements GitProvider {
         // Ignore local deletion errors - branch might not exist locally
       }
 
-      console.warn(`⚠️ Failed to delete remote branch ${branchName}:`, error)
+      console.warn(`⚠️ Failed to delete remote branch ${branchName}: ${formatError(error)}`)
       // Don't throw - branch deletion failures are not critical
     }
   }
@@ -1101,7 +1102,7 @@ export class GitHubProvider implements GitProvider {
             }
           }
           catch (error) {
-            console.warn(`⚠️ Failed to get commit info for branch ${branch.name}:`, error)
+            console.warn(`⚠️ Failed to get commit info for branch ${branch.name}: ${formatError(error)}`)
             return {
               name: branch.name,
               sha: branch.commit.sha,
@@ -1276,7 +1277,7 @@ export class GitHubProvider implements GitProvider {
         }
         catch (error) {
           failed.push(branch.name)
-          console.warn(`❌ Failed to delete ${branch.name}:`, error)
+          console.warn(`❌ Failed to delete ${branch.name}: ${formatError(error)}`)
         }
 
         // Small delay between individual deletions within batch
@@ -1332,12 +1333,17 @@ export class GitHubProvider implements GitProvider {
       const tokenHint = effectiveToken
         ? 'token present ([REDACTED])'
         : 'NO TOKEN — ensure GITHUB_TOKEN or BUDDY_BOT_TOKEN is set'
-      throw new Error(
+      throw new GitHubApiError(
         `GitHub API error: ${response.status} ${response.statusText}\n`
         + `  URL: ${method} ${url}\n`
         + `  Auth: ${tokenHint}\n`
         + `  Repo: ${this.owner}/${this.repo}\n`
         + `${errorBody}`,
+        response.status,
+        method,
+        url,
+        `${this.owner}/${this.repo}`,
+        errorBody,
       )
     }
 
@@ -1410,7 +1416,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create issue: ${options.title}`, error)
+      console.error(`❌ Failed to create issue: ${options.title}: ${formatError(error)}`)
       throw error
     }
   }
@@ -1508,7 +1514,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to update issue #${issueNumber}:`, error)
+      console.error(`❌ Failed to update issue #${issueNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -1525,7 +1531,7 @@ export class GitHubProvider implements GitProvider {
       console.log(`✅ Closed issue #${issueNumber}`)
     }
     catch (error) {
-      console.error(`❌ Failed to close issue #${issueNumber}:`, error)
+      console.error(`❌ Failed to close issue #${issueNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -1535,7 +1541,7 @@ export class GitHubProvider implements GitProvider {
       await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
     }
     catch (error: any) {
-      console.log(`⚠️ Failed to unpin issue #${issueNumber}:`, error)
+      console.log(`⚠️ Failed to unpin issue #${issueNumber}: ${formatError(error)}`)
       // Don't throw error for pinning failures as it's not critical
     }
   }
