@@ -3,6 +3,7 @@ import type {
   BuddyBotConfig,
   DashboardData,
   Issue,
+  IssueOptions,
   PackageFile,
   PackageUpdate,
   PullRequest,
@@ -17,6 +18,7 @@ import { PullRequestGenerator } from './pr/pr-generator'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
 import { DeprecatedDependenciesChecker } from './services/deprecated-dependencies-checker'
+import { GitHubApiError } from './utils/errors'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger } from './utils/logger'
 import { resolveRepositoryConfig } from './utils/repository'
@@ -2300,25 +2302,27 @@ export class Buddy {
         bodyTemplate: dashboardConfig.bodyTemplate,
       })
 
+      const issueOptions: IssueOptions = {
+        title: dashboardConfig.title || title,
+        body,
+        labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
+        assignees: dashboardConfig.assignees,
+      }
+
       // Check if dashboard issue already exists
       const existingIssue = await this.findExistingDashboard(gitProvider, dashboardConfig.issueNumber)
 
-      let issue: Issue
+      let issue: Issue | null = null
 
       if (existingIssue) {
         this.logger.info(`Updating existing dashboard issue #${existingIssue.number}`)
+        issue = await this.updateDashboardIssue(gitProvider, existingIssue.number, issueOptions)
 
-        // Update existing dashboard
-        issue = await gitProvider.updateIssue(existingIssue.number, {
-          title: dashboardConfig.title || title,
-          body,
-          labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
-          assignees: dashboardConfig.assignees,
-        })
-
-        this.logger.success(`✅ Successfully updated dashboard issue #${issue.number}`)
+        if (issue)
+          this.logger.success(`✅ Successfully updated dashboard issue #${issue.number}`)
       }
-      else {
+
+      if (!issue) {
         this.logger.info('Creating new dashboard issue')
 
         // Double-check for race condition: search again right before creating
@@ -2326,25 +2330,18 @@ export class Buddy {
         this.logger.info('Performing final check for existing dashboards before creation...')
         const raceCheckIssue = await this.findExistingDashboard(gitProvider, dashboardConfig.issueNumber)
 
-        if (raceCheckIssue) {
+        // Skip the race-check result if it is the issue we just found to be missing
+        if (raceCheckIssue && raceCheckIssue.number !== existingIssue?.number) {
           this.logger.info(`Race condition detected! Found existing dashboard #${raceCheckIssue.number} during final check`)
-          // Update the found issue instead of creating a new one
-          issue = await gitProvider.updateIssue(raceCheckIssue.number, {
-            title: dashboardConfig.title || title,
-            body,
-            labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
-            assignees: dashboardConfig.assignees,
-          })
-          this.logger.success(`✅ Updated existing dashboard issue #${issue.number} (race condition avoided)`)
+          issue = await this.updateDashboardIssue(gitProvider, raceCheckIssue.number, issueOptions)
+
+          if (issue)
+            this.logger.success(`✅ Updated existing dashboard issue #${issue.number} (race condition avoided)`)
         }
-        else {
+
+        if (!issue) {
           // Safe to create new dashboard
-          issue = await gitProvider.createIssue({
-            title: dashboardConfig.title || title,
-            body,
-            labels: dashboardConfig.labels || ['dependencies', 'dashboard'],
-            assignees: dashboardConfig.assignees,
-          })
+          issue = await gitProvider.createIssue(issueOptions)
           this.logger.success(`✅ Successfully created new dashboard issue #${issue.number}`)
         }
       }
@@ -2415,6 +2412,37 @@ export class Buddy {
         provider: this.config.repository!.provider,
       },
       lastUpdated: new Date(),
+    }
+  }
+
+  /**
+   * Update a dashboard issue, treating a missing issue as recoverable.
+   *
+   * The issue can disappear between lookup and update — it may have been deleted,
+   * transferred, or (before repository resolution was fixed) never have existed in
+   * this repository at all. Returning null lets the caller create a fresh dashboard
+   * instead of failing the whole run. Permission and other errors still throw, since
+   * creating a new issue would fail the same way.
+   *
+   * @returns The updated issue, or null when it no longer exists
+   */
+  private async updateDashboardIssue(
+    gitProvider: GitHubProvider,
+    issueNumber: number,
+    options: IssueOptions,
+  ): Promise<Issue | null> {
+    try {
+      return await gitProvider.updateIssue(issueNumber, options)
+    }
+    catch (error) {
+      if (error instanceof GitHubApiError && error.isNotFound) {
+        this.logger.warn(
+          `Dashboard issue #${issueNumber} no longer exists in ${error.repository} `
+          + `(${error.status}); creating a replacement dashboard instead.`,
+        )
+        return null
+      }
+      throw error
     }
   }
 
