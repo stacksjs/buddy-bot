@@ -19,6 +19,7 @@ import { PackageScanner } from './scanner/package-scanner'
 import { DeprecatedDependenciesChecker } from './services/deprecated-dependencies-checker'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger } from './utils/logger'
+import { resolveRepositoryConfig } from './utils/repository'
 
 export class Buddy {
   private readonly logger: Logger
@@ -41,28 +42,19 @@ export class Buddy {
   }
 
   /**
-   * Auto-detect repository owner and name from GITHUB_REPOSITORY env var
-   * when not explicitly configured. This prevents 404 errors when running
-   * in GitHub Actions without a fully specified buddy-bot config.
+   * Reconcile the configured repository with GITHUB_REPOSITORY.
+   *
+   * Fills in an unset owner/name, and overrides a configured one that disagrees
+   * with the repository actually checked out — see `resolveRepositoryConfig` in
+   * `utils/repository` for why the environment wins.
    */
   private resolveRepositoryConfig(): void {
-    if (!this.config.repository)
-      return
+    const resolution = resolveRepositoryConfig(this.config)
 
-    if (this.config.repository.owner && this.config.repository.name)
-      return
-
-    const githubRepo = process.env.GITHUB_REPOSITORY
-    if (githubRepo) {
-      const [owner, name] = githubRepo.split('/')
-      if (owner && name) {
-        if (!this.config.repository.owner)
-          this.config.repository.owner = owner
-        if (!this.config.repository.name)
-          this.config.repository.name = name
-        this.logger.info(`Auto-detected repository: ${owner}/${name} from GITHUB_REPOSITORY`)
-      }
-    }
+    if (resolution.warning)
+      this.logger.warn(`⚠️ ${resolution.warning}`)
+    else if (resolution.source === 'environment')
+      this.logger.info(`Auto-detected repository: ${resolution.owner}/${resolution.name} from GITHUB_REPOSITORY`)
   }
 
   /**

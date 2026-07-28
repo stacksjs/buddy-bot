@@ -1,6 +1,7 @@
 import type { BuddyBotConfig } from './types'
 import process from 'node:process'
 import { loadConfig } from 'bunfig'
+import { resolveRepositoryConfig } from './utils/repository'
 
 export const defaultConfig: BuddyBotConfig = {
   verbose: true,
@@ -42,11 +43,19 @@ let _config: BuddyBotConfig | null = null
 
 export async function getConfig(): Promise<BuddyBotConfig> {
   if (!_config) {
-    _config = await loadConfig({
-  name: 'buddy-bot',
-  cwd: process.cwd(),
-  defaultConfig,
-})
+    const loaded = await loadConfig({
+      name: 'buddy-bot',
+      cwd: process.cwd(),
+      defaultConfig,
+    })
+
+    // Reconcile the configured repository with GITHUB_REPOSITORY before any
+    // consumer reads it, so the CLI and Buddy always agree on the target repo.
+    const resolution = resolveRepositoryConfig(loaded)
+    if (resolution.warning)
+      console.warn(`⚠️ ${resolution.warning}`)
+
+    _config = loaded
   }
   return _config
 }
