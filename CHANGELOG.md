@@ -1,5 +1,25 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.24...v0.9.25)
+
+## 🐛 Bug Fixes
+
+- **dashboard**: recreate the dashboard issue when it no longer exists ([624102a](https://github.com/stacksjs/buddy-bot/commit/624102a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **config**: let GITHUB_REPOSITORY override a mismatched configured repo ([104a828](https://github.com/stacksjs/buddy-bot/commit/104a828)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **logger**: log error messages instead of raw Error objects ([2fc441c](https://github.com/stacksjs/buddy-bot/commit/2fc441c)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 📝 Documentation
+
+- link the community as stacksjs.com/discord ([e6bee14](https://github.com/stacksjs/buddy-bot/commit/e6bee14)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.9.25 ([25f2582](https://github.com/stacksjs/buddy-bot/commit/25f2582)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.23...v0.9.24)
 
 ## 📝 Documentation
