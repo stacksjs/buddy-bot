@@ -43,7 +43,7 @@ describe('RegistryClient - Workspace Integration', () => {
   describe('getOutdatedPackages with workspace support', () => {
     it('should integrate workspace updates with regular bun outdated', async () => {
       // Mock root bun outdated (returns empty)
-      runCommandSpy.mockResolvedValueOnce('')
+      runCommandSpy.mockResolvedValue('')
 
       // Mock workspace detection
       spyOn(registryClient as any, 'getWorkspaceOutdatedPackages').mockResolvedValue([
@@ -92,7 +92,7 @@ describe('RegistryClient - Workspace Integration', () => {
 │ lodash  │ 4.17.20 │ 4.17.21 │ 4.17.21 │
 └─────────┴─────────┴─────────┴─────────┘
 `
-      runCommandSpy.mockResolvedValueOnce(rootBunOutput)
+      runCommandSpy.mockResolvedValue(rootBunOutput)
 
       // Mock workspace updates
       spyOn(registryClient as any, 'getWorkspaceOutdatedPackages').mockResolvedValue([
@@ -134,7 +134,7 @@ describe('RegistryClient - Workspace Integration', () => {
 │ @aws-sdk/client │ 3.840.0 │ 3.855.0 │ 3.855.0 │
 └─────────────────┴─────────┴─────────┴─────────┘
 `
-      runCommandSpy.mockResolvedValueOnce(rootBunOutput)
+      runCommandSpy.mockResolvedValue(rootBunOutput)
 
       // Mock workspace updates with same package but different version info
       spyOn(registryClient as any, 'getWorkspaceOutdatedPackages').mockResolvedValue([
@@ -164,7 +164,7 @@ describe('RegistryClient - Workspace Integration', () => {
     })
 
     it('should handle workspace detection errors gracefully', async () => {
-      runCommandSpy.mockResolvedValueOnce('')
+      runCommandSpy.mockResolvedValue('')
 
       // Mock workspace detection failure with spy that returns empty array
       spyOn(registryClient as any, 'getWorkspaceOutdatedPackages').mockResolvedValue([])
@@ -185,7 +185,7 @@ describe('RegistryClient - Workspace Integration', () => {
     })
 
     it('should include package.json fallback packages not found in workspace scan', async () => {
-      runCommandSpy.mockResolvedValueOnce('')
+      runCommandSpy.mockResolvedValue('')
 
       spyOn(registryClient as any, 'getWorkspaceOutdatedPackages').mockResolvedValue([
         {
@@ -233,7 +233,7 @@ describe('RegistryClient - Workspace Integration', () => {
 └───────────────────────────────────────┴─────────┴─────────┴─────────┴──────────────┘
 `
 
-      runCommandSpy.mockResolvedValueOnce(mockBunOutput)
+      runCommandSpy.mockResolvedValue(mockBunOutput)
 
       const results = await (registryClient as any).runBunOutdatedForWorkspace('@stacksjs/ai')
 
@@ -253,7 +253,7 @@ describe('RegistryClient - Workspace Integration', () => {
 | @aws-sdk/client-bedrock-runtime (dev) | 3.848.0 | 3.857.0 | 3.857.0 | @stacksjs/ai |
 `
 
-      runCommandSpy.mockResolvedValueOnce(mockBunOutput)
+      runCommandSpy.mockResolvedValue(mockBunOutput)
 
       const results = await (registryClient as any).runBunOutdatedForWorkspace('@stacksjs/ai')
 
@@ -270,7 +270,7 @@ describe('RegistryClient - Workspace Integration', () => {
 └─────────────────────────────────────┴─────────┴─────────┴─────────┘
 `
 
-      runCommandSpy.mockResolvedValueOnce(mockBunOutput)
+      runCommandSpy.mockResolvedValue(mockBunOutput)
 
       const results = await (registryClient as any).runBunOutdatedForWorkspace('@stacksjs/ai')
 

@@ -262,7 +262,10 @@ describe('RegistryClient - Composer Integration', () => {
 
       const metadata = await registryClient.getComposerPackageMetadata('laravel/framework')
 
-      expect(fetchSpy).toHaveBeenCalledWith('https://packagist.org/packages/laravel/framework.json')
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://packagist.org/packages/laravel/framework.json',
+        expect.objectContaining({ headers: { 'User-Agent': 'buddy-bot' } }),
+      )
       expect(metadata).toBeDefined()
       expect(metadata!.name).toBe('laravel/framework')
       expect(metadata!.description).toBe('The Laravel Framework')
@@ -285,7 +288,7 @@ describe('RegistryClient - Composer Integration', () => {
     })
 
     it('should handle fetch errors gracefully', async () => {
-      fetchSpy.mockRejectedValueOnce(new Error('Network error'))
+      fetchSpy.mockRejectedValue(new Error('Network error'))
 
       const metadata = await registryClient.getComposerPackageMetadata('laravel/framework')
 
@@ -296,11 +299,17 @@ describe('RegistryClient - Composer Integration', () => {
 
   describe('composerPackageExists', () => {
     it('should return true for existing packages', async () => {
-      fetchSpy.mockResolvedValueOnce({ ok: true })
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ package: { name: 'laravel/framework' } }),
+      })
 
       const exists = await registryClient.composerPackageExists('laravel/framework')
 
-      expect(fetchSpy).toHaveBeenCalledWith('https://packagist.org/packages/laravel/framework.json')
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://packagist.org/packages/laravel/framework.json',
+        expect.objectContaining({ headers: { 'User-Agent': 'buddy-bot' } }),
+      )
       expect(exists).toBe(true)
     })
 
@@ -313,7 +322,7 @@ describe('RegistryClient - Composer Integration', () => {
     })
 
     it('should handle fetch errors gracefully', async () => {
-      fetchSpy.mockRejectedValueOnce(new Error('Network error'))
+      fetchSpy.mockRejectedValue(new Error('Network error'))
 
       const exists = await registryClient.composerPackageExists('laravel/framework')
 

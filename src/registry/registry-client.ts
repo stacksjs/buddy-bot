@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import type { BuddyBotConfig, PackageMetadata, PackageUpdate } from '../types'
 import type { Logger } from '../utils/logger'
 import { spawn } from 'node:child_process'
@@ -6,7 +5,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { PackageRegistryError } from '../types'
+import { AsyncMemo, DEFAULT_CONCURRENCY, mapWithConcurrency } from '../utils/concurrency'
+import { getComposerRegistryUrl, getGitHubApiUrl, getNpmRegistryUrl } from '../utils/endpoints'
 import { getUpdateType } from '../utils/helpers'
+import { fetchJsonOrNull, fetchWithTimeout } from '../utils/http'
 import { shouldSkipPackageDirectory } from '../utils/package-paths'
 
 export interface BunOutdatedResult {
@@ -21,8 +23,33 @@ export interface BunOutdatedResult {
 // Narrow shapes for the external API responses this file consumes.
 // Everything is `?` because the providers can and do change fields — we only
 // assert that what we actually touch is at least structurally present.
+interface NpmVersionManifest {
+  name?: string
+  version?: string
+  description?: string
+  homepage?: string
+  license?: string | { type?: string }
+  keywords?: string[]
+  author?: string | { name?: string, email?: string }
+  repository?: string | { url?: string }
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
+  deprecated?: string
+}
+
 interface NpmRegistryPackument {
-  versions?: Record<string, unknown>
+  name?: string
+  description?: string
+  homepage?: string
+  license?: string | { type?: string }
+  keywords?: string[]
+  author?: string | { name?: string, email?: string }
+  repository?: string | { url?: string }
+  'dist-tags'?: Record<string, string>
+  versions?: Record<string, NpmVersionManifest>
+  /** Publish timestamps keyed by version, plus `created` and `modified`. */
+  time?: Record<string, string>
 }
 
 interface NpmSearchResponse {
@@ -37,6 +64,8 @@ interface NpmSearchResponse {
 }
 
 interface PackagistVersionEntry {
+  /** ISO 8601 publish timestamp */
+  time?: string
   description?: string
   homepage?: string
   license?: string | string[]
@@ -69,12 +98,151 @@ function assertSafePkgArg(arg: string, label: string): void {
   }
 }
 
+/**
+ * Build headers for a GitHub API request, including auth when a token is
+ * available.
+ *
+ * Anonymous requests are capped at 60 per hour and cannot see private repos,
+ * which silently degrades release-date and action-version lookups on any busy
+ * runner.
+ */
+function githubHeaders(config?: BuddyBotConfig): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'buddy-bot',
+  }
+
+  const token = config?.repository?.token
+    || process.env.BUDDY_BOT_TOKEN
+    || process.env.GITHUB_TOKEN
+    || process.env.GH_TOKEN
+
+  if (token)
+    headers.Authorization = `Bearer ${token}`
+
+  return headers
+}
+
+/**
+ * Coerce a version field from `bun outdated --json` to a trimmed string.
+ *
+ * Bun has emitted versions both as bare strings and as `{ version }` objects
+ * across releases, so both are accepted rather than silently dropping the row.
+ */
+function asVersionString(value: unknown): string {
+  if (typeof value === 'string')
+    return value.trim()
+  if (value && typeof value === 'object' && 'version' in value) {
+    const nested = (value as { version?: unknown }).version
+    if (typeof nested === 'string')
+      return nested.trim()
+  }
+  return ''
+}
+
 export class RegistryClient {
+  /**
+   * Full npm packuments, memoized for the lifetime of the client.
+   *
+   * A single scan asks about the same package from several angles — latest
+   * version, PR metadata, publish date for `minimumReleaseAge` — and each of
+   * those used to cost its own network round-trip or `bun info` subprocess.
+   * Caching the packument collapses them into one request per package.
+   *
+   * The full (non-abbreviated) document is fetched because the abbreviated
+   * form omits both `time` and the descriptive fields PR bodies need.
+   *
+   * A failed lookup is cached as `null` rather than retried per call site: the
+   * transport has already exhausted its own retries by that point, so asking
+   * again would only multiply the delay for a package the scan can proceed
+   * without.
+   */
+  private readonly packumentCache = new AsyncMemo<NpmRegistryPackument | null>()
+
+  /** Packagist responses, memoized for the same reason as {@link packumentCache}. */
+  private readonly composerCache = new AsyncMemo<PackagistResponse | null>()
+
   constructor(
     private readonly projectPath: string,
     private readonly logger: Logger,
     private readonly config: BuddyBotConfig | undefined = undefined,
+    /** Maximum concurrent registry requests. */
+    private readonly concurrency: number = DEFAULT_CONCURRENCY,
   ) {}
+
+  /**
+   * Drop every memoized registry response.
+   *
+   * Call between logically separate scans in a long-lived process; a single
+   * CLI invocation never needs it.
+   */
+  clearCache(): void {
+    this.packumentCache.clear()
+    this.composerCache.clear()
+  }
+
+  /**
+   * Fetch and memoize a package's full npm packument.
+   *
+   * @param packageName - Package to resolve
+   * @returns The packument, or `null` when the package is unknown or the
+   * registry is unreachable
+   */
+  private async fetchPackument(packageName: string): Promise<NpmRegistryPackument | null> {
+    return this.packumentCache.get(packageName, async () => {
+      const registry = getNpmRegistryUrl(packageName, this.config, this.projectPath)
+      const url = `${registry}/${encodeURIComponent(packageName).replace('%40', '@')}`
+
+      try {
+        const response = await fetchWithTimeout(url, {
+          headers: { 'User-Agent': 'buddy-bot' },
+          onRetry: ({ delayMs, reason }) =>
+            this.logger.debug(`Retrying ${packageName} in ${Math.round(delayMs / 1000)}s (${reason})`),
+        })
+
+        if (!response.ok) {
+          // A 404 is ordinary (private or renamed package); anything else is
+          // worth surfacing because it silently degrades the scan.
+          const log = response.status === 404 ? this.logger.debug : this.logger.warn
+          log.call(this.logger, `No registry data for ${packageName}: HTTP ${response.status}`)
+          return null
+        }
+
+        return await response.json() as NpmRegistryPackument
+      }
+      catch (error) {
+        this.logger.warn(`Failed to fetch registry data for ${packageName}:`, error)
+        return null
+      }
+    })
+  }
+
+  /**
+   * Fetch and memoize a Composer package's Packagist record.
+   *
+   * @param packageName - Vendor-qualified package name, e.g. `laravel/framework`
+   * @returns The Packagist response, or `null` when unavailable
+   */
+  private async fetchComposerPackage(packageName: string): Promise<PackagistResponse | null> {
+    return this.composerCache.get(packageName, async () => {
+      const registry = getComposerRegistryUrl(this.config)
+
+      try {
+        const response = await fetchWithTimeout(`${registry}/packages/${packageName}.json`, {
+          headers: { 'User-Agent': 'buddy-bot' },
+        })
+
+        if (!response.ok)
+          return null
+
+        return await response.json() as PackagistResponse
+      }
+      catch (error) {
+        this.logger.warn(`Failed to get Composer metadata for ${packageName}:`, error)
+        return null
+      }
+    })
+  }
 
   /**
    * Check if a version should be respected (not updated)
@@ -134,36 +302,40 @@ export class RegistryClient {
         }
       }
 
-      const updates: PackageUpdate[] = []
-
-      for (const result of allResults.values()) {
-        // Skip packages that should be respected (like "latest", "*", etc.)
+      // Metadata lookups are independent per package and dominate scan time on
+      // large trees, so they run concurrently rather than one round-trip at a
+      // time. Order is preserved by `mapWithConcurrency`.
+      const candidates = [...allResults.values()].filter((result) => {
         if (this.shouldRespectVersion(result.current)) {
           this.logger.debug(`Skipping ${result.name} - version "${result.current}" should be respected`)
-          continue
+          return false
         }
+        return true
+      })
 
-        const updateType = getUpdateType(result.current, result.latest)
+      const updates: PackageUpdate[] = await mapWithConcurrency(
+        candidates,
+        async (result) => {
+          const [metadata, packageLocation] = await Promise.all([
+            this.getPackageMetadata(result.name),
+            this.findPackageLocation(result.name),
+          ])
 
-        // Get additional metadata for the package
-        const metadata = await this.getPackageMetadata(result.name)
-
-        // Find the actual package.json file that contains this package
-        const packageLocation = await this.findPackageLocation(result.name)
-
-        updates.push({
-          name: result.name,
-          currentVersion: result.current,
-          newVersion: result.latest,
-          updateType,
-          dependencyType: 'dependencies', // Will be refined based on package.json analysis
-          file: packageLocation || 'package.json', // Use actual location or fallback
-          metadata,
-          releaseNotesUrl: this.getReleaseNotesUrl(result.name, metadata),
-          changelogUrl: this.getChangelogUrl(result.name, metadata),
-          homepage: metadata?.homepage,
-        })
-      }
+          return {
+            name: result.name,
+            currentVersion: result.current,
+            newVersion: result.latest,
+            updateType: getUpdateType(result.current, result.latest),
+            dependencyType: 'dependencies' as const, // Refined later by package.json analysis
+            file: packageLocation || 'package.json',
+            metadata,
+            releaseNotesUrl: this.getReleaseNotesUrl(result.name, metadata),
+            changelogUrl: this.getChangelogUrl(result.name, metadata),
+            homepage: metadata?.homepage,
+          }
+        },
+        this.concurrency,
+      )
 
       // Also check for Composer packages if composer.json exists
       const composerJsonPath = path.join(this.projectPath, 'composer.json')
@@ -205,29 +377,46 @@ export class RegistryClient {
   }
 
   /**
-   * Get package metadata from registry using bun
+   * Get package metadata from the registry.
+   *
+   * Reads from the memoized packument rather than spawning `bun info`, so a
+   * scan that already resolved this package's latest version pays nothing for
+   * its metadata.
+   *
+   * @param packageName - Package to describe
+   * @returns Metadata, or `undefined` when the package cannot be resolved
    */
   async getPackageMetadata(packageName: string): Promise<PackageMetadata | undefined> {
     try {
       assertSafePkgArg(packageName, 'package name')
-      // Use bun info to get package metadata
-      const result = await this.runCommand('bun', ['info', packageName, '--json'])
-      const data = JSON.parse(result)
+      const packument = await this.fetchPackument(packageName)
+      if (!packument)
+        return undefined
+
+      const versions = Object.keys(packument.versions ?? {})
+      const latestVersion = packument['dist-tags']?.latest ?? versions[versions.length - 1] ?? ''
+      // Descriptive fields live on the latest version manifest; the packument
+      // root carries stale copies for packages that stopped updating them.
+      const manifest = packument.versions?.[latestVersion] ?? {}
+
+      const repository = manifest.repository ?? packument.repository
+      const license = manifest.license ?? packument.license
+      const author = manifest.author ?? packument.author
 
       return {
-        name: data.name,
-        description: data.description,
-        repository: typeof data.repository === 'string' ? data.repository : data.repository?.url,
-        homepage: data.homepage,
-        license: data.license,
-        author: typeof data.author === 'string' ? data.author : data.author?.name,
-        keywords: data.keywords,
-        latestVersion: data.version,
-        versions: data.versions || [data.version],
-        weeklyDownloads: undefined, // Would need separate API call
-        dependencies: data.dependencies,
-        devDependencies: data.devDependencies,
-        peerDependencies: data.peerDependencies,
+        name: manifest.name ?? packument.name ?? packageName,
+        description: manifest.description ?? packument.description,
+        repository: typeof repository === 'string' ? repository : repository?.url,
+        homepage: manifest.homepage ?? packument.homepage,
+        license: typeof license === 'string' ? license : license?.type,
+        author: typeof author === 'string' ? author : author?.name,
+        keywords: manifest.keywords ?? packument.keywords,
+        latestVersion,
+        versions,
+        weeklyDownloads: undefined, // Would need a separate downloads API call
+        dependencies: manifest.dependencies,
+        devDependencies: manifest.devDependencies,
+        peerDependencies: manifest.peerDependencies,
       }
     }
     catch (error) {
@@ -237,12 +426,15 @@ export class RegistryClient {
   }
 
   /**
-   * Check if package exists in registry
+   * Check if a package exists in the registry.
+   *
+   * @param packageName - Package to look up
+   * @returns Whether the registry has a record for it
    */
   async packageExists(packageName: string): Promise<boolean> {
     try {
-      await this.runCommand('bun', ['info', packageName])
-      return true
+      assertSafePkgArg(packageName, 'package name')
+      return (await this.fetchPackument(packageName)) !== null
     }
     catch {
       return false
@@ -250,20 +442,14 @@ export class RegistryClient {
   }
 
   /**
-   * Get latest version of a package
+   * Get the latest publishable version of a package.
+   *
+   * @param packageName - Package to resolve
+   * @returns Latest version honouring `packages.includePrerelease`, or `null`
    */
   async getLatestVersion(packageName: string): Promise<string | null> {
     try {
-      // First try to get all available versions from npm registry
-      const npmLatest = await this.getLatestVersionFromNpm(packageName)
-      if (npmLatest) {
-        return npmLatest
-      }
-
-      // Fallback to bun info
-      const result = await this.runCommand('bun', ['info', packageName, '--json'])
-      const data = JSON.parse(result)
-      return data.version?.trim() || null
+      return await this.getLatestVersionFromNpm(packageName)
     }
     catch {
       return null
@@ -271,53 +457,44 @@ export class RegistryClient {
   }
 
   /**
-   * Get latest version from npm registry (respecting prerelease settings)
+   * Get latest version from the npm registry, respecting prerelease settings.
+   *
+   * Prefers the `latest` dist-tag, which is what a bare `install` resolves to,
+   * and only falls back to sorting the full version list when that tag is
+   * missing or points at a prerelease the config excludes.
    */
   private async getLatestVersionFromNpm(packageName: string): Promise<string | null> {
-    try {
-      const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`)
-      if (!response.ok) {
-        return null
-      }
-
-      const data = await response.json() as NpmRegistryPackument
-      const versions = Object.keys(data.versions ?? {})
-
-      if (versions.length === 0) {
-        return null
-      }
-
-      // Filter versions based on prerelease setting
-      const includePrerelease = this.config?.packages?.includePrerelease ?? false
-      let filteredVersions = versions
-
-      if (!includePrerelease) {
-        // Filter out prerelease versions (alpha, beta, rc, dev, etc.)
-        filteredVersions = versions.filter((version) => {
-          return !this.isPrerelease(version)
-        })
-      }
-
-      if (filteredVersions.length === 0) {
-        return null
-      }
-
-      // Sort versions using semver and get the latest
-      const sortedVersions = filteredVersions.sort((a, b) => {
-        try {
-          return Bun.semver.order(b, a) // Reverse order for descending
-        }
-        catch {
-          return 0
-        }
-      })
-
-      return sortedVersions[0] || null
-    }
-    catch (error) {
-      this.logger.warn(`Failed to get npm version for ${packageName}:`, error)
+    const packument = await this.fetchPackument(packageName)
+    if (!packument)
       return null
-    }
+
+    const versions = Object.keys(packument.versions ?? {})
+    if (versions.length === 0)
+      return null
+
+    const includePrerelease = this.config?.packages?.includePrerelease ?? false
+
+    const distTagLatest = packument['dist-tags']?.latest
+    if (distTagLatest && (includePrerelease || !this.isPrerelease(distTagLatest)))
+      return distTagLatest
+
+    const candidates = includePrerelease
+      ? versions
+      : versions.filter(version => !this.isPrerelease(version))
+
+    if (candidates.length === 0)
+      return null
+
+    const sorted = [...candidates].sort((a, b) => {
+      try {
+        return Bun.semver.order(b, a) // Descending
+      }
+      catch {
+        return 0
+      }
+    })
+
+    return sorted[0] || null
   }
 
   /**
@@ -329,21 +506,44 @@ export class RegistryClient {
   }
 
   /**
-   * Run bun outdated command and parse results
+   * Run `bun outdated` and parse its results.
+   *
+   * Prefers `--json`, which is stable machine-readable output. The rendered
+   * table is only parsed as a fallback for Bun versions that predate the flag:
+   * that parser depends on box-drawing characters and column positions, so it
+   * silently drops rows when names are truncated or the layout shifts.
+   *
+   * @param filter - Optional space-separated package specs to narrow the check
+   * @returns Outdated packages reported by Bun
+   * @throws {PackageRegistryError} When the command itself fails
    */
   private async runBunOutdated(filter?: string): Promise<BunOutdatedResult[]> {
-    const args = ['outdated']
+    const filterArgs: string[] = []
     if (filter) {
       // Filter is a space-separated list of package specs from user config / CLI.
       // Validate each token so a value like `--cwd=/tmp` can't sneak in as an arg.
       for (const token of filter.split(/\s+/).filter(Boolean)) {
         assertSafePkgArg(token, 'package filter')
-        args.push(token)
+        filterArgs.push(token)
       }
     }
 
     try {
-      const output = await this.runCommand('bun', args)
+      const jsonOutput = await this.runCommand('bun', ['outdated', '--json', ...filterArgs])
+      const parsed = this.parseBunOutdatedJson(jsonOutput)
+      if (parsed)
+        return parsed
+
+      this.logger.debug('bun outdated --json produced unrecognized output, falling back to table parsing')
+    }
+    catch (error) {
+      // An unknown flag means this Bun predates `--json`; anything else is a
+      // real failure and is re-raised after the fallback attempt fails too.
+      this.logger.debug('bun outdated --json unavailable, falling back to table parsing:', error)
+    }
+
+    try {
+      const output = await this.runCommand('bun', ['outdated', ...filterArgs])
       return this.parseBunOutdatedOutput(output)
     }
     catch (error) {
@@ -354,7 +554,64 @@ export class RegistryClient {
   }
 
   /**
-   * Parse bun outdated command output
+   * Parse the JSON form of `bun outdated`.
+   *
+   * Accepts both shapes Bun has emitted: a bare array of entries, and an
+   * object keyed by package name. Returns `null` when the output is not JSON
+   * at all, which is the signal to fall back to table parsing.
+   *
+   * @param output - Raw stdout from `bun outdated --json`
+   * @returns Parsed entries, or `null` when the output is not usable JSON
+   */
+  private parseBunOutdatedJson(output: string): BunOutdatedResult[] | null {
+    const trimmed = output.trim()
+    if (!trimmed || (!trimmed.startsWith('[') && !trimmed.startsWith('{')))
+      return null
+
+    let data: unknown
+    try {
+      data = JSON.parse(trimmed)
+    }
+    catch {
+      return null
+    }
+
+    const rows: Array<Record<string, unknown>> = Array.isArray(data)
+      ? data as Array<Record<string, unknown>>
+      : Object.entries(data as Record<string, unknown>).map(([name, value]) => ({
+          name,
+          ...(value && typeof value === 'object' ? value as Record<string, unknown> : {}),
+        }))
+
+    const results: BunOutdatedResult[] = []
+    for (const row of rows) {
+      const name = typeof row.name === 'string' ? row.name : undefined
+      const current = asVersionString(row.current)
+      const latest = asVersionString(row.latest)
+      if (!name || !current || !latest)
+        continue
+
+      const result: BunOutdatedResult = {
+        name,
+        current,
+        update: asVersionString(row.update) || latest,
+        latest,
+      }
+
+      const workspace = typeof row.workspace === 'string' ? row.workspace : undefined
+      if (workspace)
+        result.workspace = workspace
+
+      results.push(result)
+    }
+
+    return results
+  }
+
+  /**
+   * Parse the rendered table form of `bun outdated`.
+   *
+   * Fallback only — see {@link runBunOutdated}.
    */
   private parseBunOutdatedOutput(output: string): BunOutdatedResult[] {
     const results: BunOutdatedResult[] = []
@@ -465,58 +722,51 @@ export class RegistryClient {
         ...depsOf('peerDependencies'),
       }
 
-      const results: BunOutdatedResult[] = []
       const packageNames = Object.keys(allDeps)
+      const ignoredPackages = this.config?.packages?.ignore || []
+      const excludeMajor = this.config?.packages?.excludeMajor ?? false
 
-      // Apply filter if provided
-      const filteredPackages = filter
+      // Narrow to packages worth a network lookup before fanning out, so the
+      // concurrency budget is spent only on real candidates. Resolving the
+      // clean version here also carries it into the worker already narrowed to
+      // a string.
+      const candidates = (filter
         ? packageNames.filter(name => filter.split(' ').some(f => name.includes(f)))
         : packageNames
+      ).flatMap((packageName) => {
+        if (!allDeps[packageName] || ignoredPackages.includes(packageName))
+          return []
+        // A `workspace:` protocol version has no semver meaning to compare.
+        const cleanVersion = this.cleanVersionRange(allDeps[packageName])
+        return cleanVersion ? [{ packageName, cleanVersion }] : []
+      })
 
-      for (const packageName of filteredPackages) {
-        const packageJsonVersion = allDeps[packageName]
-        if (!packageJsonVersion)
-          continue
+      // One registry request per package, several in flight at once. Serially
+      // this was the single slowest step of a scan on a large dependency tree.
+      const resolved = await mapWithConcurrency(
+        candidates,
+        async ({ packageName, cleanVersion }): Promise<BunOutdatedResult | null> => {
+          const latestVersion = await this.getLatestVersion(packageName)
+          if (!latestVersion)
+            return null
 
-        // Skip ignored packages
-        const ignoredPackages = this.config?.packages?.ignore || []
-        if (ignoredPackages.includes(packageName)) {
-          continue
-        }
+          if (Bun.semver.order(cleanVersion, latestVersion) >= 0)
+            return null
 
-        // Get the actual version from package.json (strip caret, tilde, etc.)
-        const cleanVersion = this.cleanVersionRange(packageJsonVersion)
+          if (excludeMajor && getUpdateType(cleanVersion, latestVersion) === 'major')
+            return null
 
-        // Skip workspace: versions as they're not meant for semver comparison
-        if (!cleanVersion) {
-          continue
-        }
-
-        // Get latest version from registry
-        const latestVersion = await this.getLatestVersion(packageName)
-        if (!latestVersion)
-          continue
-
-        // Check if package.json version is older than latest using Bun's semver
-        if (Bun.semver.order(cleanVersion, latestVersion) < 0) {
-          // Check if this is a major update and if major updates are excluded
-          const updateType = getUpdateType(cleanVersion, latestVersion)
-          const excludeMajor = this.config?.packages?.excludeMajor ?? false
-
-          if (excludeMajor && updateType === 'major') {
-            continue
-          }
-
-          results.push({
+          return {
             name: packageName,
             current: cleanVersion,
             update: latestVersion,
             latest: latestVersion,
-          })
-        }
-      }
+          }
+        },
+        this.concurrency,
+      )
 
-      return results
+      return resolved.filter((result): result is BunOutdatedResult => result !== null)
     }
     catch (error) {
       this.logger.warn('Failed to check package.json versions:', error)
@@ -655,10 +905,12 @@ export class RegistryClient {
   }>> {
     try {
       const encodedQuery = encodeURIComponent(query)
-      const url = `https://registry.npmjs.org/-/v1/search?text=${encodedQuery}&size=${limit}`
+      const registry = getNpmRegistryUrl(undefined, this.config, this.projectPath)
+      const url = `${registry}/-/v1/search?text=${encodedQuery}&size=${limit}`
 
-      // Use fetch if available, otherwise use bun's built-in fetch
-      const response = await fetch(url)
+      const response = await fetchWithTimeout(url, {
+        headers: { 'User-Agent': 'buddy-bot' },
+      })
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -703,55 +955,55 @@ export class RegistryClient {
 
     try {
       // First check if composer is available
-      console.log('🔍 Checking Composer availability...')
+      this.logger.info('🔍 Checking Composer availability...')
       try {
         const composerVersion = await this.runCommand('composer', ['--version'])
-        console.log('✅ Composer version:', composerVersion.split('\n')[0])
+        this.logger.info('✅ Composer version:', composerVersion.split('\n')[0])
       }
       catch (error) {
-        console.log('❌ Composer not available:', error)
+        this.logger.info('❌ Composer not available:', error)
         this.logger.warn('Composer not found, skipping Composer package updates')
         return []
       }
 
       // First, let's log what composer.json contains
       const composerJsonPath = path.join(process.cwd(), 'composer.json')
-      console.log(`🔍 Reading composer.json from: ${composerJsonPath}`)
+      this.logger.info(`🔍 Reading composer.json from: ${composerJsonPath}`)
 
       if (!fs.existsSync(composerJsonPath)) {
-        console.log('❌ composer.json not found')
+        this.logger.info('❌ composer.json not found')
         return []
       }
 
       const composerJsonContent = fs.readFileSync(composerJsonPath, 'utf8')
       const composerJsonData = JSON.parse(composerJsonContent)
 
-      console.log('📦 composer.json require packages:', Object.keys(composerJsonData.require || {}))
-      console.log('📦 composer.json require-dev packages:', Object.keys(composerJsonData['require-dev'] || {}))
+      this.logger.info('📦 composer.json require packages:', Object.keys(composerJsonData.require || {}))
+      this.logger.info('📦 composer.json require-dev packages:', Object.keys(composerJsonData['require-dev'] || {}))
 
       // Run composer outdated to get available updates (including require-dev packages)
-      console.log('🔍 Running composer outdated (including dev dependencies)...')
+      this.logger.info('🔍 Running composer outdated (including dev dependencies)...')
       const composerOutput = await this.runCommand('composer', ['outdated', '--format=json'])
-      console.log('📊 Raw composer outdated output length:', composerOutput.length)
+      this.logger.info('📊 Raw composer outdated output length:', composerOutput.length)
 
       let composerData: any
       try {
         composerData = JSON.parse(composerOutput)
-        console.log(`📋 Composer outdated found ${composerData.installed?.length || 0} packages`)
+        this.logger.info(`📋 Composer outdated found ${composerData.installed?.length || 0} packages`)
       }
       catch (parseError) {
-        console.log('❌ Failed to parse composer outdated JSON:', parseError)
-        console.log('Raw output:', composerOutput.substring(0, 500))
+        this.logger.info('❌ Failed to parse composer outdated JSON:', parseError)
+        this.logger.info('Raw output:', composerOutput.substring(0, 500))
         return []
       }
 
       // Parse composer outdated output and find multiple update paths per package
       if (composerData.installed) {
-        console.log('🔄 Processing outdated packages...')
+        this.logger.info('🔄 Processing outdated packages...')
         for (const pkg of composerData.installed) {
-          console.log(`\n📦 Processing package: ${pkg.name}`)
-          console.log(`   Current version: ${pkg.version}`)
-          console.log(`   Latest version: ${pkg.latest}`)
+          this.logger.info(`\n📦 Processing package: ${pkg.name}`)
+          this.logger.info(`   Current version: ${pkg.version}`)
+          this.logger.info(`   Latest version: ${pkg.latest}`)
 
           if (pkg.name && pkg.version && pkg.latest) {
             // Get the version constraint from composer.json
@@ -759,17 +1011,17 @@ export class RegistryClient {
             const requireDevConstraint = composerJsonData['require-dev']?.[pkg.name]
             const constraint = requireConstraint || requireDevConstraint
 
-            console.log(`   Constraint: ${constraint || 'NOT FOUND'}`)
+            this.logger.info(`   Constraint: ${constraint || 'NOT FOUND'}`)
 
             if (!constraint) {
-              console.log(`   ⚠️  Skipping ${pkg.name} - not found in composer.json`)
+              this.logger.info(`   ⚠️  Skipping ${pkg.name} - not found in composer.json`)
               continue // Skip packages not found in composer.json
             }
 
             // Skip ignored packages
             const ignoredPackages = this.config?.packages?.ignore || []
             if (ignoredPackages.includes(pkg.name)) {
-              console.log(`   ⚠️  Skipping ${pkg.name} - in ignore list`)
+              this.logger.info(`   ⚠️  Skipping ${pkg.name} - in ignore list`)
               continue
             }
 
@@ -778,7 +1030,7 @@ export class RegistryClient {
             if (composerJsonData['require-dev'] && composerJsonData['require-dev'][pkg.name]) {
               dependencyType = 'require-dev'
             }
-            console.log(`   Dependency type: ${dependencyType}`)
+            this.logger.info(`   Dependency type: ${dependencyType}`)
 
             // Get additional metadata for the package
             const metadata = await this.getComposerPackageMetadata(pkg.name)
@@ -786,53 +1038,53 @@ export class RegistryClient {
             // Find multiple update paths: patch, minor, and major
             // Extract the base version from the constraint (e.g., "^3.0" -> "3.0.0")
             const constraintBaseVersion = this.extractConstraintBaseVersion(constraint)
-            console.log(`   Constraint base version: ${constraintBaseVersion}`)
+            this.logger.info(`   Constraint base version: ${constraintBaseVersion}`)
 
             // Always use constraint base version for consistent detection across environments
             // This ensures we detect updates based on composer.json constraints, not installed versions
             if (!constraintBaseVersion) {
-              console.warn(`❌ Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
+              this.logger.warn(`❌ Could not extract base version from constraint "${constraint}" for ${pkg.name}`)
               continue
             }
 
             const currentVersion = constraintBaseVersion
             const latestVersion = pkg.latest
-            console.log(`   Using current version: ${currentVersion} (from constraint)`)
-            console.log(`   Target latest version: ${latestVersion}`)
+            this.logger.info(`   Using current version: ${currentVersion} (from constraint)`)
+            this.logger.info(`   Target latest version: ${latestVersion}`)
 
             // Get all available versions by querying composer show
             let availableVersions: string[] = []
             try {
-              console.log(`   🔍 Getting available versions for ${pkg.name}...`)
+              this.logger.info(`   🔍 Getting available versions for ${pkg.name}...`)
               const showOutput = await this.runCommand('composer', ['show', pkg.name, '--available', '--format=json'])
               const showData = JSON.parse(showOutput)
               if (showData.versions) {
                 availableVersions = showData.versions // This is already an array of version strings
-                console.log(`   📋 Found ${availableVersions.length} available versions`)
+                this.logger.info(`   📋 Found ${availableVersions.length} available versions`)
               }
             }
             catch (error) {
-              console.warn(`❌ Failed to get available versions for ${pkg.name}, using latest only:`, error)
+              this.logger.warn(`❌ Failed to get available versions for ${pkg.name}, using latest only:`, error)
               availableVersions = [latestVersion]
             }
 
             // Find the best constraint updates (e.g., ^3.0 -> ^3.9.0)
-            console.log(`   🎯 Finding best constraint updates...`)
+            this.logger.info(`   🎯 Finding best constraint updates...`)
             const updateCandidates = await this.findBestConstraintUpdates(constraint, availableVersions, currentVersion)
-            console.log(`   📊 Found ${updateCandidates.length} update candidates`)
+            this.logger.info(`   📊 Found ${updateCandidates.length} update candidates`)
 
             for (const candidate of updateCandidates) {
               const updateType = getUpdateType(currentVersion, candidate.version)
-              console.log(`   📈 Update candidate: ${currentVersion} → ${candidate.version} (${updateType})`)
+              this.logger.info(`   📈 Update candidate: ${currentVersion} → ${candidate.version} (${updateType})`)
 
               // Check if this update type should be excluded
               const excludeMajor = this.config?.packages?.excludeMajor ?? false
               if (excludeMajor && updateType === 'major') {
-                console.log(`   ⚠️  Skipping major update for ${pkg.name} - excludeMajor is true`)
+                this.logger.info(`   ⚠️  Skipping major update for ${pkg.name} - excludeMajor is true`)
                 continue
               }
 
-              console.log(`   ✅ Adding update: ${pkg.name} ${currentVersion} → ${candidate.version}`)
+              this.logger.info(`   ✅ Adding update: ${pkg.name} ${currentVersion} → ${candidate.version}`)
               updates.push({
                 name: pkg.name,
                 currentVersion,
@@ -850,7 +1102,7 @@ export class RegistryClient {
         }
       }
 
-      console.log(`✅ Final result: Found ${updates.length} Composer package updates`)
+      this.logger.info(`✅ Final result: Found ${updates.length} Composer package updates`)
       this.logger.success(`Found ${updates.length} Composer package updates`)
       return updates
     }
@@ -970,14 +1222,8 @@ export class RegistryClient {
    */
   async getComposerPackageMetadata(packageName: string): Promise<PackageMetadata | undefined> {
     try {
-      const response = await fetch(`https://packagist.org/packages/${packageName}.json`)
-
-      if (!response.ok) {
-        return undefined
-      }
-
-      const data = await response.json() as PackagistResponse
-      const packageData = data.package
+      const data = await this.fetchComposerPackage(packageName)
+      const packageData = data?.package
 
       if (!packageData?.versions) {
         return undefined
@@ -1014,8 +1260,7 @@ export class RegistryClient {
    */
   async composerPackageExists(packageName: string): Promise<boolean> {
     try {
-      const response = await fetch(`https://packagist.org/packages/${packageName}.json`)
-      return response.ok
+      return (await this.fetchComposerPackage(packageName)) !== null
     }
     catch {
       return false
@@ -1027,14 +1272,8 @@ export class RegistryClient {
    */
   async getComposerLatestVersion(packageName: string): Promise<string | null> {
     try {
-      const response = await fetch(`https://packagist.org/packages/${packageName}.json`)
-
-      if (!response.ok) {
-        return null
-      }
-
-      const data = await response.json() as PackagistResponse
-      const packageData = data.package
+      const data = await this.fetchComposerPackage(packageName)
+      const packageData = data?.package
 
       if (!packageData?.versions) {
         return null
@@ -1383,35 +1622,25 @@ export class RegistryClient {
   }
 
   /**
-   * Get the release date of a specific package version from registry
+   * Get the publish date of a specific package version.
+   *
+   * Read from the memoized packument's `time` map, so enabling
+   * `minimumReleaseAge` costs no additional requests for packages the scan has
+   * already looked at.
+   *
+   * @param packageName - Package to inspect
+   * @param version - Exact version whose publish date is wanted
+   * @returns Publish date, or `null` when the registry does not report one
    */
   async getPackageVersionReleaseDate(packageName: string, version: string): Promise<Date | null> {
     try {
-      // First try using bun info to get package metadata
-      const result = await this.runCommand('bun', ['info', `${packageName}@${version}`, '--json'])
-      const data = JSON.parse(result)
+      const packument = await this.fetchPackument(packageName)
+      const published = packument?.time?.[version]
+      if (!published)
+        return null
 
-      // Check if the package data has time information
-      if (data.time && typeof data.time === 'string') {
-        return new Date(data.time)
-      }
-
-      // If bun doesn't provide time info, fall back to npm registry API
-      if (!data.time) {
-        try {
-          const npmResult = await this.runCommand('npm', ['view', `${packageName}@${version}`, 'time', '--json'])
-          const timeData = JSON.parse(npmResult)
-
-          if (timeData && typeof timeData === 'string') {
-            return new Date(timeData)
-          }
-        }
-        catch (npmError) {
-          this.logger.debug(`npm fallback failed for ${packageName}@${version}:`, npmError)
-        }
-      }
-
-      return null
+      const date = new Date(published)
+      return Number.isNaN(date.getTime()) ? null : date
     }
     catch (error) {
       this.logger.debug(`Failed to get release date for ${packageName}@${version}:`, error)
@@ -1420,29 +1649,28 @@ export class RegistryClient {
   }
 
   /**
-   * Get the release date for GitHub Actions
+   * Get the publish date of a GitHub Action release.
+   *
+   * @param actionName - Action in `owner/repo` form
+   * @param version - Release tag
+   * @returns Publish date, or `null` when the tag has no release
    */
   async getGitHubActionReleaseDate(actionName: string, version: string): Promise<Date | null> {
     try {
-      // GitHub Actions use GitHub releases API
-      // Format: owner/repo@version
       const [owner, repo] = actionName.split('/')
-      if (!owner || !repo) {
+      if (!owner || !repo)
         return null
-      }
 
-      // Use GitHub API to get release information
-      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/tags/${version}`
+      const apiUrl = `${getGitHubApiUrl(this.config)}/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(version)}`
+      const releaseData = await fetchJsonOrNull<{ published_at?: string }>(apiUrl, {
+        headers: githubHeaders(this.config),
+      })
 
-      // Use curl to fetch the release data
-      const result = await this.runCommand('curl', ['-s', '-H', 'Accept: application/vnd.github.v3+json', apiUrl])
-      const releaseData = JSON.parse(result)
+      if (!releaseData?.published_at)
+        return null
 
-      if (releaseData.published_at) {
-        return new Date(releaseData.published_at)
-      }
-
-      return null
+      const date = new Date(releaseData.published_at)
+      return Number.isNaN(date.getTime()) ? null : date
     }
     catch (error) {
       this.logger.debug(`Failed to get GitHub Action release date for ${actionName}@${version}:`, error)
@@ -1451,24 +1679,21 @@ export class RegistryClient {
   }
 
   /**
-   * Get the release date for Composer packages
+   * Get the publish date of a Composer package version.
+   *
+   * @param packageName - Vendor-qualified package name
+   * @param version - Exact version whose publish date is wanted
+   * @returns Publish date, or `null` when Packagist does not report one
    */
   async getComposerPackageReleaseDate(packageName: string, version: string): Promise<Date | null> {
     try {
-      // Use Packagist API for Composer packages
-      const apiUrl = `https://packagist.org/packages/${packageName}.json`
+      const packageData = await this.fetchComposerPackage(packageName)
+      const published = packageData?.package?.versions?.[version]?.time
+      if (!published)
+        return null
 
-      const result = await this.runCommand('curl', ['-s', apiUrl])
-      const packageData = JSON.parse(result)
-
-      if (packageData.package && packageData.package.versions && packageData.package.versions[version]) {
-        const versionData = packageData.package.versions[version]
-        if (versionData.time) {
-          return new Date(versionData.time)
-        }
-      }
-
-      return null
+      const date = new Date(published)
+      return Number.isNaN(date.getTime()) ? null : date
     }
     catch (error) {
       this.logger.debug(`Failed to get Composer package release date for ${packageName}@${version}:`, error)
