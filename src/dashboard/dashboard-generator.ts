@@ -1,4 +1,12 @@
-import type { DashboardData, DeprecatedDependency, PackageFile, PullRequest } from '../types'
+import type { DashboardData, DeprecatedDependency, PackageFile, PullRequest, VulnerableDependency } from '../types'
+
+/** Badge per advisory severity, matching the PR body rendering. */
+const SEVERITY_BADGE: Record<string, string> = {
+  critical: '🔴 Critical',
+  high: '🟠 High',
+  moderate: '🟡 Moderate',
+  low: '⚪ Low',
+}
 
 export class DashboardGenerator {
   /**
@@ -8,12 +16,14 @@ export class DashboardGenerator {
     showOpenPRs?: boolean
     showDetectedDependencies?: boolean
     showDeprecatedDependencies?: boolean
+    showVulnerableDependencies?: boolean
     bodyTemplate?: string
   } = {}): { title: string, body: string } {
     const {
       showOpenPRs = true,
       showDetectedDependencies = true,
       showDeprecatedDependencies = true,
+      showVulnerableDependencies = true,
       bodyTemplate,
     } = options
 
@@ -28,7 +38,13 @@ export class DashboardGenerator {
 
     let body = this.generateDefaultHeader(data)
 
-    // Show deprecated dependencies warning first (like Renovate)
+    // Vulnerabilities outrank everything else on the dashboard — they are the
+    // one item a maintainer may need to act on today.
+    if (showVulnerableDependencies && data.vulnerableDependencies && data.vulnerableDependencies.length > 0) {
+      body += this.generateVulnerableDependenciesSection(data.vulnerableDependencies)
+    }
+
+    // Show deprecated dependencies warning next (like Renovate)
     if (showDeprecatedDependencies && data.deprecatedDependencies && data.deprecatedDependencies.length > 0) {
       body += this.generateDeprecatedDependenciesSection(data.deprecatedDependencies)
     }
@@ -342,6 +358,34 @@ The following updates have all been created. To force a retry/rebase of any, cli
 
 `
 
+    return section
+  }
+
+  /**
+   * Generate the vulnerable dependencies section.
+   *
+   * Rendered above everything else so a maintainer opening the dashboard sees
+   * outstanding advisories before any routine version bump.
+   */
+  private generateVulnerableDependenciesSection(vulnerable: VulnerableDependency[]): string {
+    const total = vulnerable.reduce((sum, entry) => sum + entry.advisories.length, 0)
+
+    let section = `> [!CAUTION]
+> ${total} known ${total === 1 ? 'vulnerability affects' : 'vulnerabilities affect'} ${vulnerable.length} ${vulnerable.length === 1 ? 'dependency' : 'dependencies'} in this repository.
+
+| Severity | Package | Current | Advisory | Fixed in |
+|----------|---------|---------|----------|----------|
+`
+
+    for (const entry of vulnerable) {
+      for (const advisory of entry.advisories) {
+        const badge = SEVERITY_BADGE[advisory.severity] ?? advisory.severity
+        const link = advisory.url ? `[${advisory.id}](${advisory.url})` : advisory.id
+        section += `| ${badge} | \`${entry.name}\` | \`${entry.currentVersion}\` | ${link} | \`${advisory.fixedVersion ?? 'n/a'}\` |\n`
+      }
+    }
+
+    section += '\n'
     return section
   }
 

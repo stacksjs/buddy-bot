@@ -1,25 +1,49 @@
-/* eslint-disable no-console */
 import type { PackageInfo, ReleaseNote } from '../services/release-notes-fetcher'
 import type { BuddyBotConfig, PullRequest, UpdateGroup } from '../types'
+import type { Logger } from '../utils/logger'
 import process from 'node:process'
 import { ReleaseNotesFetcher } from '../services/release-notes-fetcher'
+import { getGitHubServerUrl } from '../utils/endpoints'
 import { getUpdateType } from '../utils/helpers'
+import { getDefaultLogger } from '../utils/logger'
+import { formatSecurityAdvisorySection } from '../utils/security-format'
 
 export class PullRequestGenerator {
   private releaseNotesFetcher = new ReleaseNotesFetcher()
   private verbose = false
+  private readonly logger: Logger
 
-  constructor(private readonly config?: BuddyBotConfig | undefined) {
+  constructor(
+    private readonly config?: BuddyBotConfig | undefined,
+    /** Logger to use; defaults to the process-wide default. */
+    logger?: Logger,
+  ) {
     // Enable verbose logging via config or environment variable
     this.verbose = config?.verbose || process.env.BUDDY_BOT_VERBOSE === 'true'
+    this.logger = logger ?? getDefaultLogger()
+  }
+
+  /**
+   * Build a web link to a file in the repository under review.
+   *
+   * Uses the configured server rather than a hardcoded github.com so file
+   * links in a GitHub Enterprise Server PR resolve against that instance.
+   *
+   * @param filePath - Repository-relative path
+   * @returns Absolute blob URL on the configured base branch
+   */
+  private repositoryFileUrl(filePath: string): string {
+    const server = getGitHubServerUrl(this.config)
+    const { owner, name, baseBranch } = this.config?.repository ?? {}
+    return `${server}/${owner}/${name}/blob/${baseBranch || 'main'}/${filePath}`
   }
 
   private log(message: string, data?: any) {
     if (this.verbose) {
       const timestamp = new Date().toISOString()
-      console.log(`[${timestamp}] PR-GEN: ${message}`)
+      this.logger.info(`[${timestamp}] PR-GEN: ${message}`)
       if (data) {
-        console.log(JSON.stringify(data, null, 2))
+        this.logger.info(JSON.stringify(data, null, 2))
       }
     }
   }
@@ -205,6 +229,11 @@ export class PullRequestGenerator {
 
     let body = `This PR contains the following updates:\n\n`
 
+    // Vulnerability details lead the body — a reviewer deciding how urgently to
+    // merge should not have to scroll past version tables to learn the PR
+    // closes an advisory.
+    body += formatSecurityAdvisorySection(group.updates)
+
     // Only show summary table for multi-package updates
     const isMultiPackageUpdate = group.updates.length > 1
     if (isMultiPackageUpdate) {
@@ -337,7 +366,7 @@ export class PullRequestGenerator {
           return { name: update.name, result }
         }
         catch (error) {
-          console.warn(`Failed to fetch info for ${update.name}:`, error)
+          this.logger.warn(`Failed to fetch info for ${update.name}:`, error)
           return null
         }
       })
@@ -354,7 +383,7 @@ export class PullRequestGenerator {
 
       const fetchDuration = Date.now() - fetchStartTime
       this.log(`⏱️  Total npm package info fetch took ${fetchDuration}ms for ${packageJsonUpdates.length} packages (avg: ${Math.round(fetchDuration / packageJsonUpdates.length)}ms per package)`)
-      console.log(`⏱️  [PR-GEN] npm package info fetch: ${fetchDuration}ms for ${packageJsonUpdates.length} packages (PARALLEL)`)
+      this.logger.info(`⏱️  [PR-GEN] npm package info fetch: ${fetchDuration}ms for ${packageJsonUpdates.length} packages (PARALLEL)`)
 
       for (const update of packageJsonUpdates) {
         const packageInfo = packageInfos.get(update.name)
@@ -410,7 +439,7 @@ export class PullRequestGenerator {
           composerPackageInfos.set(update.name, packageInfo)
         }
         catch (error) {
-          console.warn(`Failed to fetch Composer info for ${update.name}:`, error)
+          this.logger.warn(`Failed to fetch Composer info for ${update.name}:`, error)
         }
       }
 
@@ -512,7 +541,7 @@ export class PullRequestGenerator {
         // File reference
         const fileName = update.file.split('/').pop() || update.file
         const fileCell = this.config?.repository?.owner && this.config?.repository?.name
-          ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
+          ? `[\`${fileName}\`](${this.repositoryFileUrl(update.file)})`
           : `\`${fileName}\``
 
         body += `| ${packageCell} | ${change} | ${typeEmoji} ${updateType} | ${fileCell} |\n`
@@ -557,7 +586,7 @@ export class PullRequestGenerator {
         // File reference with link to actual file
         const fileName = update.file.split('/').pop() || update.file
         const fileCell = this.config?.repository?.owner && this.config?.repository?.name
-          ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
+          ? `[\`${fileName}\`](${this.repositoryFileUrl(update.file)})`
           : `\`${fileName}\``
 
         body += `| ${packageCell} | ${change} | ${typeEmoji} ${updateType} | ${fileCell} |\n`
@@ -585,7 +614,7 @@ export class PullRequestGenerator {
 
       for (const update of uniqueGithubActionsUpdates) {
         // Generate action link
-        const actionUrl = `https://github.com/${update.name}`
+        const actionUrl = `${getGitHubServerUrl(this.config)}/${update.name}`
         const actionCell = `[${update.name}](${actionUrl})`
 
         // Enhanced version change display with update type and proper constraint format
@@ -598,13 +627,13 @@ export class PullRequestGenerator {
           ? update.file.split(', ').map((f) => {
               const fileName = f.split('/').pop() || f
               return this.config?.repository?.owner && this.config?.repository?.name
-                ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${f})`
+                ? `[\`${fileName}\`](${this.repositoryFileUrl(f)})`
                 : `\`${fileName}\``
             }).join(', ')
           : (() => {
               const fileName = update.file.split('/').pop() || update.file
               return this.config?.repository?.owner && this.config?.repository?.name
-                ? `[\`${fileName}\`](https://github.com/${this.config.repository.owner}/${this.config.repository.name}/blob/main/${update.file})`
+                ? `[\`${fileName}\`](${this.repositoryFileUrl(update.file)})`
                 : `\`${fileName}\``
             })()
 

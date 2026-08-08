@@ -1,4 +1,5 @@
-/* eslint-disable no-console, no-cond-assign, ts/no-require-imports */
+/* eslint-disable no-cond-assign, ts/no-require-imports */
+import type { AdvisoryQuery } from './services/security-advisories'
 import type {
   BuddyBotConfig,
   DashboardData,
@@ -9,6 +10,7 @@ import type {
   PullRequest,
   UpdateGroup,
   UpdateScanResult,
+  VulnerableDependency,
 } from './types'
 import fs from 'node:fs'
 import process from 'node:process'
@@ -18,9 +20,11 @@ import { PullRequestGenerator } from './pr/pr-generator'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
 import { DeprecatedDependenciesChecker } from './services/deprecated-dependencies-checker'
+import { advisoryKey, SecurityAdvisoryService, toOsvEcosystem } from './services/security-advisories'
+import { getGitHubServerUrl } from './utils/endpoints'
 import { GitHubApiError } from './utils/errors'
 import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
-import { Logger } from './utils/logger'
+import { Logger, setDefaultLogger } from './utils/logger'
 import { resolveRepositoryConfig } from './utils/repository'
 
 export class Buddy {
@@ -33,7 +37,13 @@ export class Buddy {
     private readonly config: BuddyBotConfig,
     private readonly projectPath: string = process.cwd(),
   ) {
-    this.logger = new Logger(config.verbose ?? false)
+    this.logger = new Logger(config.verbose ?? false, config.logLevel)
+
+    // Module-level helpers (dependency-file parsers, lock-file regeneration,
+    // the GitHub provider) have no instance to inject into, so they read the
+    // process-wide default. Setting it here means one `logLevel` governs every
+    // line buddy-bot prints, including from library use.
+    setDefaultLogger(this.logger)
 
     // Auto-detect repository owner/name if not configured
     this.resolveRepositoryConfig()
@@ -122,16 +132,23 @@ export class Buddy {
       updates = await this.filterUpdatesByMinimumReleaseAge(updates)
       this.logger.info(`⏱️  Minimum release age filtering took ${Date.now() - ageFilterStartTime}ms`)
 
+      // Annotate updates that resolve known vulnerabilities, before sorting so
+      // the priority sort can float them to the top.
+      const advisoryStartTime = Date.now()
+      updates = await this.annotateSecurityAdvisories(updates)
+      this.logger.info(`⏱️  Security advisory lookup took ${Date.now() - advisoryStartTime}ms`)
+
       // Sort updates by priority
+      const prioritizeSecurity = this.config.security?.prioritize ?? true
       const sortStartTime = Date.now()
-      updates = sortUpdatesByPriority(updates)
+      updates = sortUpdatesByPriority(updates, { prioritizeSecurity })
       this.logger.info(`⏱️  Sorting took ${Date.now() - sortStartTime}ms`)
 
       // Group updates
       const groupStartTime = Date.now()
       const groups = this.config.packages?.groups
         ? this.groupUpdatesByConfig(updates)
-        : groupUpdates(updates)
+        : groupUpdates(updates, { prioritizeSecurity })
       this.logger.info(`⏱️  Grouping took ${Date.now() - groupStartTime}ms`)
 
       const scanDuration = Date.now() - startTime
@@ -150,6 +167,32 @@ export class Buddy {
     catch (error) {
       this.logger.error('Failed to scan for updates:', error)
       throw error
+    }
+  }
+
+  /**
+   * Attach known-vulnerability data to updates that resolve an advisory.
+   *
+   * Failures are swallowed deliberately: OSV being unreachable should degrade
+   * the annotations, not block a dependency update run that is otherwise fine.
+   *
+   * @param updates - Candidate updates
+   * @returns The same updates, annotated in place where advisories apply
+   */
+  private async annotateSecurityAdvisories(updates: PackageUpdate[]): Promise<PackageUpdate[]> {
+    if (this.config.security?.enabled === false || updates.length === 0)
+      return updates
+
+    try {
+      const service = new SecurityAdvisoryService(this.logger)
+      return await service.annotateUpdates(
+        updates,
+        this.config.security?.minimumSeverity ?? 'low',
+      )
+    }
+    catch (error) {
+      this.logger.warn('Security advisory lookup failed, continuing without it:', error)
+      return updates
     }
   }
 
@@ -190,10 +233,10 @@ export class Buddy {
       const hasWorkflowPermissions = !!workflowToken
 
       if (workflowToken) {
-        console.log('✅ BUDDY_BOT_TOKEN detected - workflow file permissions enabled')
+        this.logger.info('✅ BUDDY_BOT_TOKEN detected - workflow file permissions enabled')
       }
       else {
-        console.log('ℹ️ No BUDDY_BOT_TOKEN — workflow file updates will be skipped')
+        this.logger.info('ℹ️ No BUDDY_BOT_TOKEN — workflow file updates will be skipped')
       }
 
       // Initialize GitHub provider with primary token for API calls
@@ -255,7 +298,7 @@ export class Buddy {
             await runGitCommand('git', ['clean', '-fd'])
           }
           catch (resetError) {
-            console.warn(`⚠️ Failed to reset to clean state for early file-change check, continuing anyway:`, resetError)
+            this.logger.warn(`⚠️ Failed to reset to clean state for early file-change check, continuing anyway:`, resetError)
           }
 
           const earlyFileUpdates = await this.generateAllFileUpdates(group.updates)
@@ -360,10 +403,10 @@ export class Buddy {
                 await runGitCommand('git', ['reset', '--hard', 'HEAD'])
                 await runGitCommand('git', ['clean', '-fd'])
 
-                console.log(`🧹 Reset to clean main state before updating existing PR ${existingPR.number}`)
+                this.logger.info(`🧹 Reset to clean main state before updating existing PR ${existingPR.number}`)
               }
               catch (error) {
-                console.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
+                this.logger.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
               }
 
               // Regenerate file updates with latest dependency versions
@@ -602,10 +645,10 @@ export class Buddy {
             await runGitCommand('git', ['reset', '--hard', 'HEAD'])
             await runGitCommand('git', ['clean', '-fd'])
 
-            console.log(`🧹 Reset to clean main state before generating updates for ${group.name}`)
+            this.logger.info(`🧹 Reset to clean main state before generating updates for ${group.name}`)
           }
           catch (error) {
-            console.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
+            this.logger.warn(`⚠️ Failed to reset to clean state, continuing anyway:`, error)
           }
 
           // Update package.json with new versions
@@ -829,9 +872,9 @@ export class Buddy {
               dependencyType: 'github-actions' as const,
               file: file.path,
               metadata: undefined,
-              releaseNotesUrl: `https://github.com/${dep.name}/releases`,
+              releaseNotesUrl: `${getGitHubServerUrl(this.config)}/${dep.name}/releases`,
               changelogUrl: undefined,
-              homepage: `https://github.com/${dep.name}`,
+              homepage: `${getGitHubServerUrl(this.config)}/${dep.name}`,
             }
           }
           else {
@@ -1129,7 +1172,7 @@ export class Buddy {
           }
 
           if (!packageFound) {
-            console.warn(`Package ${cleanPackageName} not found in ${packageJsonPath}`)
+            this.logger.warn(`Package ${cleanPackageName} not found in ${packageJsonPath}`)
           }
         }
 
@@ -1140,7 +1183,7 @@ export class Buddy {
         })
       }
       catch (error) {
-        console.warn(`Failed to update ${packageJsonPath}:`, error)
+        this.logger.warn(`Failed to update ${packageJsonPath}:`, error)
       }
     }
 
@@ -1577,13 +1620,13 @@ export class Buddy {
       labels.add('dependencies') // Use standard dependencies label instead of bulk-update
     }
 
-    // Add security label if any package might be security related
-    const securityPackages = ['helmet', 'express-rate-limit', 'cors', 'bcrypt', 'jsonwebtoken']
-    const hasSecurityPackage = group.updates.some(update =>
-      securityPackages.some(pkg => update.name.includes(pkg)),
-    )
-    if (hasSecurityPackage) {
-      labels.add('security')
+    // Label groups that actually resolve a published advisory. This used to
+    // match a hardcoded list of security-adjacent package names, which both
+    // missed every real vulnerability outside that list and mislabelled
+    // routine updates to packages that merely sound security-related.
+    const resolvesAdvisory = group.updates.some(update => (update.securityAdvisories?.length ?? 0) > 0)
+    if (resolvesAdvisory) {
+      labels.add(this.config.security?.label ?? 'security')
     }
 
     // Add configured labels from config if they exist (but avoid duplicates)
@@ -2398,6 +2441,9 @@ export class Buddy {
     const deprecatedChecker = new DeprecatedDependenciesChecker()
     const deprecatedDependencies = await deprecatedChecker.checkDeprecatedDependencies(packageFiles)
 
+    // Check for known vulnerabilities in what is currently declared
+    const vulnerableDependencies = await this.findVulnerableDependencies(packageFiles)
+
     return {
       openPRs: dependencyPRs,
       detectedDependencies: {
@@ -2406,12 +2452,82 @@ export class Buddy {
         githubActions,
       },
       deprecatedDependencies,
+      vulnerableDependencies,
       repository: {
         owner: this.config.repository!.owner,
         name: this.config.repository!.name,
         provider: this.config.repository!.provider,
       },
       lastUpdated: new Date(),
+    }
+  }
+
+  /**
+   * Find declared dependencies with known advisories against their current version.
+   *
+   * Unlike {@link annotateSecurityAdvisories}, which only reports advisories an
+   * available update resolves, this reports everything currently vulnerable —
+   * including packages with no fix released yet, which are exactly the ones a
+   * maintainer needs to know about.
+   *
+   * @param packageFiles - Parsed dependency files from the scan
+   * @returns Vulnerable dependencies, empty when advisory checks are disabled
+   */
+  private async findVulnerableDependencies(packageFiles: PackageFile[]): Promise<VulnerableDependency[]> {
+    if (this.config.security?.enabled === false)
+      return []
+
+    const queries: AdvisoryQuery[] = []
+    const sources = new Map<string, { name: string, currentVersion: string, ecosystem: string, file: string }>()
+
+    for (const file of packageFiles) {
+      for (const dependency of file.dependencies) {
+        const ecosystem = toOsvEcosystem(dependency.type)
+        if (!ecosystem)
+          continue
+
+        const version = dependency.currentVersion.replace(/^[\^~>=<\s]*v?/, '').trim()
+        if (!version)
+          continue
+
+        const query: AdvisoryQuery = { name: dependency.name, version, ecosystem }
+        const key = advisoryKey(query)
+        if (sources.has(key))
+          continue
+
+        sources.set(key, { name: dependency.name, currentVersion: dependency.currentVersion, ecosystem, file: file.path })
+        queries.push(query)
+      }
+    }
+
+    if (queries.length === 0)
+      return []
+
+    try {
+      const service = new SecurityAdvisoryService(this.logger)
+      const advisoriesByKey = await service.findAdvisories(queries)
+
+      const minimum = this.config.security?.minimumSeverity ?? 'low'
+      const rank: Record<string, number> = { low: 0, moderate: 1, high: 2, critical: 3 }
+
+      const vulnerable: VulnerableDependency[] = []
+      for (const [key, advisories] of advisoriesByKey) {
+        const source = sources.get(key)
+        if (!source)
+          continue
+
+        const relevant = advisories.filter(advisory => rank[advisory.severity] >= rank[minimum])
+        if (relevant.length > 0)
+          vulnerable.push({ ...source, advisories: relevant })
+      }
+
+      // Most severe first, so the dashboard table leads with what matters.
+      vulnerable.sort((a, b) => rank[b.advisories[0].severity] - rank[a.advisories[0].severity])
+      return vulnerable
+    }
+    catch (error) {
+      this.logger.warn('Vulnerability check failed, dashboard will omit it:', error)
+      return []
     }
   }
 

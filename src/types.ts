@@ -9,6 +9,9 @@ import type { LogLevel } from './utils/logger'
  */
 export type GitProviderName = 'github'
 
+/** Advisory severity, ordered from least to most severe. */
+export type VulnerabilitySeverity = 'low' | 'moderate' | 'high' | 'critical'
+
 // Core configuration types
 export interface BuddyBotConfig {
   /** Enable verbose logging. Equivalent to `logLevel: 'debug'`. */
@@ -60,6 +63,24 @@ export interface BuddyBotConfig {
     npmScopes?: Record<string, string>
     /** Composer/Packagist base URL (default: packagist.org) */
     composer?: string
+  }
+
+  /** Security advisory settings */
+  security?: {
+    /**
+     * Query the OSV.dev advisory database and flag dependencies with known
+     * vulnerabilities (default: true). Disable for fully offline runs.
+     */
+    enabled?: boolean
+    /**
+     * Move updates that resolve a known advisory to the front of the queue so
+     * they survive the `maxPRsPerRun` cap (default: true).
+     */
+    prioritize?: boolean
+    /** Label applied to PRs that resolve an advisory (default: `security`) */
+    label?: string
+    /** Minimum severity to act on (default: `low`, i.e. everything) */
+    minimumSeverity?: VulnerabilitySeverity
   }
 
   /** Update scheduling and strategies */
@@ -261,6 +282,30 @@ export interface PackageUpdate {
   changelogUrl?: string
   /** Homepage URL */
   homepage?: string
+  /**
+   * Known advisories affecting {@link currentVersion} that {@link newVersion}
+   * resolves. Populated by the advisory service when `security.enabled`.
+   */
+  securityAdvisories?: SecurityAdvisory[]
+}
+
+/**
+ * A known vulnerability affecting a specific dependency version, as reported
+ * by the OSV.dev aggregated advisory database.
+ */
+export interface SecurityAdvisory {
+  /** Primary advisory identifier, e.g. `GHSA-xxxx-yyyy-zzzz` */
+  id: string
+  /** Related identifiers such as CVE numbers */
+  aliases: string[]
+  /** One-line summary of the vulnerability */
+  summary: string
+  /** Normalized severity */
+  severity: VulnerabilitySeverity
+  /** Advisory detail page */
+  url?: string
+  /** First version that is not affected, when the advisory states one */
+  fixedVersion?: string
 }
 
 export interface PackageMetadata {
@@ -489,6 +534,8 @@ export interface DashboardData {
   }
   /** Deprecated dependencies found */
   deprecatedDependencies?: DeprecatedDependency[]
+  /** Dependencies with known, unresolved security advisories */
+  vulnerableDependencies?: VulnerableDependency[]
   /** Repository information */
   repository: {
     owner: string
@@ -497,6 +544,20 @@ export interface DashboardData {
   }
   /** Last update timestamp */
   lastUpdated: Date
+}
+
+/** A dependency version with one or more known advisories against it. */
+export interface VulnerableDependency {
+  /** Package name */
+  name: string
+  /** Version currently declared in the repository */
+  currentVersion: string
+  /** Ecosystem the advisory database matched, e.g. `npm` */
+  ecosystem: string
+  /** File where the dependency is declared */
+  file: string
+  /** Advisories affecting {@link currentVersion} */
+  advisories: SecurityAdvisory[]
 }
 
 export interface DeprecatedDependency {

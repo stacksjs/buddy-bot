@@ -4,6 +4,7 @@ import type { Logger } from './logger'
 import { isDependencyFile, parseDependencyFile } from './dependency-file-parser'
 import { getGitHubApiUrl } from './endpoints'
 import { fetchWithTimeout } from './http'
+import { formatSecurityAdvisorySection } from './security-format'
 
 /**
  * Parse package file content based on file type
@@ -151,6 +152,7 @@ export function formatPRBody(updates: PackageUpdate[], template?: string): strin
   }
 
   let body = 'This PR contains the following updates:\n\n'
+  body += formatSecurityAdvisorySection(updates)
   body += '| Package | Change | Age | Adoption | Passing | Confidence |\n'
   body += '|---|---|---|---|---|---|\n'
 
@@ -257,11 +259,35 @@ function getFilePriority(filePath: string): number {
  * Separates GitHub Actions and Docker updates into their own dedicated PR groups
  * to prevent mixing dependency ecosystems (like Renovate does).
  */
-export function groupUpdates(updates: PackageUpdate[]): UpdateGroup[] {
+export function groupUpdates(
+  updates: PackageUpdate[],
+  options: { prioritizeSecurity?: boolean } = {},
+): UpdateGroup[] {
+  const { prioritizeSecurity = true } = options
   const groups: UpdateGroup[] = []
 
   // Deduplicate updates by package name and version - keep the most relevant file
-  const deduplicatedUpdates = deduplicateUpdates(updates)
+  const allUpdates = deduplicateUpdates(updates)
+
+  // Vulnerability fixes get their own PR, emitted first so the per-run PR cap
+  // can never starve them behind routine version bumps. They are removed from
+  // the ecosystem groups below to avoid appearing in two PRs.
+  const securityUpdates = prioritizeSecurity
+    ? allUpdates.filter(u => (u.securityAdvisories?.length ?? 0) > 0)
+    : []
+  const deduplicatedUpdates = prioritizeSecurity
+    ? allUpdates.filter(u => (u.securityAdvisories?.length ?? 0) === 0)
+    : allUpdates
+
+  if (securityUpdates.length > 0) {
+    groups.push({
+      name: 'Security Updates',
+      updates: securityUpdates,
+      updateType: getHighestUpdateType(securityUpdates),
+      title: 'fix(deps): update vulnerable dependencies',
+      body: formatPRBody(securityUpdates),
+    })
+  }
 
   // Separate by dependency ecosystem first — each ecosystem gets its own PR(s)
   const githubActionsUpdates = deduplicatedUpdates.filter(u => u.dependencyType === 'github-actions')
@@ -337,13 +363,46 @@ function getHighestUpdateType(updates: PackageUpdate[]): 'major' | 'minor' | 'pa
   return 'patch'
 }
 
+/** Advisory severity ranking, highest first when sorting. */
+const SEVERITY_RANK: Record<string, number> = { critical: 4, high: 3, moderate: 2, low: 1 }
+
 /**
- * Sort updates by priority (major > minor > patch)
+ * Highest advisory severity an update resolves, or 0 when it resolves none.
  */
-export function sortUpdatesByPriority(updates: PackageUpdate[]): PackageUpdate[] {
+function securityRank(update: PackageUpdate): number {
+  let highest = 0
+  for (const advisory of update.securityAdvisories ?? [])
+    highest = Math.max(highest, SEVERITY_RANK[advisory.severity] ?? 0)
+  return highest
+}
+
+/**
+ * Sort updates by priority.
+ *
+ * Updates that resolve a known vulnerability sort first, most severe first —
+ * a run that hits `maxPRsPerRun` should spend its budget on security fixes
+ * before routine version bumps. Everything else keeps the previous ordering:
+ * major before minor before patch, then alphabetical.
+ *
+ * @param updates - Updates to sort, sorted in place
+ * @param options.prioritizeSecurity - Float advisory fixes to the top (default: true)
+ * @returns The same array, sorted
+ */
+export function sortUpdatesByPriority(
+  updates: PackageUpdate[],
+  options: { prioritizeSecurity?: boolean } = {},
+): PackageUpdate[] {
+  const { prioritizeSecurity = true } = options
   const priority = { major: 3, minor: 2, patch: 1 }
 
   return updates.sort((a, b) => {
+    const aSecurity = prioritizeSecurity ? securityRank(a) : 0
+    const bSecurity = prioritizeSecurity ? securityRank(b) : 0
+
+    if (aSecurity !== bSecurity) {
+      return bSecurity - aSecurity
+    }
+
     const aPriority = priority[a.updateType]
     const bPriority = priority[b.updateType]
 

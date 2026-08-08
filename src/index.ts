@@ -9,6 +9,13 @@ export { PackageScanner } from './scanner/package-scanner'
 export { Scheduler } from './scheduler/scheduler'
 // Enhanced services
 export { ReleaseNotesFetcher } from './services/release-notes-fetcher'
+export {
+  advisoryKey,
+  normalizeSeverity,
+  SecurityAdvisoryService,
+  toOsvEcosystem,
+} from './services/security-advisories'
+export type { AdvisoryQuery } from './services/security-advisories'
 
 export { GitHubActionsTemplate } from './templates/github-actions'
 
@@ -44,6 +51,8 @@ export {
   parseRetryDelay,
 } from './utils/http'
 export type { HttpRequestOptions } from './utils/http'
+
+export { formatSecurityAdvisorySection } from './utils/security-format'
 
 export {
   detectRequiredPackageManagers,
