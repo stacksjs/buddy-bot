@@ -38,6 +38,28 @@ export interface BuddyBotConfig {
     baseBranch?: string
     /** Access token for API operations */
     token?: string
+    /**
+     * REST API base URL. Defaults to `GITHUB_API_URL` when set (GitHub Actions
+     * exports it on both github.com and Enterprise Server runners), otherwise
+     * `https://api.github.com`. Set explicitly for GitHub Enterprise Server,
+     * e.g. `https://github.acme.com/api/v3`.
+     */
+    apiUrl?: string
+    /**
+     * Web base URL used for links in PR bodies and the dashboard. Defaults to
+     * `GITHUB_SERVER_URL`, otherwise `https://github.com`.
+     */
+    serverUrl?: string
+  }
+
+  /** Package registry endpoints, for private or self-hosted mirrors */
+  registries?: {
+    /** npm registry base URL (default: `.npmrc` `registry=`, else registry.npmjs.org) */
+    npm?: string
+    /** Per-scope npm registry overrides, keyed by scope including the `@` */
+    npmScopes?: Record<string, string>
+    /** Composer/Packagist base URL (default: packagist.org) */
+    composer?: string
   }
 
   /** Update scheduling and strategies */

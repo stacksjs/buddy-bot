@@ -25,6 +25,14 @@ export {
   sortUpdatesByPriority,
 } from './utils/helpers'
 
+export {
+  clearNpmrcCache,
+  getComposerRegistryUrl,
+  getGitHubApiUrl,
+  getGitHubServerUrl,
+  getNpmRegistryUrl,
+} from './utils/endpoints'
+
 export { formatError, GitHubApiError } from './utils/errors'
 
 export {
