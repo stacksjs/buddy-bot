@@ -1,3 +1,5 @@
+import type { LogLevel } from './utils/logger'
+
 /**
  * Git hosting providers with a working {@link GitProvider} implementation.
  *
@@ -9,8 +11,16 @@ export type GitProviderName = 'github'
 
 // Core configuration types
 export interface BuddyBotConfig {
-  /** Enable verbose logging */
+  /** Enable verbose logging. Equivalent to `logLevel: 'debug'`. */
   verbose?: boolean
+
+  /**
+   * How much output to emit. Overrides {@link verbose} when both are set.
+   *
+   * Use `'silent'` when embedding buddy-bot in another tool that owns its own
+   * output. Can also be set with `BUDDY_BOT_LOG_LEVEL`.
+   */
+  logLevel?: LogLevel
 
   /** Repository settings */
   repository?: {

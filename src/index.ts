@@ -34,6 +34,7 @@ export {
 } from './utils/lock-file'
 export type { LockFileResult, PackageManagerType } from './utils/lock-file'
 
-export { Logger } from './utils/logger'
+export { getDefaultLogger, Logger, setDefaultLogger } from './utils/logger'
+export type { LogLevel } from './utils/logger'
 
 export { VersionResolver } from './version/version-resolver'
