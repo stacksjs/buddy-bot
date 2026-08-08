@@ -36,6 +36,16 @@ export {
 export { formatError, GitHubApiError } from './utils/errors'
 
 export {
+  DEFAULT_RETRIES,
+  DEFAULT_TIMEOUT_MS,
+  fetchJsonOrNull,
+  fetchWithTimeout,
+  HttpRequestError,
+  parseRetryDelay,
+} from './utils/http'
+export type { HttpRequestOptions } from './utils/http'
+
+export {
   detectRequiredPackageManagers,
   getAllLockFilePaths,
   regenerateLockFile,

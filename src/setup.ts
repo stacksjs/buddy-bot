@@ -6,6 +6,9 @@ import process from 'node:process'
 import { promisify } from 'node:util'
 import prompts from 'prompts'
 import { GitHubActionsTemplate } from './templates/github-actions'
+import { getGitHubApiUrl } from './utils/endpoints'
+import { fetchWithTimeout } from './utils/http'
+import { getDefaultLogger } from './utils/logger'
 
 const execAsync = promisify(exec)
 
@@ -425,7 +428,7 @@ export class PluginManager {
 
   async loadPlugin(plugin: SetupPlugin): Promise<void> {
     this.plugins.push(plugin)
-    console.log(`🔌 Loaded plugin: ${plugin.name} v${plugin.version}`)
+    getDefaultLogger().info(`🔌 Loaded plugin: ${plugin.name} v${plugin.version}`)
   }
 
   async executePluginHooks(trigger: SetupTrigger): Promise<void> {
@@ -449,10 +452,10 @@ export class PluginManager {
         else {
           hook.handler(this.context)
         }
-        console.log(`✅ Executed hook: ${hook.name}`)
+        getDefaultLogger().info(`✅ Executed hook: ${hook.name}`)
       }
       catch (error) {
-        console.log(`❌ Hook failed: ${hook.name} - ${error instanceof Error ? error.message : 'Unknown error'}`)
+        getDefaultLogger().info(`❌ Hook failed: ${hook.name} - ${error instanceof Error ? error.message : 'Unknown error'}`)
         // Continue execution, don't rethrow
       }
     }
@@ -567,7 +570,7 @@ export class PluginManager {
           plugins.push(pluginConfig)
         }
         catch (error) {
-          console.log(`⚠️  Failed to load plugin ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          getDefaultLogger().info(`⚠️  Failed to load plugin ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
       }
     }
@@ -597,21 +600,21 @@ export class PluginManager {
     }
 
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetchWithTimeout(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(message),
       })
 
       if (response.ok) {
-        console.log('✅ Slack notification sent successfully')
+        getDefaultLogger().info('✅ Slack notification sent successfully')
       }
       else {
-        console.log('⚠️  Failed to send Slack notification')
+        getDefaultLogger().info('⚠️  Failed to send Slack notification')
       }
     }
     catch (error) {
-      console.log(`❌ Slack notification error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      getDefaultLogger().info(`❌ Slack notification error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -636,21 +639,21 @@ export class PluginManager {
     }
 
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetchWithTimeout(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(message),
       })
 
       if (response.ok) {
-        console.log('✅ Discord notification sent successfully')
+        getDefaultLogger().info('✅ Discord notification sent successfully')
       }
       else {
-        console.log('⚠️  Failed to send Discord notification')
+        getDefaultLogger().info('⚠️  Failed to send Discord notification')
       }
     }
     catch (error) {
-      console.log(`❌ Discord notification error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      getDefaultLogger().info(`❌ Discord notification error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -672,7 +675,7 @@ export class PluginManager {
     }
 
     try {
-      const response = await fetch(`${baseUrl}/rest/api/3/issue`, {
+      const response = await fetchWithTimeout(`${baseUrl}/rest/api/3/issue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -683,14 +686,14 @@ export class PluginManager {
 
       if (response.ok) {
         const result = await response.json() as { key: string }
-        console.log(`✅ Jira ticket created: ${result.key}`)
+        getDefaultLogger().info(`✅ Jira ticket created: ${result.key}`)
       }
       else {
-        console.log('⚠️  Failed to create Jira ticket')
+        getDefaultLogger().info('⚠️  Failed to create Jira ticket')
       }
     }
     catch (error) {
-      console.log(`❌ Jira integration error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      getDefaultLogger().info(`❌ Jira integration error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 }
@@ -916,11 +919,11 @@ export function displayProgress(progress: SetupProgress): void {
   const progressBlocks = Math.max(0, Math.min(20, Math.floor(percentage / 5)))
   const progressBar = '█'.repeat(progressBlocks) + '░'.repeat(20 - progressBlocks)
 
-  console.log(`\n📊 Setup Progress: ${percentage}% [${progressBar}]`)
-  console.log(`🔄 Current Step: ${progress.stepName} (${currentStep}/${progress.totalSteps})`)
+  getDefaultLogger().info(`\n📊 Setup Progress: ${percentage}% [${progressBar}]`)
+  getDefaultLogger().info(`🔄 Current Step: ${progress.stepName} (${currentStep}/${progress.totalSteps})`)
 
   if (progress.completed.length > 0) {
-    console.log(`✅ Completed: ${progress.completed.join(', ')}`)
+    getDefaultLogger().info(`✅ Completed: ${progress.completed.join(', ')}`)
   }
 }
 
@@ -942,44 +945,44 @@ export async function detectRepository(): Promise<RepositoryInfo | null> {
 }
 
 export async function guideTokenCreation(repoInfo: RepositoryInfo): Promise<void> {
-  console.log(`\n🔑 Personal Access Token Setup Guide:`)
-  console.log(`\n📋 Step 1: Create the Token`)
-  console.log(`1. Go to https://github.com/settings/tokens`)
-  console.log(`2. Click "Generate new token (classic)"`)
-  console.log(`3. Give it a descriptive name (e.g., "buddy-bot-${repoInfo.name}")`)
-  console.log(`4. Set expiration (recommended: 90 days or custom)`)
-  console.log(`5. Select required scopes:`)
-  console.log(`   ✅ repo (Full control of private repositories)`)
-  console.log(`   ✅ workflow (Update GitHub Action workflows)`)
-  console.log(`6. Click "Generate token"`)
-  console.log(`7. ⚠️  Copy the token immediately (you won't see it again!)`)
+  getDefaultLogger().info(`\n🔑 Personal Access Token Setup Guide:`)
+  getDefaultLogger().info(`\n📋 Step 1: Create the Token`)
+  getDefaultLogger().info(`1. Go to https://github.com/settings/tokens`)
+  getDefaultLogger().info(`2. Click "Generate new token (classic)"`)
+  getDefaultLogger().info(`3. Give it a descriptive name (e.g., "buddy-bot-${repoInfo.name}")`)
+  getDefaultLogger().info(`4. Set expiration (recommended: 90 days or custom)`)
+  getDefaultLogger().info(`5. Select required scopes:`)
+  getDefaultLogger().info(`   ✅ repo (Full control of private repositories)`)
+  getDefaultLogger().info(`   ✅ workflow (Update GitHub Action workflows)`)
+  getDefaultLogger().info(`6. Click "Generate token"`)
+  getDefaultLogger().info(`7. ⚠️  Copy the token immediately (you won't see it again!)`)
 
-  console.log(`\n📋 Step 2: Configure the Secret`)
-  console.log(`Choose one of these options:`)
-  console.log(`\n🏢 Option A: Organization Secret (Recommended for multiple repos)`)
-  console.log(`   - Go to: https://github.com/organizations/${repoInfo.owner}/settings/secrets/actions`)
-  console.log(`   - Click "New organization secret"`)
-  console.log(`   - Name: BUDDY_BOT_TOKEN`)
-  console.log(`   - Value: your_generated_token`)
-  console.log(`   - Repository access: Selected repositories or All repositories`)
+  getDefaultLogger().info(`\n📋 Step 2: Configure the Secret`)
+  getDefaultLogger().info(`Choose one of these options:`)
+  getDefaultLogger().info(`\n🏢 Option A: Organization Secret (Recommended for multiple repos)`)
+  getDefaultLogger().info(`   - Go to: https://github.com/organizations/${repoInfo.owner}/settings/secrets/actions`)
+  getDefaultLogger().info(`   - Click "New organization secret"`)
+  getDefaultLogger().info(`   - Name: BUDDY_BOT_TOKEN`)
+  getDefaultLogger().info(`   - Value: your_generated_token`)
+  getDefaultLogger().info(`   - Repository access: Selected repositories or All repositories`)
 
-  console.log(`\n📦 Option B: Repository Secret (For this repository only)`)
-  console.log(`   - Go to: https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/secrets/actions`)
-  console.log(`   - Click "New repository secret"`)
-  console.log(`   - Name: BUDDY_BOT_TOKEN`)
-  console.log(`   - Value: your_generated_token`)
-  console.log(`   - Click "Add secret"`)
+  getDefaultLogger().info(`\n📦 Option B: Repository Secret (For this repository only)`)
+  getDefaultLogger().info(`   - Go to: https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/secrets/actions`)
+  getDefaultLogger().info(`   - Click "New repository secret"`)
+  getDefaultLogger().info(`   - Name: BUDDY_BOT_TOKEN`)
+  getDefaultLogger().info(`   - Value: your_generated_token`)
+  getDefaultLogger().info(`   - Click "Add secret"`)
 
-  console.log(`\n💡 The workflows will automatically use BUDDY_BOT_TOKEN if available, otherwise fall back to GITHUB_TOKEN`)
+  getDefaultLogger().info(`\n💡 The workflows will automatically use BUDDY_BOT_TOKEN if available, otherwise fall back to GITHUB_TOKEN`)
 }
 
 export async function confirmTokenSetup(): Promise<{ hasCustomToken: boolean, needsGuide: boolean }> {
-  console.log('\n🔑 GitHub Token Configuration:')
-  console.log('Buddy Bot can work with:')
-  console.log('  • Organization secrets (GITHUB_TOKEN or custom PAT)')
-  console.log('  • Repository secrets (custom PAT)')
-  console.log('  • Default GITHUB_TOKEN (limited permissions)')
-  console.log('')
+  getDefaultLogger().info('\n🔑 GitHub Token Configuration:')
+  getDefaultLogger().info('Buddy Bot can work with:')
+  getDefaultLogger().info('  • Organization secrets (GITHUB_TOKEN or custom PAT)')
+  getDefaultLogger().info('  • Repository secrets (custom PAT)')
+  getDefaultLogger().info('  • Default GITHUB_TOKEN (limited permissions)')
+  getDefaultLogger().info('')
 
   const response = await prompts({
     type: 'select',
@@ -1007,7 +1010,7 @@ export async function confirmTokenSetup(): Promise<{ hasCustomToken: boolean, ne
 
   // Handle user cancellation
   if (!response.tokenChoice) {
-    console.log('Using default GITHUB_TOKEN (limited functionality)')
+    getDefaultLogger().info('Using default GITHUB_TOKEN (limited functionality)')
     return { hasCustomToken: false, needsGuide: false }
   }
 
@@ -1023,13 +1026,13 @@ export async function confirmTokenSetup(): Promise<{ hasCustomToken: boolean, ne
 }
 
 export async function guideRepositorySettings(repoInfo: RepositoryInfo): Promise<void> {
-  console.log(`\n🔧 To configure GitHub Actions permissions:`)
-  console.log(`1. Go to your repository settings (https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/actions)`)
-  console.log(`2. Under "Workflow permissions":`)
-  console.log(`   ✅ Select "Read and write permissions"`)
-  console.log(`   ✅ Check "Allow GitHub Actions to create and approve pull requests"`)
-  console.log(`3. Click "Save"`)
-  console.log(`4. This allows Buddy Bot to create PRs and update issues.\n`)
+  getDefaultLogger().info(`\n🔧 To configure GitHub Actions permissions:`)
+  getDefaultLogger().info(`1. Go to your repository settings (https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/actions)`)
+  getDefaultLogger().info(`2. Under "Workflow permissions":`)
+  getDefaultLogger().info(`   ✅ Select "Read and write permissions"`)
+  getDefaultLogger().info(`   ✅ Check "Allow GitHub Actions to create and approve pull requests"`)
+  getDefaultLogger().info(`3. Click "Save"`)
+  getDefaultLogger().info(`4. This allows Buddy Bot to create PRs and update issues.\n`)
 }
 
 export async function generateConfigFile(repoInfo: RepositoryInfo, hasCustomToken: boolean): Promise<void> {
@@ -1076,9 +1079,9 @@ export default config
 
   const configPath = 'buddy-bot.config.ts'
   fs.writeFileSync(configPath, configContent)
-  console.log(`✅ Created ${configPath} with your repository settings.`)
-  console.log(`💡 You can edit this file to customize Buddy Bot's behavior.`)
-  console.log(`🔧 The TypeScript config provides better IntelliSense and type safety.\n`)
+  getDefaultLogger().info(`✅ Created ${configPath} with your repository settings.`)
+  getDefaultLogger().info(`💡 You can edit this file to customize Buddy Bot's behavior.`)
+  getDefaultLogger().info(`🔧 The TypeScript config provides better IntelliSense and type safety.\n`)
 }
 
 /**
@@ -1869,11 +1872,26 @@ export async function validateRepositoryAccess(repoInfo: RepositoryInfo): Promis
   }
 
   try {
-    // Check if repository exists and is accessible
-    const response = await fetch(`https://api.github.com/repos/${repoInfo.owner}/${repoInfo.name}`)
+    // Authenticate when a token is present: an anonymous request reports a
+    // private repository as 404, which reads as "repository not found" and
+    // sends users chasing a typo that isn't there.
+    const headers: Record<string, string> = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'buddy-bot',
+    }
+    const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN
+    if (token)
+      headers.Authorization = `Bearer ${token}`
+
+    const response = await fetchWithTimeout(
+      `${getGitHubApiUrl()}/repos/${repoInfo.owner}/${repoInfo.name}`,
+      { headers },
+    )
 
     if (response.status === 404) {
-      result.errors.push('Repository not found or not accessible')
+      result.errors.push(token
+        ? 'Repository not found or not accessible with the configured token'
+        : 'Repository not found. If it is private, set GITHUB_TOKEN and retry.')
       result.success = false
       return result
     }
@@ -1918,25 +1936,25 @@ export async function validateRepositoryAccess(repoInfo: RepositoryInfo): Promis
 }
 
 export function displayValidationResults(results: ValidationResult, title: string): void {
-  console.log(`\n${title}:`)
+  getDefaultLogger().info(`\n${title}:`)
 
   if (results.errors.length > 0) {
-    console.log('❌ Errors:')
-    results.errors.forEach(error => console.log(`   • ${error}`))
+    getDefaultLogger().info('❌ Errors:')
+    results.errors.forEach(error => getDefaultLogger().info(`   • ${error}`))
   }
 
   if (results.warnings.length > 0) {
-    console.log('⚠️  Warnings:')
-    results.warnings.forEach(warning => console.log(`   • ${warning}`))
+    getDefaultLogger().info('⚠️  Warnings:')
+    results.warnings.forEach(warning => getDefaultLogger().info(`   • ${warning}`))
   }
 
   if (results.suggestions.length > 0) {
-    console.log('💡 Suggestions:')
-    results.suggestions.forEach(suggestion => console.log(`   • ${suggestion}`))
+    getDefaultLogger().info('💡 Suggestions:')
+    results.suggestions.forEach(suggestion => getDefaultLogger().info(`   • ${suggestion}`))
   }
 
   if (results.errors.length === 0 && results.warnings.length === 0) {
-    console.log('✅ All checks passed!')
+    getDefaultLogger().info('✅ All checks passed!')
   }
 }
 
@@ -2053,40 +2071,40 @@ export async function setupCustomWorkflow(preset: WorkflowPreset, _logger: Logge
 }
 
 export async function showFinalInstructions(repoInfo: RepositoryInfo, hasCustomToken: boolean): Promise<void> {
-  console.log('✅ Generated unified buddy-bot workflow in .github/workflows/:')
-  console.log(`   - buddy-bot.yml (Combined check, update, and dashboard management)`)
-  console.log(`📁 Configuration file: buddy-bot.config.ts`)
+  getDefaultLogger().info('✅ Generated unified buddy-bot workflow in .github/workflows/:')
+  getDefaultLogger().info(`   - buddy-bot.yml (Combined check, update, and dashboard management)`)
+  getDefaultLogger().info(`📁 Configuration file: buddy-bot.config.ts`)
 
-  console.log(`\n🚀 Next Steps:`)
-  console.log(`1. Review and commit the generated workflow files`)
-  console.log(`   git add .github/workflows/ buddy-bot.config.ts`)
-  console.log(`   git commit -m "Add Buddy Bot dependency management workflows"`)
-  console.log(`   git push`)
+  getDefaultLogger().info(`\n🚀 Next Steps:`)
+  getDefaultLogger().info(`1. Review and commit the generated workflow files`)
+  getDefaultLogger().info(`   git add .github/workflows/ buddy-bot.config.ts`)
+  getDefaultLogger().info(`   git commit -m "Add Buddy Bot dependency management workflows"`)
+  getDefaultLogger().info(`   git push`)
 
   if (hasCustomToken) {
-    console.log(`\n2. 🔑 Complete your token setup:`)
-    console.log(`   ✅ Your Personal Access Token should be configured as:`)
-    console.log(`      • Organization secret: BUDDY_BOT_TOKEN (recommended), or`)
-    console.log(`      • Repository secret: BUDDY_BOT_TOKEN`)
-    console.log(`   💡 The workflows will automatically detect and use your token`)
+    getDefaultLogger().info(`\n2. 🔑 Complete your token setup:`)
+    getDefaultLogger().info(`   ✅ Your Personal Access Token should be configured as:`)
+    getDefaultLogger().info(`      • Organization secret: BUDDY_BOT_TOKEN (recommended), or`)
+    getDefaultLogger().info(`      • Repository secret: BUDDY_BOT_TOKEN`)
+    getDefaultLogger().info(`   💡 The workflows will automatically detect and use your token`)
   }
   else {
-    console.log(`\n2. ⚠️  Using default GITHUB_TOKEN (limited functionality):`)
-    console.log(`   • Dependency updates: ✅ Will work`)
-    console.log(`   • Dashboard creation: ✅ Will work`)
-    console.log(`   • Workflow file updates: ❌ Won't work`)
-    console.log(`   💡 Consider setting up a Personal Access Token later for full functionality`)
+    getDefaultLogger().info(`\n2. ⚠️  Using default GITHUB_TOKEN (limited functionality):`)
+    getDefaultLogger().info(`   • Dependency updates: ✅ Will work`)
+    getDefaultLogger().info(`   • Dashboard creation: ✅ Will work`)
+    getDefaultLogger().info(`   • Workflow file updates: ❌ Won't work`)
+    getDefaultLogger().info(`   💡 Consider setting up a Personal Access Token later for full functionality`)
   }
 
-  console.log(`\n3. 🔧 Configure repository permissions:`)
-  console.log(`   - Go to: https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/actions`)
-  console.log(`   - Under "Workflow permissions":`)
-  console.log(`     ✅ Select "Read and write permissions"`)
-  console.log(`     ✅ Check "Allow GitHub Actions to create and approve pull requests"`)
-  console.log(`   - Click "Save"`)
+  getDefaultLogger().info(`\n3. 🔧 Configure repository permissions:`)
+  getDefaultLogger().info(`   - Go to: https://github.com/${repoInfo.owner}/${repoInfo.name}/settings/actions`)
+  getDefaultLogger().info(`   - Under "Workflow permissions":`)
+  getDefaultLogger().info(`     ✅ Select "Read and write permissions"`)
+  getDefaultLogger().info(`     ✅ Check "Allow GitHub Actions to create and approve pull requests"`)
+  getDefaultLogger().info(`   - Click "Save"`)
 
-  console.log(`\n🎉 Setup Complete!`)
-  console.log(`💡 Your workflows will now run automatically on schedule!`)
-  console.log(`📊 First dashboard update will appear within 24 hours`)
-  console.log(`🔗 Learn more: https://docs.github.com/en/actions`)
+  getDefaultLogger().info(`\n🎉 Setup Complete!`)
+  getDefaultLogger().info(`💡 Your workflows will now run automatically on schedule!`)
+  getDefaultLogger().info(`📊 First dashboard update will appear within 24 hours`)
+  getDefaultLogger().info(`🔗 Learn more: https://docs.github.com/en/actions`)
 }

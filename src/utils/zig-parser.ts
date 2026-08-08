@@ -1,5 +1,5 @@
-/* eslint-disable no-console */
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
+import { getDefaultLogger } from './logger'
 
 /**
  * Check if a file path is a Zig build manifest file
@@ -107,7 +107,7 @@ export async function parseZigManifest(filePath: string, content: string): Promi
     }
   }
   catch (error) {
-    console.warn(`Failed to parse Zig manifest ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse Zig manifest ${filePath}:`, error)
     return null
   }
 }
@@ -118,7 +118,7 @@ export async function parseZigManifest(filePath: string, content: string): Promi
 export async function updateZigManifest(filePath: string, content: string, updates: PackageUpdate[]): Promise<string> {
   try {
     if (!isZigManifest(filePath)) {
-      console.log(`⚠️ updateZigManifest: ${filePath} is not a Zig manifest file, returning original content`)
+      getDefaultLogger().info(`⚠️ updateZigManifest: ${filePath} is not a Zig manifest file, returning original content`)
       return content
     }
 
@@ -152,17 +152,17 @@ export async function updateZigManifest(filePath: string, content: string, updat
         const replacement = `${prefix}${newUrl}${suffix}`
         updatedContent = updatedContent.replace(fullMatch, replacement)
 
-        console.log(`✅ Updated ${cleanPackageName} from ${match[2]} to ${newUrl}`)
+        getDefaultLogger().info(`✅ Updated ${cleanPackageName} from ${match[2]} to ${newUrl}`)
       }
       else {
-        console.warn(`⚠️ Could not find dependency block for ${cleanPackageName} in ${filePath}`)
+        getDefaultLogger().warn(`⚠️ Could not find dependency block for ${cleanPackageName} in ${filePath}`)
       }
     }
 
     return updatedContent
   }
   catch (error) {
-    console.warn(`Failed to update Zig manifest ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to update Zig manifest ${filePath}:`, error)
     return content
   }
 }
@@ -201,18 +201,18 @@ export async function generateZigManifestUpdates(updates: PackageUpdate[]): Prom
             content: updatedContent,
             type: 'update',
           })
-          console.log(`✅ Generated update for ${filePath} with ${packageUpdates.length} package changes`)
+          getDefaultLogger().info(`✅ Generated update for ${filePath} with ${packageUpdates.length} package changes`)
         }
         else {
-          console.log(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
+          getDefaultLogger().info(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
         }
       }
       else {
-        console.warn(`⚠️ Zig manifest file ${filePath} does not exist`)
+        getDefaultLogger().warn(`⚠️ Zig manifest file ${filePath} does not exist`)
       }
     }
     catch (error) {
-      console.warn(`Failed to generate updates for Zig manifest ${filePath}:`, error)
+      getDefaultLogger().warn(`Failed to generate updates for Zig manifest ${filePath}:`, error)
     }
   }
 

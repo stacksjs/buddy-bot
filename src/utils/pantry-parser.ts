@@ -1,4 +1,5 @@
 import type { Dependency, PackageFile } from '../types'
+import { getDefaultLogger } from './logger'
 
 /**
  * Interface for pantry.lock file structure
@@ -54,7 +55,7 @@ export async function parsePantryLockFile(filePath: string, content: string): Pr
     }
   }
   catch (error) {
-    console.warn(`Failed to parse pantry.lock file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse pantry.lock file ${filePath}:`, error)
     return null
   }
 }

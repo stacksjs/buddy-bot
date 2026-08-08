@@ -1,4 +1,8 @@
 import type { Dependency, PackageFile } from '../types'
+import type { Logger } from '../utils/logger'
+import { getComposerRegistryUrl, getNpmRegistryUrl } from '../utils/endpoints'
+import { fetchWithTimeout } from '../utils/http'
+import { getDefaultLogger } from '../utils/logger'
 
 export interface DeprecatedDependency {
   /** Package name */
@@ -20,6 +24,15 @@ export interface DeprecatedDependency {
 }
 
 export class DeprecatedDependenciesChecker {
+  private readonly logger: Logger
+
+  /**
+   * @param logger - Logger to use; defaults to the process-wide default
+   */
+  constructor(logger?: Logger) {
+    this.logger = logger ?? getDefaultLogger()
+  }
+
   /**
    * Check for deprecated dependencies across all package files
    */
@@ -79,7 +92,7 @@ export class DeprecatedDependenciesChecker {
       return { deprecated: false }
     }
     catch (error) {
-      console.warn(`Failed to check deprecation for ${dependency.name}:`, error)
+      this.logger.warn(`Failed to check deprecation for ${dependency.name}:`, error)
       return { deprecated: false }
     }
   }
@@ -89,7 +102,11 @@ export class DeprecatedDependenciesChecker {
    */
   private async checkNpmDeprecation(dependency: Dependency): Promise<{ deprecated: boolean, message?: string, suggestedReplacement?: string }> {
     try {
-      const response = await fetch(`https://registry.npmjs.org/${dependency.name}`)
+      const registry = getNpmRegistryUrl(dependency.name)
+      const response = await fetchWithTimeout(
+        `${registry}/${encodeURIComponent(dependency.name).replace('%40', '@')}`,
+        { headers: { 'User-Agent': 'buddy-bot' } },
+      )
 
       if (!response.ok) {
         return { deprecated: false }
@@ -119,7 +136,7 @@ export class DeprecatedDependenciesChecker {
       return { deprecated: false }
     }
     catch (error) {
-      console.warn(`Failed to check npm deprecation for ${dependency.name}:`, error)
+      this.logger.warn(`Failed to check npm deprecation for ${dependency.name}:`, error)
       return { deprecated: false }
     }
   }
@@ -129,7 +146,10 @@ export class DeprecatedDependenciesChecker {
    */
   private async checkComposerDeprecation(dependency: Dependency): Promise<{ deprecated: boolean, message?: string, suggestedReplacement?: string }> {
     try {
-      const response = await fetch(`https://packagist.org/packages/${dependency.name}.json`)
+      const response = await fetchWithTimeout(
+        `${getComposerRegistryUrl()}/packages/${dependency.name}.json`,
+        { headers: { 'User-Agent': 'buddy-bot' } },
+      )
 
       if (!response.ok) {
         return { deprecated: false }
@@ -150,7 +170,7 @@ export class DeprecatedDependenciesChecker {
       return { deprecated: false }
     }
     catch (error) {
-      console.warn(`Failed to check Composer deprecation for ${dependency.name}:`, error)
+      this.logger.warn(`Failed to check Composer deprecation for ${dependency.name}:`, error)
       return { deprecated: false }
     }
   }

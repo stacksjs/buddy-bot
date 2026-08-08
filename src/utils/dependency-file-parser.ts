@@ -1,6 +1,6 @@
-/* eslint-disable no-console */
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
 import { resolveDependencyFile } from 'ts-pantry'
+import { getDefaultLogger } from './logger'
 
 /**
  * Check if a file path is a dependency file that we can handle
@@ -52,7 +52,7 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
       }
     }
     catch (pkgxError) {
-      console.warn(`ts-pantry failed to parse ${filePath}, attempting fallback YAML parsing:`, pkgxError)
+      getDefaultLogger().warn(`ts-pantry failed to parse ${filePath}, attempting fallback YAML parsing:`, pkgxError)
     }
 
     // Fallback: if ts-pantry returned no dependencies (either threw or returned empty),
@@ -62,7 +62,7 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
         dependencies = await parseSimpleYamlDependencies(content, filePath)
       }
       catch (yamlError) {
-        console.warn(`Fallback YAML parsing failed for ${filePath}:`, yamlError)
+        getDefaultLogger().warn(`Fallback YAML parsing failed for ${filePath}:`, yamlError)
         dependencies = []
       }
     }
@@ -76,7 +76,7 @@ export async function parseDependencyFile(filePath: string, content: string): Pr
     }
   }
   catch (error) {
-    console.warn(`Failed to parse dependency file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse dependency file ${filePath}:`, error)
     return null
   }
 }
@@ -131,14 +131,14 @@ async function parseSimpleYamlDependencies(content: string, filePath: string): P
 export async function updateDependencyFile(filePath: string, content: string, updates: PackageUpdate[]): Promise<string> {
   try {
     if (!isDependencyFile(filePath)) {
-      console.log(`⚠️ updateDependencyFile: ${filePath} is not a dependency file, returning original content`)
+      getDefaultLogger().info(`⚠️ updateDependencyFile: ${filePath} is not a dependency file, returning original content`)
       return content
     }
 
     // Extra safety check: ensure we're not accidentally processing non-YAML content
     if (content.trim().startsWith('{') && content.includes('"require"')) {
-      console.log(`⚠️ updateDependencyFile: Content appears to be JSON (composer.json), but file is ${filePath}`)
-      console.log(`Content preview: ${content.substring(0, 200)}`)
+      getDefaultLogger().info(`⚠️ updateDependencyFile: Content appears to be JSON (composer.json), but file is ${filePath}`)
+      getDefaultLogger().info(`Content preview: ${content.substring(0, 200)}`)
       return content // Don't process JSON content in YAML function
     }
 
@@ -180,7 +180,7 @@ export async function updateDependencyFile(filePath: string, content: string, up
           }
 
           if (shouldRespectVersion(currentVersionInFile)) {
-            console.log(`⚠️ Skipping update for ${cleanPackageName} - version "${currentVersionInFile}" should be respected`)
+            getDefaultLogger().info(`⚠️ Skipping update for ${cleanPackageName} - version "${currentVersionInFile}" should be respected`)
             continue
           }
 
@@ -203,7 +203,7 @@ export async function updateDependencyFile(filePath: string, content: string, up
     return updatedContent
   }
   catch (error) {
-    console.warn(`Failed to update dependency file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to update dependency file ${filePath}:`, error)
     return content
   }
 }
@@ -242,18 +242,18 @@ export async function generateDependencyFileUpdates(updates: PackageUpdate[]): P
             content: updatedContent,
             type: 'update',
           })
-          console.log(`✅ Generated update for ${filePath} with ${packageUpdates.length} package changes`)
+          getDefaultLogger().info(`✅ Generated update for ${filePath} with ${packageUpdates.length} package changes`)
         }
         else {
-          console.log(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
+          getDefaultLogger().info(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
         }
       }
       else {
-        console.warn(`⚠️ Dependency file ${filePath} does not exist`)
+        getDefaultLogger().warn(`⚠️ Dependency file ${filePath} does not exist`)
       }
     }
     catch (error) {
-      console.warn(`Failed to generate updates for dependency file ${filePath}:`, error)
+      getDefaultLogger().warn(`Failed to generate updates for dependency file ${filePath}:`, error)
     }
   }
 

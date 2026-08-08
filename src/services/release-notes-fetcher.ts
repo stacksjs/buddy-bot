@@ -1,5 +1,9 @@
+import type { Logger } from '../utils/logger'
 import { semver } from 'bun'
 import process from 'node:process'
+import { getComposerRegistryUrl, getGitHubApiUrl, getNpmRegistryUrl } from '../utils/endpoints'
+import { fetchWithTimeout } from '../utils/http'
+import { getDefaultLogger } from '../utils/logger'
 
 // Shapes for third-party API responses this service consumes. Narrow and
 // defensive — fields we don't touch aren't declared.
@@ -110,6 +114,34 @@ export interface PackageInfo {
 
 export class ReleaseNotesFetcher {
   private readonly userAgent = 'Buddy-Bot/1.0.0 (https://github.com/stacksjs/buddy)'
+  private readonly logger: Logger
+
+  /**
+   * @param logger - Logger to use; defaults to the process-wide default
+   */
+  constructor(logger?: Logger) {
+    this.logger = logger ?? getDefaultLogger()
+  }
+
+  /**
+   * Headers for GitHub API reads, authenticated when a token is available.
+   *
+   * Release notes are fetched for every package in a PR, so running anonymous
+   * exhausts the 60 requests/hour limit on the first sizeable update batch and
+   * silently produces PRs with no changelogs.
+   */
+  private githubHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'User-Agent': this.userAgent,
+      'Accept': 'application/vnd.github.v3+json',
+    }
+
+    const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN
+    if (token)
+      headers.Authorization = `Bearer ${token}`
+
+    return headers
+  }
 
   /**
    * Fetch comprehensive package information including release notes
@@ -171,7 +203,7 @@ export class ReleaseNotesFetcher {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to fetch package info for ${packageName}:`, error)
+      this.logger.error(`❌ Failed to fetch package info for ${packageName}:`, error)
       // Return minimal info that will still generate useful content
       return {
         packageInfo: {
@@ -190,7 +222,8 @@ export class ReleaseNotesFetcher {
    */
   private async fetchNpmPackageInfo(packageName: string): Promise<PackageInfo> {
     try {
-      const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`, {
+      const registry = getNpmRegistryUrl(packageName)
+      const response = await fetchWithTimeout(`${registry}/${encodeURIComponent(packageName).replace('%40', '@')}`, {
         headers: { 'User-Agent': this.userAgent },
       })
 
@@ -204,7 +237,7 @@ export class ReleaseNotesFetcher {
       // Fetch weekly downloads
       let weeklyDownloads: number | undefined
       try {
-        const downloadsResponse = await fetch(
+        const downloadsResponse = await fetchWithTimeout(
           `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`,
           { headers: { 'User-Agent': this.userAgent } },
         )
@@ -256,7 +289,7 @@ export class ReleaseNotesFetcher {
       }
     }
     catch (error) {
-      console.warn(`⚠️ Failed to fetch npm info for ${packageName}:`, error)
+      this.logger.warn(`⚠️ Failed to fetch npm info for ${packageName}:`, error)
       return {
         name: packageName,
         description: `NPM package ${packageName}`,
@@ -309,9 +342,9 @@ export class ReleaseNotesFetcher {
     newVersion: string,
   ): Promise<ReleaseNote[]> {
     try {
-      const response = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/releases?per_page=50`,
-        { headers: { 'User-Agent': this.userAgent } },
+      const response = await fetchWithTimeout(
+        `${getGitHubApiUrl()}/repos/${owner}/${repo}/releases?per_page=50`,
+        { headers: this.githubHeaders() },
       )
 
       if (!response.ok) {
@@ -344,7 +377,7 @@ export class ReleaseNotesFetcher {
         }))
     }
     catch (error) {
-      console.warn(`Failed to fetch GitHub releases for ${owner}/${repo}:`, error)
+      this.logger.warn(`Failed to fetch GitHub releases for ${owner}/${repo}:`, error)
       return []
     }
   }
@@ -358,9 +391,9 @@ export class ReleaseNotesFetcher {
 
     for (const filename of changelogFiles) {
       try {
-        const response = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${filename}`,
-          { headers: { 'User-Agent': this.userAgent } },
+        const response = await fetchWithTimeout(
+          `${getGitHubApiUrl()}/repos/${owner}/${repo}/contents/${filename}`,
+          { headers: this.githubHeaders() },
         )
 
         if (response.ok) {
@@ -540,7 +573,7 @@ export class ReleaseNotesFetcher {
     }
 
     try {
-      const response = await fetch(`https://packagist.org/packages/${encodeURIComponent(packageName)}.json`, {
+      const response = await fetchWithTimeout(`${getComposerRegistryUrl()}/packages/${encodeURIComponent(packageName)}.json`, {
         headers: { 'User-Agent': this.userAgent },
       })
 
@@ -580,7 +613,7 @@ export class ReleaseNotesFetcher {
       }
     }
     catch (error) {
-      console.warn(`Failed to fetch Packagist info for ${packageName}:`, error)
+      this.logger.warn(`Failed to fetch Packagist info for ${packageName}:`, error)
       return { name: packageName }
     }
   }

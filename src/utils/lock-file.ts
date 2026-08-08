@@ -1,8 +1,8 @@
-/* eslint-disable no-console */
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 import { detectPackageManager } from './helpers'
+import { getDefaultLogger } from './logger'
 
 export type PackageManagerType = 'bun' | 'npm' | 'yarn' | 'pnpm' | 'composer'
 
@@ -59,7 +59,7 @@ export async function regenerateLockFile(
 ): Promise<LockFileResult> {
   const { command, args } = getInstallCommand(packageManager)
 
-  console.log(`🔄 Regenerating lock file with ${packageManager} (${command} ${args.join(' ')})...`)
+  getDefaultLogger().info(`🔄 Regenerating lock file with ${packageManager} (${command} ${args.join(' ')})...`)
 
   return new Promise<LockFileResult>((resolve) => {
     const child = spawn(command, args, {
@@ -77,13 +77,13 @@ export async function regenerateLockFile(
 
     const timeout = setTimeout(() => {
       killed = true
-      console.warn(`⚠️ ${packageManager} install timed out after ${timeoutMs / 1000}s, sending SIGTERM...`)
+      getDefaultLogger().warn(`⚠️ ${packageManager} install timed out after ${timeoutMs / 1000}s, sending SIGTERM...`)
       child.kill('SIGTERM')
 
       // Escalate to SIGKILL after 10 seconds
       setTimeout(() => {
         if (!child.killed) {
-          console.warn(`⚠️ ${packageManager} install did not exit after SIGTERM, sending SIGKILL...`)
+          getDefaultLogger().warn(`⚠️ ${packageManager} install did not exit after SIGTERM, sending SIGKILL...`)
           child.kill('SIGKILL')
         }
       }, 10_000)
@@ -110,7 +110,7 @@ export async function regenerateLockFile(
       }
 
       if (code === 0) {
-        console.log(`✅ Lock file regenerated successfully with ${packageManager}`)
+        getDefaultLogger().info(`✅ Lock file regenerated successfully with ${packageManager}`)
         resolve({
           success: true,
           packageManager,
@@ -118,9 +118,9 @@ export async function regenerateLockFile(
         })
       }
       else {
-        console.warn(`⚠️ ${packageManager} install exited with code ${code}`)
+        getDefaultLogger().warn(`⚠️ ${packageManager} install exited with code ${code}`)
         if (stderr)
-          console.warn(`   stderr: ${stderr.slice(0, 500)}`)
+          getDefaultLogger().warn(`   stderr: ${stderr.slice(0, 500)}`)
         resolve({
           success: false,
           packageManager,
@@ -131,7 +131,7 @@ export async function regenerateLockFile(
 
     child.on('error', (error) => {
       clearTimeout(timeout)
-      console.warn(`⚠️ Failed to run ${command}: ${error.message}`)
+      getDefaultLogger().warn(`⚠️ Failed to run ${command}: ${error.message}`)
       resolve({
         success: false,
         packageManager,

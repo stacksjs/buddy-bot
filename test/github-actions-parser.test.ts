@@ -328,12 +328,15 @@ jobs:
       const result = await fetchLatestActionVersion('actions/checkout')
 
       expect(result).toBe('v4.2.2')
-      expect(globalThis.fetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/checkout/releases/latest', {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'buddy-bot',
-        },
-      })
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/actions/checkout/releases/latest',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'buddy-bot',
+          }),
+        }),
+      )
     })
 
     it('should return null for invalid action names', async () => {
@@ -401,12 +404,15 @@ jobs:
       const result = await fetchLatestActionVersion('actions/download-artifact')
 
       expect(result).toBe('v5')
-      expect(mockFetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/download-artifact/releases/latest', {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'buddy-bot',
-        },
-      })
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/actions/download-artifact/releases/latest',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'buddy-bot',
+          }),
+        }),
+      )
     })
 
     it('should fallback to all releases when latest release fails', async () => {
@@ -443,12 +449,15 @@ jobs:
       const result = await fetchLatestActionVersion('actions/download-artifact')
 
       expect(result).toBe('v5.0.0')
-      expect(mockFetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/download-artifact/releases?per_page=10', {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'buddy-bot',
-        },
-      })
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/actions/download-artifact/releases?per_page=10',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'buddy-bot',
+          }),
+        }),
+      )
     })
 
     it('should fallback to tags when releases fail', async () => {
@@ -485,12 +494,15 @@ jobs:
       const result = await fetchLatestActionVersion('actions/download-artifact')
 
       expect(result).toBe('v5.0.0')
-      expect(mockFetch).toHaveBeenCalledWith('https://api.github.com/repos/actions/download-artifact/tags?per_page=10', {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'buddy-bot',
-        },
-      })
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/actions/download-artifact/tags?per_page=10',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'buddy-bot',
+          }),
+        }),
+      )
     })
   })
 })

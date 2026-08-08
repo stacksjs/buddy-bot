@@ -1,5 +1,6 @@
 import type { Dependency, PackageFile } from '../types'
 import { readFileSync } from 'node:fs'
+import { getDefaultLogger } from './logger'
 
 /**
  * Interface for Composer package data structure
@@ -78,7 +79,7 @@ export async function parseComposerJson(filePath: string, content: string): Prom
     }
   }
   catch (error) {
-    console.warn(`Failed to parse composer.json file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse composer.json file ${filePath}:`, error)
     return null
   }
 }
@@ -127,7 +128,7 @@ export async function parseComposerLock(filePath: string, content: string): Prom
     }
   }
   catch (error) {
-    console.warn(`Failed to parse composer.lock file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse composer.lock file ${filePath}:`, error)
     return null
   }
 }
@@ -279,7 +280,7 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
         }
 
         if (!packageFound) {
-          console.warn(`Package ${update.name} not found in ${filePath}`)
+          getDefaultLogger().warn(`Package ${update.name} not found in ${filePath}`)
         }
       }
 
@@ -290,7 +291,7 @@ export async function generateComposerUpdates(updates: Array<{ name: string, new
       })
     }
     catch (error) {
-      console.error(`Failed to update ${filePath}:`, error)
+      getDefaultLogger().error(`Failed to update ${filePath}:`, error)
     }
   }
 

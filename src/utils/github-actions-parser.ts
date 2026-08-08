@@ -1,6 +1,8 @@
-/* eslint-disable no-console */
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
 import process from 'node:process'
+import { getGitHubApiUrl } from './endpoints'
+import { fetchWithTimeout } from './http'
+import { getDefaultLogger } from './logger'
 
 /**
  * Check if a file path is a GitHub Actions workflow file
@@ -82,7 +84,7 @@ export async function parseGitHubActionsFile(filePath: string, content: string):
     }
   }
   catch (error) {
-    console.warn(`Failed to parse GitHub Actions file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse GitHub Actions file ${filePath}:`, error)
     return null
   }
 }
@@ -123,7 +125,7 @@ export async function updateGitHubActionsFile(
     return updatedContent
   }
   catch (error) {
-    console.warn(`Failed to update GitHub Actions file ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to update GitHub Actions file ${filePath}:`, error)
     return content
   }
 }
@@ -163,7 +165,7 @@ export async function generateGitHubActionsUpdates(updates: PackageUpdate[]): Pr
       }
     }
     catch (error) {
-      console.warn(`Failed to generate updates for GitHub Actions file ${filePath}:`, error)
+      getDefaultLogger().warn(`Failed to generate updates for GitHub Actions file ${filePath}:`, error)
     }
   }
 
@@ -177,12 +179,12 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
   try {
     // GitHub Actions are typically in the format owner/repo
     if (!actionName.includes('/')) {
-      console.log(`⚠️ Invalid action name format: ${actionName}`)
+      getDefaultLogger().info(`⚠️ Invalid action name format: ${actionName}`)
       return null
     }
 
     const [owner, repo] = actionName.split('/')
-    console.log(`🔍 Fetching latest version for ${owner}/${repo}`)
+    getDefaultLogger().info(`🔍 Fetching latest version for ${owner}/${repo}`)
 
     // Prepare headers with authentication if available
     const headers: Record<string, string> = {
@@ -190,33 +192,36 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
       'User-Agent': 'buddy-bot',
     }
 
-    // Add authentication if GitHub token is available
-    const token = process.env.GITHUB_TOKEN
+    // Authenticate when possible: anonymous GitHub API access is capped at 60
+    // requests/hour, which a workflow scanning many actions exhausts quickly.
+    const token = process.env.BUDDY_BOT_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN
     if (token) {
       headers.Authorization = `Bearer ${token}`
     }
 
+    const apiUrl = getGitHubApiUrl()
+
     // First try to get the latest release
-    console.log(`📡 Trying latest release for ${owner}/${repo}`)
-    const latestResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
+    getDefaultLogger().info(`📡 Trying latest release for ${owner}/${repo}`)
+    const latestResponse = await fetchWithTimeout(`${apiUrl}/repos/${owner}/${repo}/releases/latest`, {
       headers,
     })
 
     if (latestResponse.ok) {
       const release = await latestResponse.json() as { tag_name?: string }
       if (release.tag_name) {
-        console.log(`✅ Found latest release: ${release.tag_name}`)
+        getDefaultLogger().info(`✅ Found latest release: ${release.tag_name}`)
         return release.tag_name
       }
     }
     else {
-      console.log(`⚠️ Latest release not found: ${latestResponse.status} ${latestResponse.statusText}`)
+      getDefaultLogger().info(`⚠️ Latest release not found: ${latestResponse.status} ${latestResponse.statusText}`)
     }
 
     // If latest release fails or doesn't exist, try to get all releases
     // This helps with actions that don't use the latest tag or have different versioning
-    console.log(`📡 Trying all releases for ${owner}/${repo}`)
-    const releasesResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=10`, {
+    getDefaultLogger().info(`📡 Trying all releases for ${owner}/${repo}`)
+    const releasesResponse = await fetchWithTimeout(`${apiUrl}/repos/${owner}/${repo}/releases?per_page=10`, {
       headers,
     })
 
@@ -225,10 +230,10 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
 
       // Ensure we have an array
       if (!Array.isArray(releases)) {
-        console.log(`⚠️ Unexpected releases response format (expected array)`)
+        getDefaultLogger().info(`⚠️ Unexpected releases response format (expected array)`)
       }
       else {
-        console.log(`📋 Found ${releases.length} releases`)
+        getDefaultLogger().info(`📋 Found ${releases.length} releases`)
 
         // Filter out pre-releases and sort by published date
         const stableReleases = releases
@@ -240,18 +245,18 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
           })
 
         if (stableReleases.length > 0) {
-          console.log(`✅ Found latest stable release: ${stableReleases[0].tag_name}`)
+          getDefaultLogger().info(`✅ Found latest stable release: ${stableReleases[0].tag_name}`)
           return stableReleases[0].tag_name || null
         }
       }
     }
     else {
-      console.log(`⚠️ Releases not found: ${releasesResponse.status} ${releasesResponse.statusText}`)
+      getDefaultLogger().info(`⚠️ Releases not found: ${releasesResponse.status} ${releasesResponse.statusText}`)
     }
 
     // If we still can't find a release, try to get tags
-    console.log(`📡 Trying tags for ${owner}/${repo}`)
-    const tagsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/tags?per_page=10`, {
+    getDefaultLogger().info(`📡 Trying tags for ${owner}/${repo}`)
+    const tagsResponse = await fetchWithTimeout(`${apiUrl}/repos/${owner}/${repo}/tags?per_page=10`, {
       headers,
     })
 
@@ -260,10 +265,10 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
 
       // Ensure we have an array
       if (!Array.isArray(tags)) {
-        console.log(`⚠️ Unexpected tags response format (expected array)`)
+        getDefaultLogger().info(`⚠️ Unexpected tags response format (expected array)`)
       }
       else {
-        console.log(`📋 Found ${tags.length} tags`)
+        getDefaultLogger().info(`📋 Found ${tags.length} tags`)
 
         // Filter out pre-releases and find the latest stable tag
         const stableTags = tags
@@ -289,20 +294,20 @@ export async function fetchLatestActionVersion(actionName: string): Promise<stri
           })
 
         if (stableTags.length > 0) {
-          console.log(`✅ Found latest stable tag: ${stableTags[0]}`)
+          getDefaultLogger().info(`✅ Found latest stable tag: ${stableTags[0]}`)
           return stableTags[0]
         }
       }
     }
     else {
-      console.log(`⚠️ Tags not found: ${tagsResponse.status} ${tagsResponse.statusText}`)
+      getDefaultLogger().info(`⚠️ Tags not found: ${tagsResponse.status} ${tagsResponse.statusText}`)
     }
 
-    console.log(`❌ No version found for ${actionName}`)
+    getDefaultLogger().info(`❌ No version found for ${actionName}`)
     return null
   }
   catch (error) {
-    console.warn(`Failed to fetch latest version for ${actionName}:`, error)
+    getDefaultLogger().warn(`Failed to fetch latest version for ${actionName}:`, error)
     return null
   }
 }

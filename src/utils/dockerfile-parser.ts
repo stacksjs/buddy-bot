@@ -1,5 +1,7 @@
-/* eslint-disable no-console */
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
+import process from 'node:process'
+import { fetchWithTimeout } from './http'
+import { getDefaultLogger } from './logger'
 
 /**
  * Check if a file path is a Dockerfile that we can handle
@@ -89,7 +91,7 @@ export async function parseDockerfile(filePath: string, content: string): Promis
     }
   }
   catch (error) {
-    console.warn(`Failed to parse Dockerfile ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to parse Dockerfile ${filePath}:`, error)
     return null
   }
 }
@@ -139,7 +141,7 @@ function parseImageReference(imageRef: string): { name: string, version: string 
     return { name, version }
   }
   catch (error) {
-    console.warn(`Failed to parse image reference ${imageRef}:`, error)
+    getDefaultLogger().warn(`Failed to parse image reference ${imageRef}:`, error)
     return null
   }
 }
@@ -180,9 +182,16 @@ export async function fetchLatestDockerImageVersion(imageName: string): Promise<
       apiUrl = `https://registry.hub.docker.com/v2/repositories/${cleanImageName}/tags/?page_size=100`
     }
 
-    const response = await fetch(apiUrl)
+    // Docker Hub throttles anonymous callers aggressively; a personal access
+    // token in DOCKERHUB_TOKEN lifts the limit when one is configured.
+    const headers: Record<string, string> = { 'User-Agent': 'buddy-bot' }
+    const dockerToken = process.env.DOCKERHUB_TOKEN || process.env.DOCKER_TOKEN
+    if (dockerToken)
+      headers.Authorization = `Bearer ${dockerToken}`
+
+    const response = await fetchWithTimeout(apiUrl, { headers })
     if (!response.ok) {
-      console.warn(`Failed to fetch tags for ${imageName}: ${response.status}`)
+      getDefaultLogger().warn(`Failed to fetch tags for ${imageName}: ${response.status}`)
       return null
     }
 
@@ -220,7 +229,7 @@ export async function fetchLatestDockerImageVersion(imageName: string): Promise<
     return tags.length > 0 ? tags[0] : null
   }
   catch (error) {
-    console.warn(`Failed to fetch latest version for Docker image ${imageName}:`, error)
+    getDefaultLogger().warn(`Failed to fetch latest version for Docker image ${imageName}:`, error)
     return null
   }
 }
@@ -231,7 +240,7 @@ export async function fetchLatestDockerImageVersion(imageName: string): Promise<
 export async function updateDockerfile(filePath: string, content: string, updates: PackageUpdate[]): Promise<string> {
   try {
     if (!isDockerfile(filePath)) {
-      console.log(`⚠️ updateDockerfile: ${filePath} is not a Dockerfile, returning original content`)
+      getDefaultLogger().info(`⚠️ updateDockerfile: ${filePath} is not a Dockerfile, returning original content`)
       return content
     }
 
@@ -271,7 +280,7 @@ export async function updateDockerfile(filePath: string, content: string, update
         const afterVersion = match[4] || '' // " as alias" or empty
 
         if (shouldRespectVersion(currentVersion)) {
-          console.log(`⚠️ Skipping update for ${cleanImageName} - version "${currentVersion}" should be respected`)
+          getDefaultLogger().info(`⚠️ Skipping update for ${cleanImageName} - version "${currentVersion}" should be respected`)
           continue
         }
 
@@ -279,14 +288,14 @@ export async function updateDockerfile(filePath: string, content: string, update
         const replacement = `${beforeColon}${colon}${update.newVersion}${afterVersion}`
         updatedContent = updatedContent.replace(fullMatch, replacement)
 
-        console.log(`📝 Updated ${cleanImageName}: ${currentVersion} → ${update.newVersion}`)
+        getDefaultLogger().info(`📝 Updated ${cleanImageName}: ${currentVersion} → ${update.newVersion}`)
       }
     }
 
     return updatedContent
   }
   catch (error) {
-    console.warn(`Failed to update Dockerfile ${filePath}:`, error)
+    getDefaultLogger().warn(`Failed to update Dockerfile ${filePath}:`, error)
     return content
   }
 }
@@ -325,18 +334,18 @@ export async function generateDockerfileUpdates(updates: PackageUpdate[]): Promi
             content: updatedContent,
             type: 'update',
           })
-          console.log(`✅ Generated update for ${filePath} with ${dockerUpdates.length} image changes`)
+          getDefaultLogger().info(`✅ Generated update for ${filePath} with ${dockerUpdates.length} image changes`)
         }
         else {
-          console.log(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
+          getDefaultLogger().info(`ℹ️ No changes needed for ${filePath} - versions already up to date`)
         }
       }
       else {
-        console.warn(`⚠️ Dockerfile ${filePath} does not exist`)
+        getDefaultLogger().warn(`⚠️ Dockerfile ${filePath} does not exist`)
       }
     }
     catch (error) {
-      console.warn(`Failed to generate updates for Dockerfile ${filePath}:`, error)
+      getDefaultLogger().warn(`Failed to generate updates for Dockerfile ${filePath}:`, error)
     }
   }
 

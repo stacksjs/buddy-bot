@@ -1,11 +1,14 @@
-/* eslint-disable no-console */
 import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullRequestOptions } from '../types'
+import type { Logger } from '../utils/logger'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
+import { getGitHubApiUrl } from '../utils/endpoints'
 import { formatError, GitHubApiError } from '../utils/errors'
 import { assertUpdateTargetsExist, FileChangeValidationError, normalizeRepositoryPath } from '../utils/file-changes'
+import { fetchWithTimeout } from '../utils/http'
 import { detectRequiredPackageManagers, getAllLockFilePaths, regenerateLockFile } from '../utils/lock-file'
+import { getDefaultLogger } from '../utils/logger'
 
 // Match GitHub token formats (ghp_*, gho_*, ghs_*, ghu_*, ghr_*, github_pat_*)
 // plus any 40+ char alphanumeric blob that looks like a credential.
@@ -54,7 +57,12 @@ class LockfileRegenerationError extends Error {
 }
 
 export class GitHubProvider implements GitProvider {
-  private readonly apiUrl = 'https://api.github.com'
+  /**
+   * REST API base URL. Resolved once per instance from `GITHUB_API_URL` or an
+   * explicit override, so the same code path serves github.com and GitHub
+   * Enterprise Server.
+   */
+  private readonly apiUrl: string
 
   // In-memory cache for API responses (reduces redundant API calls within a single workflow run)
   private cache: {
@@ -72,13 +80,23 @@ export class GitHubProvider implements GitProvider {
   // `concurrency:` group, not by extending this cache.
   private readonly cacheTTL = 2 * 60 * 1000
 
+  /** Where this provider's progress output goes. */
+  private readonly logger: Logger
+
   constructor(
     private readonly token: string,
     private readonly owner: string,
     private readonly repo: string,
     private readonly hasWorkflowPermissions: boolean = false,
     private readonly workflowToken?: string,
-  ) {}
+    /** Overrides the API base URL; defaults to the environment-derived value. */
+    apiUrl?: string,
+    /** Logger to use; defaults to the process-wide default. */
+    logger?: Logger,
+  ) {
+    this.apiUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : getGitHubApiUrl()
+    this.logger = logger ?? getDefaultLogger()
+  }
 
   /**
    * Check if cached data is still valid
@@ -109,7 +127,7 @@ export class GitHubProvider implements GitProvider {
         return false
 
       // For other errors, log and return false (conservative approach)
-      console.warn(`⚠️ Error checking branch ${branchName}: ${formatError(error)}`)
+      this.logger.warn(`⚠️ Error checking branch ${branchName}: ${formatError(error)}`)
       return false
     }
   }
@@ -126,10 +144,10 @@ export class GitHubProvider implements GitProvider {
         sha: baseSha,
       })
 
-      console.log(`✅ Created branch ${branchName} from ${baseBranch}`)
+      this.logger.info(`✅ Created branch ${branchName} from ${baseBranch}`)
     }
     catch (error) {
-      console.error(`❌ Failed to create branch ${branchName}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to create branch ${branchName}: ${formatError(error)}`)
       throw error
     }
   }
@@ -146,7 +164,7 @@ export class GitHubProvider implements GitProvider {
       if (gitError instanceof LockfileRegenerationError || gitError instanceof FileChangeValidationError)
         throw gitError
 
-      console.warn(`⚠️ Git CLI commit failed, falling back to GitHub API: ${gitError}`)
+      this.logger.warn(`⚠️ Git CLI commit failed, falling back to GitHub API: ${gitError}`)
       await this.commitChangesWithAPI(branchName, message, files, baseBranch)
     }
   }
@@ -158,26 +176,26 @@ export class GitHubProvider implements GitProvider {
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
 
       if (workflowFiles.length > 0 && !this.hasWorkflowPermissions) {
-        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
-        console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
-        console.warn(`ℹ️ Workflow files will be skipped in this commit. BUDDY_BOT_TOKEN not detected or lacks workflow permissions.`)
+        this.logger.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
+        this.logger.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        this.logger.warn(`ℹ️ Workflow files will be skipped in this commit. BUDDY_BOT_TOKEN not detected or lacks workflow permissions.`)
 
         // If we have non-workflow files, commit just those
         if (nonWorkflowFiles.length > 0) {
-          console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
+          this.logger.info(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
           files = nonWorkflowFiles
         }
         else {
-          console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
-          console.warn(`💡 To update workflow files, ensure BUDDY_BOT_TOKEN is set with workflow:write permissions.`)
+          this.logger.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
+          this.logger.warn(`💡 To update workflow files, ensure BUDDY_BOT_TOKEN is set with workflow:write permissions.`)
           // Don't return early - we'll create an empty commit to avoid "No commits between branches" error
-          console.log(`📝 Creating empty commit to avoid "No commits between branches" error...`)
+          this.logger.info(`📝 Creating empty commit to avoid "No commits between branches" error...`)
           try {
             await this.runCommand('git', ['commit', '--allow-empty', '-m', 'Workflow files require elevated permissions - no changes committed'])
-            console.log(`✅ Created empty commit for workflow-only PR`)
+            this.logger.info(`✅ Created empty commit for workflow-only PR`)
           }
           catch (error) {
-            console.warn(`⚠️ Failed to create empty commit: ${error}`)
+            this.logger.warn(`⚠️ Failed to create empty commit: ${error}`)
             // Try to create a minimal README update instead
             try {
               const readmePath = 'README.md'
@@ -188,28 +206,28 @@ export class GitHubProvider implements GitProvider {
                 await Bun.write(readmePath, updatedContent)
                 await this.runCommand('git', ['add', readmePath])
                 await this.runCommand('git', ['commit', '-m', 'Update README for workflow-only PR'])
-                console.log(`✅ Created README update for workflow-only PR`)
+                this.logger.info(`✅ Created README update for workflow-only PR`)
               }
             }
             catch (readmeError) {
-              console.error(`❌ Failed to create any commit: ${readmeError}`)
+              this.logger.error(`❌ Failed to create any commit: ${readmeError}`)
             }
           }
           return
         }
       }
       else if (workflowFiles.length > 0) {
-        console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
+        this.logger.info(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
       }
 
       // Configure Git identity to ensure github-actions[bot] attribution
       try {
         await this.runCommand('git', ['config', 'user.name', 'github-actions[bot]'])
         await this.runCommand('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
-        console.log('✅ Git identity configured for github-actions[bot]')
+        this.logger.info('✅ Git identity configured for github-actions[bot]')
       }
       catch (error) {
-        console.warn('⚠️ Failed to configure Git identity:', error)
+        this.logger.warn('⚠️ Failed to configure Git identity:', error)
         // Continue anyway as it might already be configured
       }
 
@@ -220,7 +238,7 @@ export class GitHubProvider implements GitProvider {
       // then apply dependency file changes fresh on top. This completely eliminates
       // merge conflicts because there's nothing to merge — we start from a clean base
       // and just write the dependency file changes on top.
-      console.log(`🔄 Recreating ${branchName} from origin/${baseBranch} (Renovate-style)...`)
+      this.logger.info(`🔄 Recreating ${branchName} from origin/${baseBranch} (Renovate-style)...`)
 
       // Ensure we're on the PR branch (create if it doesn't exist)
       try {
@@ -240,7 +258,7 @@ export class GitHubProvider implements GitProvider {
       // we simply point the branch at main's HEAD and apply our changes fresh.
       await this.runCommand('git', ['reset', '--hard', `origin/${baseBranch}`])
       await this.runCommand('git', ['clean', '-fd'])
-      console.log(`✅ Reset ${branchName} to origin/${baseBranch}`)
+      this.logger.info(`✅ Reset ${branchName} to origin/${baseBranch}`)
 
       await assertUpdateTargetsExist(files, async (cleanPath) => {
         try {
@@ -260,7 +278,7 @@ export class GitHubProvider implements GitProvider {
         if (process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test') {
           const sensitiveFiles = ['package.json', 'bun.lock', 'bun.lockb', 'package-lock.json', 'yarn.lock']
           if (sensitiveFiles.includes(cleanPath) && file.content === '{"name":"x"}') {
-            console.warn(`⚠️ Skipping test file write to ${cleanPath} to prevent overwriting project files`)
+            this.logger.warn(`⚠️ Skipping test file write to ${cleanPath} to prevent overwriting project files`)
             continue
           }
         }
@@ -291,7 +309,7 @@ export class GitHubProvider implements GitProvider {
         const requiredManagers = detectRequiredPackageManagers(updatedPaths)
 
         if (requiredManagers.length > 0) {
-          console.log(`🔒 Regenerating lock files for: ${requiredManagers.join(', ')}`)
+          this.logger.info(`🔒 Regenerating lock files for: ${requiredManagers.join(', ')}`)
           const cwd = process.cwd()
           const failures: string[] = []
 
@@ -342,7 +360,7 @@ export class GitHubProvider implements GitProvider {
           : undefined
         await this.runCommand('git', ['push', 'origin', branchName, '--force-with-lease'], pushToken)
 
-        console.log(`✅ Successfully recreated ${branchName} with fresh changes from ${baseBranch}: ${message}`)
+        this.logger.info(`✅ Successfully recreated ${branchName} with fresh changes from ${baseBranch}: ${message}`)
       }
       else {
         // SAFETY: Do NOT push when there are no file changes after resetting to base.
@@ -352,11 +370,11 @@ export class GitHubProvider implements GitProvider {
         //   1. The dependency changes were already merged to main
         //   2. commitChanges was called with an empty file list
         // In both cases, the right thing is to leave the branch alone.
-        console.log(`ℹ️ No file changes after resetting to ${baseBranch} — skipping push to prevent PR auto-close`)
+        this.logger.info(`ℹ️ No file changes after resetting to ${baseBranch} — skipping push to prevent PR auto-close`)
       }
     }
     catch (error) {
-      console.error(`❌ Failed to commit changes to ${branchName} with Git CLI: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to commit changes to ${branchName} with Git CLI: ${formatError(error)}`)
       throw error
     }
   }
@@ -368,23 +386,23 @@ export class GitHubProvider implements GitProvider {
       const nonWorkflowFiles = files.filter(f => !f.path.includes('.github/workflows/'))
 
       if (workflowFiles.length > 0 && !this.hasWorkflowPermissions) {
-        console.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
-        console.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
-        console.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
+        this.logger.warn(`⚠️ Detected ${workflowFiles.length} workflow file(s). These require elevated permissions.`)
+        this.logger.warn(`⚠️ Workflow files: ${workflowFiles.map(f => f.path).join(', ')}`)
+        this.logger.warn(`ℹ️ Workflow files will be skipped in this commit. Consider using a GitHub App with workflow permissions for workflow updates.`)
 
         // If we have non-workflow files, commit just those
         if (nonWorkflowFiles.length > 0) {
-          console.log(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
+          this.logger.info(`📝 Committing ${nonWorkflowFiles.length} non-workflow files...`)
           files = nonWorkflowFiles
         }
         else {
-          console.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
-          console.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
+          this.logger.warn(`⚠️ All files are workflow files. No files will be committed in this PR.`)
+          this.logger.warn(`💡 To update workflow files, consider using a GitHub App with appropriate permissions.`)
           return // Exit early if no non-workflow files to commit
         }
       }
       else if (workflowFiles.length > 0) {
-        console.log(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
+        this.logger.info(`✅ Including ${workflowFiles.length} workflow file(s) with elevated permissions`)
       }
 
       // Note: Lock files cannot be regenerated when committing via the API path
@@ -393,13 +411,13 @@ export class GitHubProvider implements GitProvider {
         f.path.endsWith('package.json') || f.path.endsWith('composer.json'),
       )
       if (hasManifestFiles) {
-        console.warn(`⚠️ Committing manifest files via API — lock files will not be updated.`)
-        console.warn(`   Lock file regeneration requires the Git CLI commit path (local filesystem).`)
+        this.logger.warn(`⚠️ Committing manifest files via API — lock files will not be updated.`)
+        this.logger.warn(`   Lock file regeneration requires the Git CLI commit path (local filesystem).`)
       }
 
       // Renovate-style: base the new commit on the base branch (e.g. main), not the PR branch.
       // This recreates the branch from scratch, eliminating any merge conflicts.
-      console.log(`🔄 Recreating ${branchName} from ${baseBranch} via API (Renovate-style)...`)
+      this.logger.info(`🔄 Recreating ${branchName} from ${baseBranch} via API (Renovate-style)...`)
       const baseRef = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/git/ref/heads/${baseBranch}`)
       const baseSha = baseRef.object.sha
 
@@ -458,7 +476,7 @@ export class GitHubProvider implements GitProvider {
       // Do NOT update the branch ref — pointing it at main's SHA would make GitHub
       // auto-close the PR thinking it was merged.
       if (newTree.sha === baseTreeSha) {
-        console.log(`ℹ️ No file changes relative to ${baseBranch} — skipping push to prevent PR auto-close`)
+        this.logger.info(`ℹ️ No file changes relative to ${baseBranch} — skipping push to prevent PR auto-close`)
         return
       }
 
@@ -483,10 +501,10 @@ export class GitHubProvider implements GitProvider {
         force: true,
       })
 
-      console.log(`✅ Committed changes to ${branchName}: ${message}`)
+      this.logger.info(`✅ Committed changes to ${branchName}: ${message}`)
     }
     catch (error) {
-      console.error(`❌ Failed to commit changes to ${branchName}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to commit changes to ${branchName}: ${formatError(error)}`)
       throw error
     }
   }
@@ -497,7 +515,7 @@ export class GitHubProvider implements GitProvider {
       return await this.createPullRequestWithCLI(options)
     }
     catch (cliError) {
-      console.warn(`⚠️ GitHub CLI failed, falling back to API: ${cliError}`)
+      this.logger.warn(`⚠️ GitHub CLI failed, falling back to API: ${cliError}`)
       return await this.createPullRequestWithAPI(options)
     }
   }
@@ -526,7 +544,7 @@ export class GitHubProvider implements GitProvider {
       }
 
       if (options.reviewers && options.reviewers.length > 0) {
-        console.log(`🔍 Adding reviewers via CLI: ${options.reviewers.join(', ')}`)
+        this.logger.info(`🔍 Adding reviewers via CLI: ${options.reviewers.join(', ')}`)
         args.push('--reviewer', options.reviewers.join(','))
       }
 
@@ -549,7 +567,7 @@ export class GitHubProvider implements GitProvider {
       const prNumber = Number.parseInt(prUrlMatch[1])
       const prUrl = prUrlMatch[0]
 
-      console.log(`✅ Created PR #${prNumber}: ${options.title}`)
+      this.logger.info(`✅ Created PR #${prNumber}: ${options.title}`)
 
       // Add labels via API after PR creation to handle missing labels gracefully
       if (options.labels && options.labels.length > 0) {
@@ -557,10 +575,10 @@ export class GitHubProvider implements GitProvider {
           await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${prNumber}/labels`, {
             labels: options.labels,
           })
-          console.log(`✅ Added labels to PR #${prNumber}: ${options.labels.join(', ')}`)
+          this.logger.info(`✅ Added labels to PR #${prNumber}: ${options.labels.join(', ')}`)
         }
         catch (labelError) {
-          console.warn(`⚠️ Failed to add labels: ${labelError}`)
+          this.logger.warn(`⚠️ Failed to add labels: ${labelError}`)
           // Try to add labels one by one to handle missing labels gracefully
           for (const label of options.labels) {
             try {
@@ -569,7 +587,7 @@ export class GitHubProvider implements GitProvider {
               })
             }
             catch (singleLabelError) {
-              console.warn(`⚠️ Failed to add label '${label}': ${singleLabelError}`)
+              this.logger.warn(`⚠️ Failed to add label '${label}': ${singleLabelError}`)
             }
           }
         }
@@ -593,7 +611,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create PR with GitHub CLI: ${options.title}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to create PR with GitHub CLI: ${options.title}: ${formatError(error)}`)
       throw error
     }
   }
@@ -614,18 +632,18 @@ export class GitHubProvider implements GitProvider {
       // Add reviewers if specified
       if (options.reviewers && options.reviewers.length > 0) {
         try {
-          console.log(`🔍 Adding reviewers to PR #${response.number}: ${options.reviewers.join(', ')}`)
+          this.logger.info(`🔍 Adding reviewers to PR #${response.number}: ${options.reviewers.join(', ')}`)
           await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/pulls/${response.number}/requested_reviewers`, {
             reviewers: options.reviewers,
             team_reviewers: options.teamReviewers || [],
           })
-          console.log(`✅ Successfully added reviewers: ${options.reviewers.join(', ')}`)
+          this.logger.info(`✅ Successfully added reviewers: ${options.reviewers.join(', ')}`)
         }
         catch (reviewerError) {
-          console.error(`❌ Failed to add reviewers: ${reviewerError}`)
-          console.error(`   Reviewers: ${options.reviewers.join(', ')}`)
-          console.error(`   Repository: ${this.owner}/${this.repo}`)
-          console.error(`   PR: #${response.number}`)
+          this.logger.error(`❌ Failed to add reviewers: ${reviewerError}`)
+          this.logger.error(`   Reviewers: ${options.reviewers.join(', ')}`)
+          this.logger.error(`   Repository: ${this.owner}/${this.repo}`)
+          this.logger.error(`   PR: #${response.number}`)
         }
       }
 
@@ -637,7 +655,7 @@ export class GitHubProvider implements GitProvider {
           })
         }
         catch (assigneeError) {
-          console.warn(`⚠️ Failed to add assignees: ${assigneeError}`)
+          this.logger.warn(`⚠️ Failed to add assignees: ${assigneeError}`)
         }
       }
 
@@ -649,7 +667,7 @@ export class GitHubProvider implements GitProvider {
           })
         }
         catch (labelError) {
-          console.warn(`⚠️ Failed to add labels: ${labelError}`)
+          this.logger.warn(`⚠️ Failed to add labels: ${labelError}`)
           // Try to add labels one by one to handle missing labels gracefully
           for (const label of options.labels) {
             try {
@@ -658,13 +676,13 @@ export class GitHubProvider implements GitProvider {
               })
             }
             catch (singleLabelError) {
-              console.warn(`⚠️ Failed to add label '${label}': ${singleLabelError}`)
+              this.logger.warn(`⚠️ Failed to add label '${label}': ${singleLabelError}`)
             }
           }
         }
       }
 
-      console.log(`✅ Created PR #${response.number}: ${options.title}`)
+      this.logger.info(`✅ Created PR #${response.number}: ${options.title}`)
 
       return {
         number: response.number,
@@ -684,7 +702,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create PR with API: ${options.title}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to create PR with API: ${options.title}: ${formatError(error)}`)
       throw error
     }
   }
@@ -748,7 +766,7 @@ export class GitHubProvider implements GitProvider {
     const cacheKey = `${state}`
     const cached = this.cache.pullRequests.get(cacheKey)
     if (cached && this.isCacheValid(cached.timestamp)) {
-      console.log(`📦 Using cached PRs (state: ${state}, ${cached.data.length} PRs)`)
+      this.logger.info(`📦 Using cached PRs (state: ${state}, ${cached.data.length} PRs)`)
       return cached.data
     }
 
@@ -791,12 +809,12 @@ export class GitHubProvider implements GitProvider {
 
       // Cache the result
       this.cache.pullRequests.set(cacheKey, { data: prs, timestamp: Date.now() })
-      console.log(`✅ Fetched and cached ${prs.length} PRs (state: ${state})`)
+      this.logger.info(`✅ Fetched and cached ${prs.length} PRs (state: ${state})`)
 
       return prs
     }
     catch (error) {
-      console.error(`❌ Failed to get PRs: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to get PRs: ${formatError(error)}`)
       throw error
     }
   }
@@ -824,10 +842,10 @@ export class GitHubProvider implements GitProvider {
           await this.apiRequest(`PUT /repos/${this.owner}/${this.repo}/issues/${prNumber}/labels`, {
             labels: options.labels,
           })
-          console.log(`✅ Updated labels for PR #${prNumber}: ${options.labels.join(', ')}`)
+          this.logger.info(`✅ Updated labels for PR #${prNumber}: ${options.labels.join(', ')}`)
         }
         catch (labelError) {
-          console.warn(`⚠️ Failed to update labels for PR #${prNumber}: ${labelError}`)
+          this.logger.warn(`⚠️ Failed to update labels for PR #${prNumber}: ${labelError}`)
           // Try to add labels one by one to handle missing labels gracefully
           for (const label of options.labels) {
             try {
@@ -836,7 +854,7 @@ export class GitHubProvider implements GitProvider {
               })
             }
             catch (singleLabelError) {
-              console.warn(`⚠️ Failed to add label '${label}' to PR #${prNumber}: ${singleLabelError}`)
+              this.logger.warn(`⚠️ Failed to add label '${label}' to PR #${prNumber}: ${singleLabelError}`)
             }
           }
         }
@@ -845,17 +863,17 @@ export class GitHubProvider implements GitProvider {
       // Update reviewers if specified
       if (options.reviewers && options.reviewers.length > 0) {
         try {
-          console.log(`🔍 Adding reviewers to existing PR #${prNumber}: ${options.reviewers.join(', ')}`)
+          this.logger.info(`🔍 Adding reviewers to existing PR #${prNumber}: ${options.reviewers.join(', ')}`)
           await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/pulls/${prNumber}/requested_reviewers`, {
             reviewers: options.reviewers,
             team_reviewers: options.teamReviewers || [],
           })
-          console.log(`✅ Updated reviewers for PR #${prNumber}: ${options.reviewers.join(', ')}`)
+          this.logger.info(`✅ Updated reviewers for PR #${prNumber}: ${options.reviewers.join(', ')}`)
         }
         catch (reviewerError) {
-          console.error(`❌ Failed to update reviewers for PR #${prNumber}: ${reviewerError}`)
-          console.error(`   Reviewers: ${options.reviewers.join(', ')}`)
-          console.error(`   Repository: ${this.owner}/${this.repo}`)
+          this.logger.error(`❌ Failed to update reviewers for PR #${prNumber}: ${reviewerError}`)
+          this.logger.error(`   Reviewers: ${options.reviewers.join(', ')}`)
+          this.logger.error(`   Repository: ${this.owner}/${this.repo}`)
         }
       }
 
@@ -864,14 +882,14 @@ export class GitHubProvider implements GitProvider {
         try {
           // Use GitHub CLI for assignees (more reliable with permissions)
           await this.runCommand('gh', ['issue', 'edit', prNumber.toString(), '--add-assignee', options.assignees.join(',')])
-          console.log(`✅ Updated assignees for PR #${prNumber}: ${options.assignees.join(', ')}`)
+          this.logger.info(`✅ Updated assignees for PR #${prNumber}: ${options.assignees.join(', ')}`)
         }
         catch (assigneeError) {
-          console.warn(`⚠️ Failed to update assignees for PR #${prNumber}: ${assigneeError}`)
+          this.logger.warn(`⚠️ Failed to update assignees for PR #${prNumber}: ${assigneeError}`)
         }
       }
 
-      console.log(`✅ Updated PR #${prNumber}`)
+      this.logger.info(`✅ Updated PR #${prNumber}`)
 
       return {
         number: response.number,
@@ -891,7 +909,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to update PR #${prNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to update PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -904,12 +922,12 @@ export class GitHubProvider implements GitProvider {
       await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, {
         state: 'closed',
       })
-      console.log(`✅ Closed PR #${prNumber}`)
+      this.logger.info(`✅ Closed PR #${prNumber}`)
       // NOTE: Branch cleanup is the caller's responsibility.
       // Automatically deleting the branch here prevents reopening PRs later.
     }
     catch (error) {
-      console.error(`❌ Failed to close PR #${prNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to close PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -922,10 +940,10 @@ export class GitHubProvider implements GitProvider {
       await this.apiRequest(`PATCH /repos/${this.owner}/${this.repo}/pulls/${prNumber}`, {
         state: 'open',
       })
-      console.log(`✅ Reopened PR #${prNumber}`)
+      this.logger.info(`✅ Reopened PR #${prNumber}`)
     }
     catch (error) {
-      console.error(`❌ Failed to reopen PR #${prNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to reopen PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -935,10 +953,10 @@ export class GitHubProvider implements GitProvider {
       await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/issues/${prNumber}/comments`, {
         body: comment,
       })
-      console.log(`💬 Added comment to PR #${prNumber}`)
+      this.logger.info(`💬 Added comment to PR #${prNumber}`)
     }
     catch (error) {
-      console.error(`❌ Failed to add comment to PR #${prNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to add comment to PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -955,19 +973,19 @@ export class GitHubProvider implements GitProvider {
         merge_method: mergeMethod,
       })
 
-      console.log(`✅ Merged PR #${prNumber} using ${strategy}`)
+      this.logger.info(`✅ Merged PR #${prNumber} using ${strategy}`)
 
       // Clean up the branch after successful merge
       try {
         await this.deleteBranch(branchName)
-        console.log(`🧹 Cleaned up branch ${branchName} after merge`)
+        this.logger.info(`🧹 Cleaned up branch ${branchName} after merge`)
       }
       catch (cleanupError) {
-        console.warn(`⚠️ Failed to clean up branch ${branchName}:`, cleanupError)
+        this.logger.warn(`⚠️ Failed to clean up branch ${branchName}:`, cleanupError)
       }
     }
     catch (error) {
-      console.error(`❌ Failed to merge PR #${prNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to merge PR #${prNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -979,7 +997,7 @@ export class GitHubProvider implements GitProvider {
     try {
       // Use pure git to delete the remote branch (no API calls!)
       await this.runCommand('git', ['push', 'origin', '--delete', branchName])
-      console.log(`✅ Deleted branch ${branchName} via git`)
+      this.logger.info(`✅ Deleted branch ${branchName} via git`)
     }
     catch (error) {
       // If git push fails, it might be because the branch doesn't exist remotely
@@ -987,13 +1005,13 @@ export class GitHubProvider implements GitProvider {
       try {
         // Also delete local tracking branch if it exists
         await this.runCommand('git', ['branch', '-D', branchName])
-        console.log(`✅ Deleted local branch ${branchName}`)
+        this.logger.info(`✅ Deleted local branch ${branchName}`)
       }
       catch {
         // Ignore local deletion errors - branch might not exist locally
       }
 
-      console.warn(`⚠️ Failed to delete remote branch ${branchName}: ${formatError(error)}`)
+      this.logger.warn(`⚠️ Failed to delete remote branch ${branchName}: ${formatError(error)}`)
       // Don't throw - branch deletion failures are not critical
     }
   }
@@ -1037,7 +1055,7 @@ export class GitHubProvider implements GitProvider {
           })
         }
         catch {
-          console.warn(`⚠️ Failed to parse date for branch ${branchName}: ${dateStr}`)
+          this.logger.warn(`⚠️ Failed to parse date for branch ${branchName}: ${dateStr}`)
           branches.push({
             name: branchName,
             sha,
@@ -1046,11 +1064,11 @@ export class GitHubProvider implements GitProvider {
         }
       }
 
-      console.log(`🔍 Found ${branches.length} buddy-bot branches using local git`)
+      this.logger.info(`🔍 Found ${branches.length} buddy-bot branches using local git`)
       return branches
     }
     catch (error) {
-      console.warn('⚠️ Failed to fetch buddy-bot branches via git, falling back to API:', error)
+      this.logger.warn('⚠️ Failed to fetch buddy-bot branches via git, falling back to API:', error)
 
       // Fallback to API method if git fails
       return this.getBuddyBotBranchesViaAPI()
@@ -1084,11 +1102,11 @@ export class GitHubProvider implements GitProvider {
         page++
       }
 
-      console.log(`🔍 Found ${allBranches.length} total branches in repository`)
+      this.logger.info(`🔍 Found ${allBranches.length} total branches in repository`)
 
       // Filter for buddy-bot branches
       const buddyBranches = allBranches.filter((branch: any) => branch.name.startsWith('buddy-bot/'))
-      console.log(`🤖 Found ${buddyBranches.length} buddy-bot branches`)
+      this.logger.info(`🤖 Found ${buddyBranches.length} buddy-bot branches`)
 
       // Get detailed info for each branch including last commit date
       const branchDetails = await Promise.all(
@@ -1102,7 +1120,7 @@ export class GitHubProvider implements GitProvider {
             }
           }
           catch (error) {
-            console.warn(`⚠️ Failed to get commit info for branch ${branch.name}: ${formatError(error)}`)
+            this.logger.warn(`⚠️ Failed to get commit info for branch ${branch.name}: ${formatError(error)}`)
             return {
               name: branch.name,
               sha: branch.commit.sha,
@@ -1115,7 +1133,7 @@ export class GitHubProvider implements GitProvider {
       return branchDetails
     }
     catch (error) {
-      console.warn('⚠️ Failed to fetch buddy-bot branches:', error)
+      this.logger.warn('⚠️ Failed to fetch buddy-bot branches:', error)
       return []
     }
   }
@@ -1135,7 +1153,7 @@ export class GitHubProvider implements GitProvider {
       return orphanedBranches
     }
     catch (error) {
-      console.warn('⚠️ Failed to identify orphaned branches:', error)
+      this.logger.warn('⚠️ Failed to identify orphaned branches:', error)
       return []
     }
   }
@@ -1167,13 +1185,13 @@ export class GitHubProvider implements GitProvider {
           .filter(head => head.startsWith('buddy-bot/')),
       )
 
-      console.log(`🔍 GitHub API reports ${openPRs.length} open PR(s); ${protectedBranches.size} are buddy-bot branches`)
-      console.log(`🛡️ Protecting ${protectedBranches.size} branches with confirmed open PRs`)
+      this.logger.info(`🔍 GitHub API reports ${openPRs.length} open PR(s); ${protectedBranches.size} are buddy-bot branches`)
+      this.logger.info(`🛡️ Protecting ${protectedBranches.size} branches with confirmed open PRs`)
       this.prDetectionSuccessful = true
       return protectedBranches
     }
     catch (error) {
-      console.warn('⚠️ Failed to fetch open PRs via API, falling back to age-based protection:', error)
+      this.logger.warn('⚠️ Failed to fetch open PRs via API, falling back to age-based protection:', error)
 
       // Conservative fallback: protect branches less than 30 days old
       try {
@@ -1188,13 +1206,13 @@ export class GitHubProvider implements GitProvider {
           }
         }
 
-        console.log(`🛡️ Conservative fallback: protecting ${conservativeBranches.size} branches newer than 30 days`)
+        this.logger.info(`🛡️ Conservative fallback: protecting ${conservativeBranches.size} branches newer than 30 days`)
         return conservativeBranches
       }
       catch {
         // Ultimate fallback: leave prDetectionSuccessful=false so cleanupStaleBranches
         // applies its age-based filter against whatever branches it can enumerate.
-        console.log('⚠️ Could not enumerate branches for age-based fallback')
+        this.logger.info('⚠️ Could not enumerate branches for age-based fallback')
         return new Set<string>()
       }
     }
@@ -1204,10 +1222,10 @@ export class GitHubProvider implements GitProvider {
    * Clean up orphaned buddy-bot branches (with optional age filter for fallback scenarios)
    */
   async cleanupStaleBranches(olderThanDays = 7, dryRun = false): Promise<{ deleted: string[], failed: string[] }> {
-    console.log(`🔍 Looking for buddy-bot branches without open PRs...`)
+    this.logger.info(`🔍 Looking for buddy-bot branches without open PRs...`)
 
     const orphanedBranches = await this.getOrphanedBuddyBotBranches()
-    console.log(`🔍 Found ${orphanedBranches.length} orphaned buddy-bot branches (no associated open PRs)`)
+    this.logger.info(`🔍 Found ${orphanedBranches.length} orphaned buddy-bot branches (no associated open PRs)`)
 
     // When PR detection succeeded authoritatively, every orphan is a true orphan.
     // If detection fell back to age-based protection, only delete branches older
@@ -1216,40 +1234,40 @@ export class GitHubProvider implements GitProvider {
     let branchesToDelete = orphanedBranches
 
     if (this.prDetectionSuccessful) {
-      console.log(`🎯 PR detection successful - cleaning up ALL ${branchesToDelete.length} orphaned branches (any age)`)
+      this.logger.info(`🎯 PR detection successful - cleaning up ALL ${branchesToDelete.length} orphaned branches (any age)`)
     }
     else {
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
       branchesToDelete = orphanedBranches.filter(branch => branch.lastCommitDate < cutoffDate)
-      console.log(`⚠️ PR detection failed - only deleting branches older than ${olderThanDays} days`)
-      console.log(`🔍 Found ${branchesToDelete.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
+      this.logger.info(`⚠️ PR detection failed - only deleting branches older than ${olderThanDays} days`)
+      this.logger.info(`🔍 Found ${branchesToDelete.length} stale buddy-bot branches (older than ${olderThanDays} days)`)
     }
 
     // Show some examples of what we found
     if (branchesToDelete.length > 0) {
-      console.log('📋 Sample of branches to delete:')
+      this.logger.info('📋 Sample of branches to delete:')
       branchesToDelete.slice(0, 5).forEach((branch) => {
         const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
-        console.log(`  - ${branch.name} (${daysOld} days old)`)
+        this.logger.info(`  - ${branch.name} (${daysOld} days old)`)
       })
       if (branchesToDelete.length > 5) {
-        console.log(`  ... and ${branchesToDelete.length - 5} more`)
+        this.logger.info(`  ... and ${branchesToDelete.length - 5} more`)
       }
     }
 
     if (branchesToDelete.length === 0) {
-      console.log('✅ No branches to clean up!')
+      this.logger.info('✅ No branches to clean up!')
       return { deleted: [], failed: [] }
     }
 
     const staleBranches = branchesToDelete
 
     if (dryRun) {
-      console.log('🔍 [DRY RUN] Would delete the following branches:')
+      this.logger.info('🔍 [DRY RUN] Would delete the following branches:')
       staleBranches.forEach((branch) => {
         const daysOld = Math.floor((Date.now() - branch.lastCommitDate.getTime()) / (1000 * 60 * 60 * 24))
-        console.log(`  - ${branch.name} (${daysOld} days old, last commit: ${branch.lastCommitDate.toISOString()})`)
+        this.logger.info(`  - ${branch.name} (${daysOld} days old, last commit: ${branch.lastCommitDate.toISOString()})`)
       })
       return { deleted: staleBranches.map(b => b.name), failed: [] }
     }
@@ -1257,7 +1275,7 @@ export class GitHubProvider implements GitProvider {
     const deleted: string[] = []
     const failed: string[] = []
 
-    console.log(`🧹 Cleaning up ${staleBranches.length} stale branches...`)
+    this.logger.info(`🧹 Cleaning up ${staleBranches.length} stale branches...`)
 
     // Delete branches in smaller batches with longer delays to avoid rate limiting
     const batchSize = 5 // Reduced from 10 to be more conservative
@@ -1266,18 +1284,18 @@ export class GitHubProvider implements GitProvider {
       const batchNumber = Math.floor(i / batchSize) + 1
       const totalBatches = Math.ceil(staleBranches.length / batchSize)
 
-      console.log(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} branches)`)
+      this.logger.info(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} branches)`)
 
       // Process branches sequentially within batch to avoid overwhelming the API
       for (const branch of batch) {
         try {
           await this.deleteBranch(branch.name)
           deleted.push(branch.name)
-          console.log(`✅ Deleted: ${branch.name}`)
+          this.logger.info(`✅ Deleted: ${branch.name}`)
         }
         catch (error) {
           failed.push(branch.name)
-          console.warn(`❌ Failed to delete ${branch.name}: ${formatError(error)}`)
+          this.logger.warn(`❌ Failed to delete ${branch.name}: ${formatError(error)}`)
         }
 
         // Small delay between individual deletions within batch
@@ -1287,27 +1305,33 @@ export class GitHubProvider implements GitProvider {
       // Longer delay between batches to be respectful of API limits
       if (i + batchSize < staleBranches.length) {
         const delay = 3000 // 3 seconds between batches
-        console.log(`⏳ Waiting ${delay / 1000} seconds before next batch...`)
+        this.logger.info(`⏳ Waiting ${delay / 1000} seconds before next batch...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
 
-    console.log(`🎉 Cleanup complete!`)
-    console.log(`  ✅ Successfully deleted: ${deleted.length} branches`)
-    console.log(`  ❌ Failed to delete: ${failed.length} branches`)
+    this.logger.info(`🎉 Cleanup complete!`)
+    this.logger.info(`  ✅ Successfully deleted: ${deleted.length} branches`)
+    this.logger.info(`  ❌ Failed to delete: ${failed.length} branches`)
 
     if (failed.length > 0) {
-      console.log('❌ Failed branches:')
-      failed.forEach(branch => console.log(`  - ${branch}`))
+      this.logger.info('❌ Failed branches:')
+      failed.forEach(branch => this.logger.info(`  - ${branch}`))
     }
 
     return { deleted, failed }
   }
 
   /**
-   * Make authenticated API request to GitHub
+   * Make an authenticated API request to GitHub.
+   *
+   * @param endpoint - `METHOD /path` pair, e.g. `GET /repos/o/r/pulls`
+   * @param data - JSON body, sent only for POST/PATCH/PUT
+   * @param tokenOverride - Use a different token than the instance default
+   * @param retries - Transport-level retry attempts for rate limits
+   * @throws {GitHubApiError} On any non-2xx response
    */
-  private async apiRequest(endpoint: string, data?: any, tokenOverride?: string): Promise<any> {
+  private async apiRequest(endpoint: string, data?: any, tokenOverride?: string, retries = 0): Promise<any> {
     const [method, path] = endpoint.split(' ')
     const url = `${this.apiUrl}${path}`
     const effectiveToken = tokenOverride || this.token
@@ -1326,7 +1350,12 @@ export class GitHubProvider implements GitProvider {
       options.body = JSON.stringify(data)
     }
 
-    const response = await fetch(url, options)
+    const response = await fetchWithTimeout(url, {
+      ...options,
+      retries,
+      onRetry: ({ delayMs, reason }) =>
+        this.logger.info(`⏳ ${reason} on ${method} ${path}, retrying in ${Math.round(delayMs / 1000)}s...`),
+    })
 
     if (!response.ok) {
       const errorBody = await response.text()
@@ -1355,34 +1384,19 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Make authenticated API request to GitHub with retry logic for rate limiting
+   * Make an authenticated API request, retrying through rate limits.
+   *
+   * Retry now lives in the transport, which can read `Retry-After` and
+   * `x-ratelimit-reset` off the response instead of guessing a backoff from
+   * the error message — and which will not replay a POST that the server may
+   * already have acted on.
+   *
+   * @param endpoint - `METHOD /path` pair
+   * @param data - JSON body, sent only for POST/PATCH/PUT
+   * @param maxRetries - Total attempts allowed, including the first
    */
   private async apiRequestWithRetry(endpoint: string, data?: any, maxRetries = 3): Promise<any> {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await this.apiRequest(endpoint, data)
-      }
-      catch (error: any) {
-        const isRateLimit = error.message?.includes('403') && error.message?.includes('rate limit')
-
-        if (isRateLimit && attempt < maxRetries) {
-          // Extract retry-after from error or use exponential backoff
-          const baseDelay = 2 ** attempt * 1000 // 2s, 4s, 8s
-          const jitter = Math.random() * 1000 // Add up to 1s jitter
-          const delay = baseDelay + jitter
-
-          console.log(`⏳ Rate limited, waiting ${Math.round(delay / 1000)}s before retry ${attempt}/${maxRetries}...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-          continue
-        }
-
-        // If not rate limit or max retries reached, throw the error
-        throw error
-      }
-    }
-    // Unreachable: every loop iteration either returns (success) or throws.
-    // Explicit throw keeps the Promise<any> contract — callers never see `undefined`.
-    throw new Error(`apiRequestWithRetry: exhausted ${maxRetries} retries for ${endpoint}`)
+    return this.apiRequest(endpoint, data, undefined, Math.max(0, maxRetries - 1))
   }
 
   async createIssue(options: IssueOptions): Promise<Issue> {
@@ -1398,7 +1412,7 @@ export class GitHubProvider implements GitProvider {
         milestone: options.milestone,
       })
 
-      console.log(`✅ Created issue #${response.number}: ${options.title}`)
+      this.logger.info(`✅ Created issue #${response.number}: ${options.title}`)
 
       return {
         number: response.number,
@@ -1416,7 +1430,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to create issue: ${options.title}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to create issue: ${options.title}: ${formatError(error)}`)
       throw error
     }
   }
@@ -1426,7 +1440,7 @@ export class GitHubProvider implements GitProvider {
     const cacheKey = `${state}`
     const cached = this.cache.issues.get(cacheKey)
     if (cached && this.isCacheValid(cached.timestamp)) {
-      console.log(`📦 Using cached issues (state: ${state}, ${cached.data.length} issues)`)
+      this.logger.info(`📦 Using cached issues (state: ${state}, ${cached.data.length} issues)`)
       return cached.data
     }
 
@@ -1466,12 +1480,12 @@ export class GitHubProvider implements GitProvider {
 
       // Cache the result
       this.cache.issues.set(cacheKey, { data: issues, timestamp: Date.now() })
-      console.log(`✅ Fetched and cached ${issues.length} issues (state: ${state})`)
+      this.logger.info(`✅ Fetched and cached ${issues.length} issues (state: ${state})`)
 
       return issues
     }
     catch (error) {
-      console.error('❌ Failed to get issues:', error)
+      this.logger.error('❌ Failed to get issues:', error)
       throw error
     }
   }
@@ -1496,7 +1510,7 @@ export class GitHubProvider implements GitProvider {
 
       const response = await this.apiRequestWithRetry(`PATCH /repos/${this.owner}/${this.repo}/issues/${issueNumber}`, updateData)
 
-      console.log(`✅ Updated issue #${issueNumber}: ${response.title}`)
+      this.logger.info(`✅ Updated issue #${issueNumber}: ${response.title}`)
 
       return {
         number: response.number,
@@ -1514,7 +1528,7 @@ export class GitHubProvider implements GitProvider {
       }
     }
     catch (error) {
-      console.error(`❌ Failed to update issue #${issueNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to update issue #${issueNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -1528,10 +1542,10 @@ export class GitHubProvider implements GitProvider {
         state: 'closed',
       })
 
-      console.log(`✅ Closed issue #${issueNumber}`)
+      this.logger.info(`✅ Closed issue #${issueNumber}`)
     }
     catch (error) {
-      console.error(`❌ Failed to close issue #${issueNumber}: ${formatError(error)}`)
+      this.logger.error(`❌ Failed to close issue #${issueNumber}: ${formatError(error)}`)
       throw error
     }
   }
@@ -1541,7 +1555,7 @@ export class GitHubProvider implements GitProvider {
       await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
     }
     catch (error: any) {
-      console.log(`⚠️ Failed to unpin issue #${issueNumber}: ${formatError(error)}`)
+      this.logger.info(`⚠️ Failed to unpin issue #${issueNumber}: ${formatError(error)}`)
       // Don't throw error for pinning failures as it's not critical
     }
   }

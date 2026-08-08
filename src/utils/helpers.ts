@@ -2,6 +2,8 @@
 import type { Dependency, PackageFile, PackageUpdate, UpdateGroup } from '../types'
 import type { Logger } from './logger'
 import { isDependencyFile, parseDependencyFile } from './dependency-file-parser'
+import { getGitHubApiUrl } from './endpoints'
+import { fetchWithTimeout } from './http'
 
 /**
  * Parse package file content based on file type
@@ -441,7 +443,7 @@ export async function checkForRebaseRequests(token: string, owner: string, repo:
   }
 
   try {
-    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=open`, {
+    const response = await fetchWithTimeout(`${getGitHubApiUrl()}/repos/${owner}/${repo}/pulls?state=open`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github+json',
