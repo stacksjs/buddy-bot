@@ -40,6 +40,15 @@ export {
   getNpmRegistryUrl,
 } from './utils/endpoints'
 
+export {
+  assertValidConfig,
+  formatConfigIssues,
+  validateConfig,
+} from './config-validation'
+export type { ConfigIssue } from './config-validation'
+
+export { AsyncMemo, chunk, DEFAULT_CONCURRENCY, mapWithConcurrency } from './utils/concurrency'
+
 export { formatError, GitHubApiError } from './utils/errors'
 
 export {

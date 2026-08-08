@@ -1,6 +1,8 @@
 import type { BuddyBotConfig } from './types'
 import process from 'node:process'
 import { loadConfig } from 'bunfig'
+import { assertValidConfig } from './config-validation'
+import { getDefaultLogger } from './utils/logger'
 import { resolveRepositoryConfig } from './utils/repository'
 
 export const defaultConfig: BuddyBotConfig = {
@@ -9,6 +11,12 @@ export const defaultConfig: BuddyBotConfig = {
     owner: '',
     name: '',
     provider: 'github',
+  },
+  security: {
+    enabled: true,
+    prioritize: true,
+    label: 'security',
+    minimumSeverity: 'low',
   },
   dashboard: {
     enabled: false,
@@ -53,11 +61,25 @@ export async function getConfig(): Promise<BuddyBotConfig> {
     // consumer reads it, so the CLI and Buddy always agree on the target repo.
     const resolution = resolveRepositoryConfig(loaded)
     if (resolution.warning)
-      console.warn(`⚠️ ${resolution.warning}`)
+      getDefaultLogger().warn(`⚠️ ${resolution.warning}`)
+
+    // Fail before any network or git work happens. A malformed strategy or a
+    // group with no patterns otherwise produces a run that silently does the
+    // wrong thing and reports success.
+    assertValidConfig(loaded)
 
     _config = loaded
   }
   return _config
+}
+
+/**
+ * Reset the memoized configuration.
+ *
+ * Only useful in tests, which load different fixtures from the same process.
+ */
+export function resetConfigCache(): void {
+  _config = null
 }
 
 // For backwards compatibility - synchronous access with default fallback
