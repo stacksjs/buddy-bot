@@ -74,3 +74,18 @@ export { getDefaultLogger, Logger, setDefaultLogger } from './utils/logger'
 export type { LogLevel } from './utils/logger'
 
 export { VersionResolver } from './version/version-resolver'
+
+/**
+ * Packages that are behind for a reason no manifest shows: a transitive
+ * dependant's range capping what the installer can resolve to.
+ */
+export {
+  type DeclaredRange,
+  describeDrift,
+  type Drift,
+  driftFor,
+  type DriftInput,
+  type DriftKind,
+  findDrift,
+  ROOT,
+} from './scanner/resolution-drift'
