@@ -1133,7 +1133,7 @@ cli
       // Validate that repository is configured for scheduling
       if (!finalConfig.repository?.provider || !finalConfig.repository?.owner || !finalConfig.repository?.name) {
         logger.error('❌ Repository configuration required for scheduling. Please configure:')
-        logger.info('  - repository.provider (github, gitlab, etc.)')
+        logger.info('  - repository.provider (github)')
         logger.info('  - repository.owner')
         logger.info('  - repository.name')
         logger.info('  - repository.token (via environment variable)')

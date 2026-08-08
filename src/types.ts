@@ -1,3 +1,12 @@
+/**
+ * Git hosting providers with a working {@link GitProvider} implementation.
+ *
+ * Kept as a single-member union on purpose: widening it is the signal that a
+ * real implementation has landed, so a config typo cannot compile into a
+ * runtime failure halfway through a workflow run.
+ */
+export type GitProviderName = 'github'
+
 // Core configuration types
 export interface BuddyBotConfig {
   /** Enable verbose logging */
@@ -5,8 +14,12 @@ export interface BuddyBotConfig {
 
   /** Repository settings */
   repository?: {
-    /** Git provider (github, gitlab, etc.) */
-    provider: 'github' | 'gitlab' | 'bitbucket'
+    /**
+     * Git provider. Only `github` is implemented — GitLab and Bitbucket
+     * support would need a full `GitProvider` implementation, so they are
+     * deliberately absent from this union rather than failing at runtime.
+     */
+    provider: GitProviderName
     /** Repository owner/organization */
     owner: string
     /** Repository name */

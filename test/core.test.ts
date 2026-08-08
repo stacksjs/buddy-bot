@@ -1,4 +1,4 @@
-import type { BuddyBotConfig, PackageUpdate, UpdateGroup } from '../src/types'
+import type { BuddyBotConfig, GitProviderName, PackageUpdate, UpdateGroup } from '../src/types'
 import { describe, expect, it } from 'bun:test'
 import { Buddy } from '../src/buddy'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
@@ -144,7 +144,9 @@ describe('Core Functionality Tests', () => {
     })
 
     it('should handle repository providers', () => {
-      const providers: Array<'github' | 'gitlab'> = ['github', 'gitlab']
+      // GitHub is the only provider with a real implementation, so it is the
+      // only member of the `provider` union.
+      const providers: Array<GitProviderName> = ['github']
 
       providers.forEach((provider) => {
         const config: BuddyBotConfig = {

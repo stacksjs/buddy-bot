@@ -2,7 +2,6 @@
 export { Buddy } from './buddy'
 
 export { GitHubProvider } from './git/github-provider'
-export { GitLabProvider } from './git/gitlab-provider'
 export { PullRequestGenerator } from './pr/pr-generator'
 export { RegistryClient } from './registry/registry-client'
 // Core functionality exports
