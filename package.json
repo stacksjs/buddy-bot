@@ -62,7 +62,7 @@
   },
   "dependencies": {
     "prompts": "^2.4.2",
-    "ts-pantry": "^0.10.11"
+    "ts-pantry": "^0.11.19"
   },
   "devDependencies": {
     "@stacksjs/bunpress": "^0.1.4",
