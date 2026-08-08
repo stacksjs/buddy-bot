@@ -174,11 +174,13 @@ const config: BuddyBotConfig = {
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `provider` | `'github' \| 'gitlab' \| 'bitbucket'` | Git provider | Required |
+| `provider` | `'github'` | Git provider. GitHub is the only implemented provider | Required |
 | `owner` | `string` | Repository owner/organization | Required |
 | `name` | `string` | Repository name | Required |
 | `baseBranch` | `string` | Base branch for PRs | `'main'` |
 | `token` | `string` | Access token (use env var) | `undefined` |
+| `apiUrl` | `string` | REST API base URL, for GitHub Enterprise Server | `$GITHUB_API_URL`, else `https://api.github.com` |
+| `serverUrl` | `string` | Web base URL used for links | `$GITHUB_SERVER_URL`, else `https://github.com` |
 
 ### Package Settings
 
@@ -188,6 +190,59 @@ const config: BuddyBotConfig = {
 | `ignore` | `string[]` | Packages to ignore | `[]` |
 | `pin` | `Record<string, string>` | Pin packages to versions | `{}` |
 | `groups` | `PackageGroup[]` | Package groupings | `undefined` |
+
+### Logging
+
+| Option | Type | Description | Default |
+|--------|------|-------------|---------|
+| `verbose` | `boolean` | Shorthand for `logLevel: 'debug'` | `false` |
+| `logLevel` | `'silent' \| 'error' \| 'warn' \| 'info' \| 'debug'` | How much output to emit. Overrides `verbose` | `'info'` |
+
+Set `logLevel: 'silent'` when embedding Buddy Bot in another tool that owns its
+own output. `BUDDY_BOT_LOG_LEVEL` sets the same value from the environment.
+
+### Registry Settings
+
+For private or self-hosted package registries. When unset, Buddy Bot reads
+`registry=` and `@scope:registry=` from the project and home `.npmrc`, matching
+what npm itself would resolve.
+
+| Option | Type | Description | Default |
+|--------|------|-------------|---------|
+| `registries.npm` | `string` | npm registry base URL | `.npmrc`, else `https://registry.npmjs.org` |
+| `registries.npmScopes` | `Record<string, string>` | Per-scope registry overrides, keyed by scope including `@` | `.npmrc` |
+| `registries.composer` | `string` | Composer/Packagist base URL | `https://packagist.org` |
+
+```typescript
+const config: BuddyBotConfig = {
+  registries: {
+    npm: 'https://npm.internal.acme.com',
+    npmScopes: {
+      '@acme': 'https://npm.acme.com',
+    },
+  },
+}
+```
+
+### Security Settings
+
+Buddy Bot checks every dependency against the [OSV.dev](https://osv.dev)
+advisory database and annotates updates that resolve a known vulnerability.
+
+| Option | Type | Description | Default |
+|--------|------|-------------|---------|
+| `security.enabled` | `boolean` | Query OSV for known vulnerabilities | `true` |
+| `security.prioritize` | `boolean` | Put advisory fixes in their own PR, created first | `true` |
+| `security.label` | `string` | Label applied to PRs that resolve an advisory | `'security'` |
+| `security.minimumSeverity` | `'low' \| 'moderate' \| 'high' \| 'critical'` | Ignore advisories below this severity | `'low'` |
+
+With `prioritize` on (the default), vulnerable dependencies are grouped into a
+single `fix(deps): update vulnerable dependencies` PR that is created before any
+routine update, so a `maxPRsPerRun` cap can never starve a security fix. The PR
+body and the dependency dashboard both list the advisory ID, severity, and the
+version that fixes it.
+
+Set `security.enabled: false` for fully offline runs.
 
 ### Pull Request Settings
 
@@ -209,25 +264,77 @@ GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 # Optional: Alternative token name
 GH_TOKEN=ghp_xxxxxxxxxxxx
 
-# Optional: Custom registry URL
-NPM_REGISTRY_URL=https://registry.npmjs.org
+# Optional: alternative token, preferred when set (needs `workflow` scope)
+BUDDY_BOT_TOKEN=ghp_xxxxxxxxxxxx
+
+# Optional: GitHub Enterprise Server. GitHub Actions sets both automatically.
+GITHUB_API_URL=https://github.acme.com/api/v3
+GITHUB_SERVER_URL=https://github.acme.com
+
+# Optional: custom npm registry (also read from .npmrc)
+NPM_CONFIG_REGISTRY=https://npm.acme.com
+
+# Optional: Composer registry
+COMPOSER_REGISTRY_URL=https://packagist.acme.com
+
+# Optional: lifts Docker Hub's anonymous rate limit
+DOCKERHUB_TOKEN=dckr_pat_xxxxxxxxxxxx
+
+# Optional: output verbosity (silent|error|warn|info|debug)
+BUDDY_BOT_LOG_LEVEL=info
+
+# Optional: per-request HTTP timeout in milliseconds (default: 30000)
+BUDDY_HTTP_TIMEOUT_MS=30000
 
 # Optional: Bun configuration
 BUN_CONFIG_NO_CACHE=false
 ```
 
+## GitHub Enterprise Server
+
+Buddy Bot runs unmodified against GitHub Enterprise Server. On a GHES runner,
+GitHub Actions exports `GITHUB_API_URL` and `GITHUB_SERVER_URL` automatically,
+so no configuration is needed. Outside Actions, set them explicitly:
+
+```typescript
+const config: BuddyBotConfig = {
+  repository: {
+    provider: 'github',
+    owner: 'acme',
+    name: 'app',
+    apiUrl: 'https://github.acme.com/api/v3',
+    serverUrl: 'https://github.acme.com',
+  },
+}
+```
+
 ## Configuration Validation
 
-Buddy validates your configuration on startup:
+Buddy Bot validates your configuration when it loads, before any network or git
+work happens, and reports every problem it finds at once:
 
 ```bash
-# Check configuration validity
-buddy-bot scan --verbose
+buddy-bot scan
+```
 
-# Common validation errors
-# ❌ Repository configuration required for PR creation
-# ❌ Invalid strategy: must be major|minor|patch|all
-# ❌ Invalid cron expression in schedule
+```text
+Invalid buddy-bot configuration (2 issues):
+  • packages.strategy: expected one of "major", "minor", "patch", "all", got "minr"
+  • packages.groups[0].patterns: expected a non-empty array of patterns, got []
+```
+
+Validation covers update strategies, package groups, cron expressions, registry
+and API URLs, severities, log levels, and the numeric bounds on
+`maxPRsPerRun`, `minimumReleaseAge`, and the release-notes limits.
+
+You can also run it yourself:
+
+```typescript
+import { formatConfigIssues, validateConfig } from 'buddy-bot'
+
+const issues = validateConfig(config)
+if (issues.length > 0)
+  console.error(formatConfigIssues(issues))
 ```
 
 ## Multiple Configurations
