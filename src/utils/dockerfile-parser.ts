@@ -4,30 +4,52 @@ import { fetchWithTimeout } from './http'
 import { getDefaultLogger } from './logger'
 
 /**
- * Check if a file path is a Dockerfile that we can handle
+ * Extensions that appear on files *about* Dockerfiles rather than build files,
+ * which the prefix match would otherwise pick up (`Dockerfile.md`).
+ */
+const NON_DOCKERFILE_EXTENSIONS = ['.md', '.txt', '.log', '.bak', '.orig', '.example', '.sample', '.tmpl', '.template']
+
+/**
+ * Check whether a file path names a container build file.
+ *
+ * Recognises the three conventions in real use:
+ *
+ * - `Dockerfile` and any `Dockerfile.<suffix>` variant (`Dockerfile.prod`)
+ * - the reversed `<prefix>.dockerfile` form (`api.dockerfile`), which is what
+ *   monorepos use when several build files share a directory
+ * - `Containerfile`, the OCI/Podman spelling
+ *
+ * Matching is case-insensitive because both `Dockerfile` and `dockerfile`
+ * occur in the wild and case-sensitive filesystems keep them distinct.
+ *
+ * @param filePath - Path to test; only the basename is considered
+ * @returns Whether the file should be parsed for base images
+ * @example
+ * ```ts
+ * isDockerfile('Dockerfile') // true
+ * isDockerfile('docker/api.dockerfile') // true
+ * isDockerfile('deploy/Containerfile') // true
+ * isDockerfile('dockerfile.md') // false — documentation, not a build file
+ * ```
  */
 export function isDockerfile(filePath: string): boolean {
-  const fileName = filePath.split('/').pop() || ''
+  const fileName = (filePath.split('/').pop() || '').toLowerCase()
+  if (!fileName)
+    return false
 
-  // Check for common Dockerfile names
-  const dockerfileNames = [
-    'Dockerfile',
-    'dockerfile',
-    'Dockerfile.dev',
-    'Dockerfile.prod',
-    'Dockerfile.production',
-    'Dockerfile.development',
-    'Dockerfile.test',
-    'Dockerfile.staging',
-  ]
+  // Documentation about Dockerfiles is not a Dockerfile.
+  if (NON_DOCKERFILE_EXTENSIONS.some(extension => fileName.endsWith(extension)))
+    return false
 
-  // Check for exact matches
-  if (dockerfileNames.includes(fileName)) {
+  if (fileName === 'containerfile' || fileName.startsWith('containerfile.'))
     return true
-  }
 
-  // Check for files that start with Dockerfile
-  return fileName.startsWith('Dockerfile') || fileName.startsWith('dockerfile')
+  // `Dockerfile` and `Dockerfile.<suffix>`
+  if (fileName === 'dockerfile' || fileName.startsWith('dockerfile.'))
+    return true
+
+  // `<prefix>.dockerfile` / `<prefix>.containerfile`
+  return fileName.endsWith('.dockerfile') || fileName.endsWith('.containerfile')
 }
 
 /**

@@ -13,6 +13,37 @@ describe('Dockerfile Parser', () => {
       expect(isDockerfile('package.json')).toBe(false)
       expect(isDockerfile('docker-compose.yml')).toBe(false)
     })
+
+    it('should identify the <prefix>.dockerfile convention used in monorepos', () => {
+      expect(isDockerfile('api.dockerfile')).toBe(true)
+      expect(isDockerfile('docker/web.Dockerfile')).toBe(true)
+      expect(isDockerfile('apps/worker/worker.dockerfile')).toBe(true)
+    })
+
+    it('should identify Containerfile, the OCI/Podman spelling', () => {
+      expect(isDockerfile('Containerfile')).toBe(true)
+      expect(isDockerfile('deploy/Containerfile')).toBe(true)
+      expect(isDockerfile('Containerfile.dev')).toBe(true)
+      expect(isDockerfile('api.containerfile')).toBe(true)
+    })
+
+    it('edge case - rejects documentation about Dockerfiles', () => {
+      expect(isDockerfile('Dockerfile.md')).toBe(false)
+      expect(isDockerfile('Dockerfile.example')).toBe(false)
+      expect(isDockerfile('Dockerfile.template')).toBe(false)
+      expect(isDockerfile('Dockerfile.bak')).toBe(false)
+    })
+
+    it('edge case - rejects an empty path', () => {
+      expect(isDockerfile('')).toBe(false)
+      expect(isDockerfile('some/dir/')).toBe(false)
+    })
+
+    it('edge case - does not match unrelated names containing "docker"', () => {
+      expect(isDockerfile('dockerignore')).toBe(false)
+      expect(isDockerfile('.dockerignore')).toBe(false)
+      expect(isDockerfile('docker-entrypoint.sh')).toBe(false)
+    })
   })
 
   describe('parseDockerfile', () => {

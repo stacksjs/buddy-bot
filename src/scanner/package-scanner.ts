@@ -296,42 +296,62 @@ export class PackageScanner {
   }
 
   /**
-   * Find Dockerfiles in the project
+   * Find container build files anywhere in the project.
+   *
+   * Walks the tree once and tests each basename with {@link isDockerfile},
+   * which covers `Dockerfile`, `Dockerfile.<suffix>`, `<prefix>.dockerfile`
+   * and `Containerfile`. The previous implementation enumerated eight literal
+   * names and paired them with a `Dockerfile*` glob that the extension-based
+   * matcher could never satisfy, so anything named `api.dockerfile` or living
+   * under a `docker/` directory went undetected.
+   *
+   * @returns Repository-relative paths, forward-slash separated
    */
   private async findDockerfiles(): Promise<string[]> {
-    const dockerfiles: string[] = []
+    return this.findFilesMatching(isDockerfile)
+  }
+
+  /**
+   * Walk the project tree collecting files whose basename satisfies a predicate.
+   *
+   * @param matches - Predicate applied to each file's basename
+   * @param dir - Directory to search, defaulting to the project root
+   * @returns Repository-relative paths, forward-slash separated
+   */
+  private async findFilesMatching(
+    matches: (fileName: string) => boolean,
+    dir: string = this.projectPath,
+  ): Promise<string[]> {
+    const files: string[] = []
 
     try {
-      // Common Dockerfile names
-      const dockerfileNames = [
-        'Dockerfile',
-        'dockerfile',
-        'Dockerfile.dev',
-        'Dockerfile.prod',
-        'Dockerfile.production',
-        'Dockerfile.development',
-        'Dockerfile.test',
-        'Dockerfile.staging',
-      ]
+      const entries = await readdir(dir)
 
-      for (const fileName of dockerfileNames) {
-        const files = await this.findFiles(fileName)
-        dockerfiles.push(...files)
-      }
+      for (const entry of entries) {
+        const fullPath = join(dir, entry)
 
-      // Also look for files that start with Dockerfile using pattern matching
-      const dockerfilePatterns = await this.findFilesByPattern('Dockerfile*')
-      for (const file of dockerfilePatterns) {
-        if (!dockerfiles.includes(file) && isDockerfile(file)) {
-          dockerfiles.push(file)
+        try {
+          const stats = await stat(fullPath)
+
+          if (stats.isFile()) {
+            if (matches(entry))
+              files.push(relative(this.projectPath, fullPath).split(sep).join('/'))
+          }
+          else if (stats.isDirectory() && !shouldSkipPackageDirectory(entry)) {
+            files.push(...await this.findFilesMatching(matches, fullPath))
+          }
+        }
+        catch {
+          // Skip broken symlinks or permission errors on individual entries
+          continue
         }
       }
     }
     catch {
-      // Ignore if no Dockerfiles exist
+      // Ignore permission errors and continue
     }
 
-    return dockerfiles
+    return files
   }
 
   /**
