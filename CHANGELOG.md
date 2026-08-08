@@ -1,5 +1,43 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.26...v0.9.27)
+
+## 💥 Breaking Changes
+
+- remove unreachable GitLab provider and demo script ([9bea170](https://github.com/stacksjs/buddy-bot/commit/9bea170)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## ✨ Features
+
+- **scanner**: find packages capped by a dependant's range, not just outdated ones ([97bd636](https://github.com/stacksjs/buddy-bot/commit/97bd636)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **docker**: detect every container build file convention ([96780b2](https://github.com/stacksjs/buddy-bot/commit/96780b2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **config**: validate configuration before any work runs ([efd8941](https://github.com/stacksjs/buddy-bot/commit/efd8941)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **security**: detect and prioritise dependencies with known advisories ([7c92b0f](https://github.com/stacksjs/buddy-bot/commit/7c92b0f)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **config**: resolve API and package registry hosts from env and .npmrc ([5c8b356](https://github.com/stacksjs/buddy-bot/commit/5c8b356)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **utils**: add bounded-concurrency map, chunk and async memo ([32c5fca](https://github.com/stacksjs/buddy-bot/commit/32c5fca)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **http**: add fetch wrapper with timeouts and bounded retries ([1077499](https://github.com/stacksjs/buddy-bot/commit/1077499)) _(by Chris <chrisbreuer93@gmail.com>)_
+- **logger**: add log levels and a process-wide default logger ([53e6332](https://github.com/stacksjs/buddy-bot/commit/53e6332)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🐛 Bug Fixes
+
+- **net**: bound and authenticate every outbound request ([85b01c0](https://github.com/stacksjs/buddy-bot/commit/85b01c0)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## ⚡ Performance Improvements
+
+- **registry**: memoise packuments and parallelise registry lookups ([8edb246](https://github.com/stacksjs/buddy-bot/commit/8edb246)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 📝 Documentation
+
+- document security, registry, enterprise and logging options ([1fc8a03](https://github.com/stacksjs/buddy-bot/commit/1fc8a03)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.9.27 ([e31dc6a](https://github.com/stacksjs/buddy-bot/commit/e31dc6a)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([5039f38](https://github.com/stacksjs/buddy-bot/commit/5039f38)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.25...v0.9.26)
 
 ## 🐛 Bug Fixes
