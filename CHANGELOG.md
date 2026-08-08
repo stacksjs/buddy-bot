@@ -1,5 +1,23 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.25...v0.9.26)
+
+## 🐛 Bug Fixes
+
+- **setup**: declare the pin input and stop interpolating PR values into shell ([5f564af](https://github.com/stacksjs/buddy-bot/commit/5f564af)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 👷 Build System
+
+- **deps**: ts-pantry ^0.11.19 ([f3d0f4e](https://github.com/stacksjs/buddy-bot/commit/f3d0f4e)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.9.26 ([d158dd8](https://github.com/stacksjs/buddy-bot/commit/d158dd8)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.24...v0.9.25)
 
 ## 🐛 Bug Fixes
