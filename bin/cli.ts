@@ -2713,6 +2713,140 @@ cli
   })
 
 cli
+  .command('report', 'Generate a dependency-health and activity report')
+  .option('--period <window>', 'Reporting window: 7d|30d|90d', { default: '30d' })
+  .option('--format <name>', 'Output format: markdown|json', { default: 'markdown' })
+  .option('--prompt <focus>', 'Focus for the AI narrative, when a provider is configured')
+  .option('--publish', 'Publish to the repository\'s report issue')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot report --period 7d')
+  .example('buddy-bot report --prompt "focus on security posture" --publish')
+  .action(async (options: CLIOptions & {
+    period?: string
+    format?: string
+    prompt?: string
+    publish?: boolean
+  }) => {
+    const quiet = options.format === 'json'
+    const logger = options.verbose ? Logger.verbose() : quiet ? Logger.silent() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const {
+        appendHistory,
+        computeDeltas,
+        computeMetrics,
+        findPrevious,
+        HISTORY_PATH,
+        loadHistory,
+        REPORT_MARKER,
+        REPORT_PERIODS,
+        renderReport,
+        withNarrative,
+      } = await import('../src/reports')
+
+      const period = (options.period ?? '30d') as '7d' | '30d' | '90d'
+      if (!REPORT_PERIODS.includes(period)) {
+        logger.error(`❌ Unknown period '${period}'. Expected one of ${REPORT_PERIODS.join(', ')}.`)
+        process.exit(1)
+      }
+
+      const provider = await providerFor(config, 'reporting', logger)
+      const buddy = new Buddy(config, process.cwd())
+
+      const { PackageScanner } = await import('../src/scanner/package-scanner')
+      const scanner = new PackageScanner(process.cwd(), logger, config.packages?.ignorePaths)
+
+      const [scan, pullRequests, packageFiles] = await Promise.all([
+        buddy.scanForUpdates(),
+        provider.getPullRequests('all'),
+        scanner.scanProject(),
+      ])
+
+      // Every declared dependency, not only the outdated ones — a health
+      // percentage against the outdated set alone would always be 100%.
+      const { ecosystemOf } = await import('../src/rules/engine')
+      const byEcosystem: Record<string, number> = {}
+      for (const file of packageFiles) {
+        for (const dependency of file.dependencies) {
+          const ecosystem = ecosystemOf({
+            name: dependency.name,
+            currentVersion: dependency.currentVersion,
+            newVersion: dependency.currentVersion,
+            updateType: 'patch',
+            dependencyType: dependency.type,
+            file: file.path,
+          })
+          byEcosystem[ecosystem] = (byEcosystem[ecosystem] ?? 0) + 1
+        }
+      }
+
+      const { DeprecatedDependenciesChecker } = await import('../src/services/deprecated-dependencies-checker')
+      const deprecated = await new DeprecatedDependenciesChecker()
+        .checkDeprecatedDependencies(packageFiles)
+        .catch(() => [])
+
+      const metrics = computeMetrics({
+        period,
+        now: new Date(),
+        pullRequests,
+        updates: scan.updates,
+        dependenciesByEcosystem: byEcosystem,
+        deprecated: deprecated.length,
+      })
+
+      const baseRef = config.repository?.baseBranch || 'main'
+      const history = await loadHistory(provider, baseRef, logger)
+      const deltas = computeDeltas(metrics, findPrevious(history, period))
+
+      if (options.format === 'json') {
+        process.stdout.write(`${JSON.stringify({ metrics, deltas }, null, 2)}\n`)
+        return
+      }
+
+      const { createAiClient } = await import('../src/ai')
+      const report = await withNarrative(
+        renderReport(metrics, deltas),
+        metrics,
+        createAiClient(config, logger),
+        options.prompt ?? config.reports?.prompt,
+        logger,
+      )
+
+      if (!options.publish) {
+        process.stdout.write(`${report}\n`)
+        return
+      }
+
+      // Updated in place rather than opened fresh each period, so the issue is
+      // one readable trend rather than a stream of near-identical issues.
+      const issues = await provider.getIssues('open')
+      const existing = issues.find(issue => issue.body.includes(REPORT_MARKER))
+
+      const title = config.reports?.title ?? 'Dependency Report'
+      const labels = config.reports?.labels ?? ['dependencies', 'report']
+
+      const issue = existing
+        ? await provider.updateIssue(existing.number, { title, body: report, labels })
+        : await provider.createIssue({ title, body: report, labels })
+
+      logger.success(`✅ Report published: ${issue.url}`)
+
+      // History is committed so the next run has something to compare against.
+      await provider.commitChanges(
+        baseRef,
+        'chore(reports): record dependency metrics snapshot',
+        [{ path: HISTORY_PATH, content: appendHistory(history, metrics), type: history.length > 0 ? 'update' : 'create' }],
+        baseRef,
+      )
+    }
+    catch (error) {
+      logger.error('Report failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
   .command('doctor', 'Diagnose this environment: credentials, git state and analyzer tooling')
   .option('--verbose, -v', 'Enable verbose logging')
   .example('buddy-bot doctor')

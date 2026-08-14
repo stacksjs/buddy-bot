@@ -48,6 +48,29 @@ export {
 } from './registry/oci-client'
 export type { DockerRegistryConfig, ImageRef, RegistryAuth } from './registry/oci-client'
 export { RegistryClient } from './registry/registry-client'
+export {
+  appendHistory,
+  computeDeltas,
+  computeMetrics,
+  findPrevious,
+  HISTORY_LIMIT,
+  HISTORY_PATH,
+  loadHistory,
+  parseHistory,
+  PERIOD_DAYS,
+  REPORT_MARKER,
+  REPORT_PERIODS,
+  renderReport,
+  withNarrative,
+} from './reports'
+export type {
+  ActivityMetrics,
+  Delta,
+  HealthMetrics,
+  MetricsInput,
+  ReportMetrics,
+  ReportPeriod,
+} from './reports'
 // Core functionality exports
 export { PackageScanner } from './scanner/package-scanner'
 export { Scheduler } from './scheduler/scheduler'

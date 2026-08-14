@@ -156,6 +156,28 @@ export interface BuddyBotConfig {
   }
 
   /**
+   * Scheduled dependency-health and activity reports.
+   *
+   * The report is computed from scan results and pull request history, so it
+   * works with no AI provider. A configured provider adds a narrative around
+   * the numbers; it never produces them.
+   */
+  reports?: {
+    /** Generate reports (default: false) */
+    enabled?: boolean
+    /** Cron expression for the scheduled run */
+    schedule?: string
+    /** Reporting window (default: `30d`) */
+    period?: '7d' | '30d' | '90d'
+    /** What the AI narrative should emphasise */
+    prompt?: string
+    /** Title of the report issue (default: `Dependency Report`) */
+    title?: string
+    /** Labels applied to the report issue */
+    labels?: string[]
+  }
+
+  /**
    * Static analysis settings.
    *
    * Analyzers run whether or not an AI provider is configured, so a repository
