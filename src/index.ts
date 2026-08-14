@@ -89,3 +89,6 @@ export {
   findDrift,
   ROOT,
 } from './scanner/resolution-drift'
+
+// AI provider layer
+export * from './ai'
