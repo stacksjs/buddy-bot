@@ -43,7 +43,7 @@ const config: BuddyBotConfig = {
     autoMerge: {
       enabled: true,
       strategy: 'squash',
-      conditions: ['patch-only', 'ci-passing'],
+      conditions: ['patch-only'],
     },
   },
 
@@ -251,7 +251,7 @@ Set `security.enabled: false` for fully offline runs.
 | `reviewers` | `string[]` | GitHub usernames for review | `[]` |
 | `assignees` | `string[]` | GitHub usernames to assign | `[]` |
 | `labels` | `string[]` | Labels to apply | `['dependencies']` |
-| `autoMerge` | `AutoMergeConfig` | Auto-merge configuration | `undefined` |
+| `autoMerge` | `AutoMergeConfig` | Auto-merge configuration, see [Auto-Merge](/features/auto-merge) | `undefined` |
 
 ## Environment Variables
 

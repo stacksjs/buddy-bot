@@ -376,7 +376,7 @@ export default {
     autoMerge: {
       enabled: true,
       strategy: 'squash',
-      conditions: ['patch-only', 'ci-passing']
+      conditions: ['patch-only']
     }
   }
 }
