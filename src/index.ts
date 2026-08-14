@@ -116,3 +116,6 @@ export * from './issues'
 
 // Package rules engine
 export * from './rules'
+
+// AI-assisted major upgrades
+export * from './upgrades'

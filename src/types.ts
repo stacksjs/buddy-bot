@@ -166,6 +166,23 @@ export interface BuddyBotConfig {
      */
     maxTokensPerRun?: number
 
+    /** AI-assisted major version upgrades */
+    majorUpgrades?: {
+      /** Analyse major updates (default: false — opt in, it costs tokens) */
+      enabled?: boolean
+      /**
+       * Attempt the migration rather than only analysing it (default: false).
+       * A wrong migration is far more expensive than a missing one.
+       */
+      autoMigrate?: boolean
+      /** Open as a draft below this confidence (default: `high`) */
+      draftBelowConfidence?: 'high' | 'medium'
+      /** Maximum agent attempts per upgrade */
+      maxAttempts?: number
+      /** Globs limiting which packages are analysed; empty means all majors */
+      packages?: string[]
+    }
+
     /** AI pull request review settings */
     review?: {
       /** Enable AI review (default: false until you opt in) */
