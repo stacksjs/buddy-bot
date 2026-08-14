@@ -173,6 +173,8 @@ export interface BuddyBotConfig {
       licenseAllowlist?: string[]
       blockVulnerable?: boolean
       blockDeprecated?: boolean
+      /** Block base images whose release cycle no longer gets security fixes */
+      blockEol?: boolean
     }
     /** Check that a change addresses the issue it says it closes */
     linkedIssue?: 'off' | 'warning' | 'error'
@@ -518,7 +520,7 @@ export interface Dependency {
   /** Current version or range */
   currentVersion: string
   /** Dependency type */
-  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies' | 'python' | 'rust' | 'go' | 'ruby'
+  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies' | 'python' | 'rust' | 'go' | 'ruby' | 'engines' | 'catalog'
   /** File where dependency is defined */
   file: string
   /** Line number in file */
@@ -546,15 +548,18 @@ export interface PackageUpdate {
    * Ecosystem-specific values resolved while detecting the update, for
    * ecosystems whose manifests record more than a version.
    *
-   * Zig is the current user: its manifests pin a tarball URL alongside a
-   * content-addressed hash, and both have to change together or `zig build`
-   * fails verification.
+   * Zig pins a tarball URL alongside a content-addressed hash, and both have
+   * to change together or `zig build` fails verification. pnpm catalogs need
+   * the catalog name, because two catalogs may name the same package at
+   * different versions and each has to keep its own.
    */
   resolved?: {
     /** Replacement source URL */
     url?: string
     /** Replacement integrity hash */
     hash?: string
+    /** pnpm catalog the entry belongs to */
+    catalog?: string
   }
   /** Release notes URL */
   releaseNotesUrl?: string

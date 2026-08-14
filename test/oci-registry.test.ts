@@ -17,6 +17,8 @@ import {
   tokenUrlFor,
 } from '../src/registry/oci-client'
 import { validateConfig } from '../src/config-validation'
+import { checkDependencies } from '../src/gates/checks'
+import { checkEol, cycleFor, describeEol, productFor } from '../src/registry/eol'
 import { Logger } from '../src/utils/logger'
 
 const realFetch = globalThis.fetch
@@ -401,5 +403,123 @@ describe('docker registry configuration', () => {
 
   it('failure case - rejects a non-object entry', () => {
     expect(validateConfig({ registries: { docker: { 'quay.io': 'token' as never } } })).toHaveLength(1)
+  })
+})
+
+describe('base image end of life', () => {
+  const CYCLES = [
+    { cycle: '22', eol: '2027-04-30', latest: '22.3.0' },
+    { cycle: '20', eol: '2026-04-30', latest: '20.11.1' },
+    { cycle: '18', eol: '2025-04-30', latest: '18.20.4' },
+    { cycle: 'rolling', eol: false },
+  ]
+
+  function mockEol(cycles: unknown): void {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(cycles), { status: 200 })) as unknown as typeof fetch
+  }
+
+  it('success case - maps an image onto its product slug', () => {
+    // Mapped explicitly: an image whose slug is guessed wrong would report a
+    // support window belonging to something else.
+    expect(productFor('node')).toBe('nodejs')
+    expect(productFor('library/node')).toBe('nodejs')
+    expect(productFor('golang')).toBe('go')
+  })
+
+  it('failure case - an untracked image has no product', () => {
+    expect(productFor('ghcr.io/org/app')).toBeNull()
+  })
+
+  it('success case - resolves the cycle a tag belongs to', () => {
+    expect(cycleFor('20.11-alpine', CYCLES)?.cycle).toBe('20')
+    expect(cycleFor('18', CYCLES)?.cycle).toBe('18')
+  })
+
+  it('success case - prefers the most specific cycle', () => {
+    // Reporting `3` when `3.18` exists means reporting the wrong window.
+    const alpine = [{ cycle: '3', eol: false }, { cycle: '3.18', eol: '2025-05-09' }]
+
+    expect(cycleFor('3.18', alpine)?.cycle).toBe('3.18')
+  })
+
+  it('failure case - a non-version tag belongs to no cycle', () => {
+    expect(cycleFor('latest', CYCLES)).toBeNull()
+  })
+
+  it('success case - reports a cycle past its end of life', async () => {
+    mockEol(CYCLES)
+
+    const status = await checkEol('node', '18-alpine', {
+      now: new Date('2026-08-14'),
+      logger: Logger.silent(),
+    })
+
+    expect(status).toMatchObject({ product: 'nodejs', cycle: '18', eol: true })
+    expect(status!.daysRemaining).toBeLessThan(0)
+  })
+
+  it('success case - a supported cycle is not flagged', async () => {
+    mockEol(CYCLES)
+
+    const status = await checkEol('node', '22', { now: new Date('2026-08-14'), logger: Logger.silent() })
+
+    expect(status?.eol).toBe(false)
+    expect(describeEol(status)).toBe('')
+  })
+
+  it('success case - warns about an approaching end of life', async () => {
+    mockEol(CYCLES)
+
+    const status = await checkEol('node', '20', { now: new Date('2026-04-01'), logger: Logger.silent() })
+
+    expect(describeEol(status)).toContain('reaches end of life in')
+  })
+
+  it('failure case - a cycle with no announced end is supported, not unknown', async () => {
+    // Reporting it as a risk would be wrong.
+    mockEol(CYCLES)
+
+    const status = await checkEol('node', 'rolling', { logger: Logger.silent() })
+
+    expect(status).toBeNull()
+  })
+
+  it('failure case - an unreachable API yields nothing rather than throwing', async () => {
+    globalThis.fetch = (async () => {
+      throw new Error('offline')
+    }) as unknown as typeof fetch
+
+    expect(await checkEol('node', '18', { logger: Logger.silent() })).toBeNull()
+  })
+
+  it('failure case - an untracked image is not looked up at all', async () => {
+    let called = false
+    globalThis.fetch = (async () => {
+      called = true
+      return new Response('[]', { status: 200 })
+    }) as unknown as typeof fetch
+
+    expect(await checkEol('ghcr.io/org/app', '1.0', { logger: Logger.silent() })).toBeNull()
+    expect(called).toBe(false)
+  })
+
+  it('success case - an EOL image is a dependency-gate violation', () => {
+    const result = checkDependencies(
+      [{ name: 'node', version: '18', eol: 'node 18 reached end of life' }],
+      { mode: 'error' },
+    )
+
+    expect(result.passed).toBe(false)
+    expect(result.detail).toContain('end of life')
+  })
+
+  it('success case - the EOL block can be turned off', () => {
+    const result = checkDependencies(
+      [{ name: 'node', version: '18', eol: 'node 18 reached end of life' }],
+      { mode: 'error', blockEol: false },
+    )
+
+    expect(result.passed).toBe(true)
   })
 })

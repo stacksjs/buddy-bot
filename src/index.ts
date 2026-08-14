@@ -77,7 +77,34 @@ export {
   resolveCredentials,
 } from './registry/oci-client'
 export type { DockerRegistryConfig, ImageRef, RegistryAuth } from './registry/oci-client'
+export {
+  checkEol,
+  cycleFor,
+  describeEol,
+  EOL_PRODUCTS,
+  EOL_WARNING_DAYS,
+  productFor,
+} from './registry/eol'
+export type { EolCycle, EolStatus } from './registry/eol'
 export { RegistryClient } from './registry/registry-client'
+export { applyCatalogUpdates, scanCatalogs } from './scanner/catalog-scan'
+export type { CatalogScanResult } from './scanner/catalog-scan'
+export {
+  bumpEngineConstraint,
+  collectResolutionPins,
+  extractEngines,
+  KNOWN_ENGINES,
+  pinBlocksUpdate,
+  resolveEngineVersion,
+} from './scanner/package-json-extras'
+export type { ResolutionPin } from './scanner/package-json-extras'
+export {
+  applyCatalogUpdate,
+  isCatalogReference,
+  parseWorkspaceCatalogs,
+  resolveCatalogReference,
+} from './scanner/workspace-catalog'
+export type { CatalogEntry, WorkspaceCatalogs } from './scanner/workspace-catalog'
 export {
   appendHistory,
   computeDeltas,

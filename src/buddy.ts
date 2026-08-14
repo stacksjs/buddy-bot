@@ -170,6 +170,21 @@ export class Buddy {
       const zigUpdates = await this.checkZigForUpdates(packageFiles)
       this.logger.info(`⏱️  Zig dependency checks took ${Date.now() - zigStartTime}ms (found ${zigUpdates.length} updates)`)
 
+      // pnpm catalogs are where the version lives in a workspace that uses
+      // them: every package.json says `catalog:`, so updating those files
+      // would write the protocol string over itself and change nothing.
+      const { scanCatalogs } = await import('./scanner/catalog-scan')
+      const catalogScan = await scanCatalogs(
+        this.projectPath,
+        name => this.registryClient.getLatestVersion(name),
+        {
+          ...(this.config.packages?.ignore ? { ignore: this.config.packages.ignore } : {}),
+          logger: this.logger,
+        },
+      )
+      if (catalogScan.entries.length > 0)
+        this.logger.info(`📦 pnpm catalogs: ${catalogScan.updates.length} update(s) across ${catalogScan.entries.length} entr(ies)`)
+
       // Ecosystems behind the adapter interface: Python, Rust, Go and Ruby.
       // These run as one pass rather than a method each, which is the point of
       // the interface — a fifth ecosystem is a new module, not a new branch here.
@@ -198,6 +213,7 @@ export class Buddy {
         ...dockerUpdates,
         ...zigUpdates,
         ...adapterScan.updates,
+        ...catalogScan.updates,
       ]
 
       // Apply ignore filter to dependency file updates
@@ -221,6 +237,10 @@ export class Buddy {
       // sources have contributed, so a pin covers every ecosystem rather than
       // only package.json.
       updates = this.applyPins(updates)
+
+      // Drop updates an `overrides`/`resolutions` entry would defeat at
+      // install time. Applied after pins so both hold-backs are in one place.
+      updates = await this.dropOverriddenUpdates(updates, packageFiles)
 
       // Package rules run last among the filters, so a rule can override what
       // the global strategy allowed rather than being overridden by it.
@@ -383,6 +403,64 @@ export class Buddy {
       .map((group, index) => ({ group, index, priority: this.groupEffectsFor(group.updates).prPriority }))
       .sort((a, b) => b.priority - a.priority || a.index - b.index)
       .map(entry => entry.group)
+  }
+
+  /**
+   * Drop updates that an `overrides` or `resolutions` entry would defeat.
+   *
+   * A package pinned by an override cannot be updated by editing the
+   * dependency that declares it — the override wins at install time
+   * regardless. Proposing one anyway produces a pull request that changes
+   * `package.json`, passes CI, merges, and installs exactly the same tree as
+   * before. That is worse than no pull request, because it looks like
+   * progress.
+   *
+   * @param updates - Candidate updates
+   * @param packageFiles - Manifests already scanned
+   * @returns Updates no override holds back
+   */
+  private async dropOverriddenUpdates(
+    updates: PackageUpdate[],
+    packageFiles: PackageFile[],
+  ): Promise<PackageUpdate[]> {
+    const manifests = packageFiles.filter(file => file.type === 'package.json')
+    if (manifests.length === 0)
+      return updates
+
+    const { collectResolutionPins, pinBlocksUpdate } = await import('./scanner/package-json-extras')
+
+    const pins = new Map<string, { version: string, field: string }>()
+
+    for (const manifest of manifests) {
+      try {
+        for (const pin of collectResolutionPins(JSON.parse(manifest.content)))
+          pins.set(pin.name, { version: pin.version, field: pin.field })
+      }
+      catch {
+        // A manifest that does not parse was already reported by the scanner.
+        continue
+      }
+    }
+
+    if (pins.size === 0)
+      return updates
+
+    return updates.filter((update) => {
+      const pin = pins.get(update.name)
+      if (!pin)
+        return true
+
+      // Only an override that actually excludes the new version holds it
+      // back; one whose range already admits it is not in the way.
+      if (!pinBlocksUpdate({ name: update.name, version: pin.version, field: pin.field }, update.newVersion))
+        return true
+
+      this.logger.info(
+        `🔒 Skipping ${update.name} → ${update.newVersion}: `
+        + `${pin.field} pins it to ${pin.version}, which would win at install time`,
+      )
+      return false
+    })
   }
 
   /**
@@ -1645,6 +1723,25 @@ export class Buddy {
       catch (error) {
         this.logger.error('Failed to generate Zig manifest updates:', error)
         // Continue with other updates even if Zig updates fail
+      }
+    }
+
+    // pnpm catalog entries live in the workspace file, not in any package.json.
+    const catalogUpdates = updates.filter(update => update.dependencyType === 'catalog')
+    if (catalogUpdates.length > 0) {
+      try {
+        const { applyCatalogUpdates } = await import('./scanner/catalog-scan')
+        const path = catalogUpdates[0].file
+        const original = await Bun.file(join(this.projectPath, path)).text()
+        const content = applyCatalogUpdates(original, catalogUpdates)
+
+        if (content === original)
+          this.logger.warn(`⚠️ No catalog changes written to ${path}`)
+        else
+          fileUpdates.push({ path, content, type: 'update' })
+      }
+      catch (error) {
+        this.logger.error('Failed to generate pnpm catalog updates:', error)
       }
     }
 

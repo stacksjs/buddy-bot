@@ -28,6 +28,12 @@ export interface GateInput {
     license?: string
     vulnerable?: boolean
     deprecated?: boolean
+    /**
+     * Set for a base image whose release cycle no longer receives security
+     * fixes. More consequential than any single advisory: an EOL image stops
+     * getting patches entirely rather than carrying one known hole.
+     */
+    eol?: string
   }>
 }
 
@@ -40,6 +46,8 @@ export interface GateConfig {
     licenseAllowlist?: string[]
     blockVulnerable?: boolean
     blockDeprecated?: boolean
+    /** Block base images past end of life (default: true) */
+    blockEol?: boolean
   }
 }
 
@@ -127,6 +135,9 @@ export function checkDependencies(
 
     if (options.blockDeprecated !== false && dependency.deprecated)
       problems.push(`\`${dependency.name}\` is deprecated`)
+
+    if (options.blockEol !== false && dependency.eol)
+      problems.push(dependency.eol)
 
     if (options.licenseAllowlist?.length && dependency.license) {
       // An unknown license is reported rather than assumed acceptable: the

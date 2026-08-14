@@ -10,6 +10,7 @@ import { BuddyError } from '../types'
 import { isDependencyFile, parseDependencyFile as parseDepFile } from '../utils/dependency-file-parser'
 import { isDockerfile, parseDockerfile as parseDockerfileUtil } from '../utils/dockerfile-parser'
 import { isGitHubActionsFile, parseGitHubActionsFile } from '../utils/github-actions-parser'
+import { extractEngines } from './package-json-extras'
 import { shouldSkipPackageDirectory } from '../utils/package-paths'
 import { parsePantryLockFile } from '../utils/pantry-parser'
 import { parseZigManifest } from '../utils/zig-parser'
@@ -167,6 +168,11 @@ export class PackageScanner {
       this.extractDependencies(packageData.devDependencies, 'devDependencies', filePath, dependencies)
       this.extractDependencies(packageData.peerDependencies, 'peerDependencies', filePath, dependencies)
       this.extractDependencies(packageData.optionalDependencies, 'optionalDependencies', filePath, dependencies)
+
+      // `engines` pins what the project runs on, which goes stale exactly like
+      // a library does. Reported with its own type so bumping it stays an
+      // explicit decision rather than an ordinary dependency update.
+      dependencies.push(...extractEngines(packageData.engines, filePath))
 
       return {
         path: filePath,
