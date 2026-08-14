@@ -39,6 +39,13 @@ export interface ReviewOptions {
   /** Glob-keyed guidance applied to the files a review actually touches */
   pathInstructions?: Array<{ path: string, instructions: string }>
   /**
+   * Durable notes recorded by earlier runs, rendered into the prompt.
+   *
+   * Read from the base branch by the caller for the same reason guideline
+   * files are: they are trusted context.
+   */
+  learnings?: string
+  /**
    * Findings from static analysis, merged with the model's own.
    *
    * Passed in rather than run here so a review works with analyzers alone
@@ -122,6 +129,7 @@ export async function reviewDiff(ai: AiClient, options: ReviewOptions): Promise<
     matchedPathInstructions.length > 0
       ? `Guidance for the files under review:\n${matchedPathInstructions.join('\n')}`
       : '',
+    options.learnings?.trim() ?? '',
   ].filter(Boolean).join('\n\n')
 
   const userContent = [

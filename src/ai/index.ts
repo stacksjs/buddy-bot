@@ -1,5 +1,17 @@
 export { MODEL_ALIASES, PROVIDER_KEY_ENV, PROVIDER_PRIORITY, resolveModelAlias } from './aliases'
 export { createAiClient, resolveAiProvider } from './client'
+export {
+  addLearning,
+  createLearning,
+  DEFAULT_LEARNINGS_FILE,
+  DEFAULT_PROMPT_LIMIT,
+  loadLearnings,
+  parseLearnings,
+  renderLearnings,
+  selectLearnings,
+  serializeLearnings,
+} from './learnings'
+export type { Learning } from './learnings'
 export type { AiResolution } from './client'
 export { createAnthropicProvider } from './providers/anthropic'
 export { createGoogleProvider } from './providers/google'
