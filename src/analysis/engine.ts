@@ -1,12 +1,39 @@
 import type { Logger } from '../utils/logger'
 import type { Analyzer, AnalysisResult } from './types'
 import { createPathMatcher } from '../utils/globs'
+import { commandExists } from './analyzers/external'
 import { getDefaultLogger } from '../utils/logger'
+import { actionlintAnalyzer } from './analyzers/actionlint'
 import { githubActionsAnalyzer } from './analyzers/github-actions'
+import { hadolintAnalyzer } from './analyzers/hadolint'
+import { linterAnalyzer } from './analyzers/linter'
+import { markdownlintAnalyzer } from './analyzers/markdownlint'
 import { secretsAnalyzer } from './analyzers/secrets'
+import { shellcheckAnalyzer } from './analyzers/shellcheck'
+import { syntaxAnalyzer } from './analyzers/syntax'
 
-/** Analyzers registered by default. */
-export const BUILTIN_ANALYZERS: Analyzer[] = [secretsAnalyzer, githubActionsAnalyzer]
+// Re-exported from its home beside the other external-tool helpers, so an
+// analyzer can probe for its binary without importing the engine that
+// registers it — which would be a cycle.
+export { commandExists }
+
+/**
+ * Analyzers registered by default, most consequential first.
+ *
+ * Native analyzers lead because they always run; the external ones follow and
+ * report themselves as skipped when their tool is absent, so a thin runner
+ * degrades coverage with a note rather than silently reading as clean.
+ */
+export const BUILTIN_ANALYZERS: Analyzer[] = [
+  secretsAnalyzer,
+  githubActionsAnalyzer,
+  syntaxAnalyzer,
+  linterAnalyzer,
+  actionlintAnalyzer,
+  shellcheckAnalyzer,
+  hadolintAnalyzer,
+  markdownlintAnalyzer,
+]
 
 /** Options for an analysis pass. */
 export interface AnalysisOptions {
@@ -52,7 +79,7 @@ export async function runAnalyzers(options: AnalysisOptions): Promise<AnalysisRe
     if (matched.length === 0)
       continue
 
-    if (!(await analyzer.available())) {
+    if (!(await analyzer.available(options.root))) {
       // Reported rather than dropped: a silently skipped linter reads as
       // "clean" when it means "not checked".
       skipped.push({ name: analyzer.name, reason: 'tool not available on this runner' })
@@ -74,21 +101,4 @@ export async function runAnalyzers(options: AnalysisOptions): Promise<AnalysisRe
   }
 
   return { findings, ran, skipped }
-}
-
-/**
- * Whether a command exists on this runner.
- *
- * Shared by external-tool analyzers so each does not reimplement the probe.
- *
- * @param command - Executable name
- */
-export async function commandExists(command: string): Promise<boolean> {
-  try {
-    const proc = Bun.spawn(['which', command], { stdout: 'ignore', stderr: 'ignore' })
-    return await proc.exited === 0
-  }
-  catch {
-    return false
-  }
 }

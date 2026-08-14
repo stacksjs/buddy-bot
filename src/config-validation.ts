@@ -1,5 +1,6 @@
 import type { BuddyBotConfig } from './types'
 import type { GitProviderName } from './git/provider'
+import { BUILTIN_ANALYZERS } from './analysis/engine'
 import { IMPLEMENTED_PROVIDERS, PROVIDER_TRACKING_ISSUES } from './git/provider'
 import { ConfigurationError } from './types'
 
@@ -14,6 +15,7 @@ const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
 const RULE_ECOSYSTEMS = ['npm', 'composer', 'github-actions', 'docker', 'pkgx', 'zig'] as const
 const RULE_UPDATE_TYPES = ['major', 'minor', 'patch'] as const
+const ANALYZER_NAMES: string[] = BUILTIN_ANALYZERS.map(analyzer => analyzer.name)
 
 /** A single problem found in a loaded configuration. */
 export interface ConfigIssue {
@@ -176,8 +178,38 @@ export function validateConfig(config: BuddyBotConfig): ConfigIssue[] {
   validateReleaseNotes(issues, config)
   validateDashboard(issues, config)
   validateAi(issues, config)
+  validateAnalysis(issues, config)
 
   return issues
+}
+
+function validateAnalysis(issues: ConfigIssue[], config: BuddyBotConfig): void {
+  const analysis = config.analysis
+  if (analysis === undefined)
+    return
+  if (!isPlainObject(analysis)) {
+    issues.push({ path: 'analysis', message: `expected an object, got ${quote(analysis)}` })
+    return
+  }
+
+  if (analysis.enabled !== undefined && typeof analysis.enabled !== 'boolean')
+    issues.push({ path: 'analysis.enabled', message: `expected a boolean, got ${quote(analysis.enabled)}` })
+
+  if (analysis.tools === undefined)
+    return
+  if (!isPlainObject(analysis.tools)) {
+    issues.push({ path: 'analysis.tools', message: `expected an object mapping analyzer names to booleans, got ${quote(analysis.tools)}` })
+    return
+  }
+
+  for (const [name, value] of Object.entries(analysis.tools)) {
+    if (typeof value !== 'boolean')
+      issues.push({ path: `analysis.tools.${name}`, message: `expected a boolean, got ${quote(value)}` })
+    else if (!ANALYZER_NAMES.includes(name))
+      // A misspelled analyzer name silently leaves that analyzer enabled,
+      // which reads as "I turned it off" until it comments on something.
+      issues.push({ path: `analysis.tools.${name}`, message: `unknown analyzer; expected one of ${ANALYZER_NAMES.map(quote).join(', ')}` })
+  }
 }
 
 function validateRepository(issues: ConfigIssue[], config: BuddyBotConfig): void {

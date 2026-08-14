@@ -14,8 +14,11 @@ export interface Analyzer {
    *
    * External tools report unavailability instead of failing, so a missing
    * binary degrades coverage with a note rather than breaking the run.
+   *
+   * @param root - Repository root, for analyzers whose availability depends
+   * on repository content rather than on a binary being installed
    */
-  available: () => Promise<boolean>
+  available: (root: string) => Promise<boolean>
   /**
    * Analyze the given files.
    *

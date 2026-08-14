@@ -140,6 +140,24 @@ export interface BuddyBotConfig {
   }
 
   /**
+   * Static analysis settings.
+   *
+   * Analyzers run whether or not an AI provider is configured, so a repository
+   * with no key still gets secret scanning, workflow auditing and whatever
+   * external linters the runner has installed.
+   */
+  analysis?: {
+    /** Turn all analyzers off (default: true, they are cheap and local) */
+    enabled?: boolean
+    /**
+     * Per-analyzer switches, keyed by name: `secrets`, `github-actions`,
+     * `syntax`, `linter`, `actionlint`, `shellcheck`, `hadolint`,
+     * `markdownlint`. Absent means enabled.
+     */
+    tools?: Record<string, boolean>
+  }
+
+  /**
    * AI provider settings.
    *
    * Every AI-powered feature is off unless a provider key is available, and

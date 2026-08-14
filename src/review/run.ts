@@ -65,7 +65,14 @@ export async function runReviewForPR(options: RunReviewOptions): Promise<string>
 
   // Analyzers run whether or not AI is configured, so a repository without a
   // key still gets secret scanning and workflow auditing on its pull requests.
-  const analysis = await runAnalyzers({ files: changedFiles, root: process.cwd(), logger })
+  const analysis = config.analysis?.enabled === false
+    ? { findings: [], ran: [], skipped: [] }
+    : await runAnalyzers({
+        files: changedFiles,
+        root: process.cwd(),
+        ...(config.analysis?.tools ? { enabled: config.analysis.tools } : {}),
+        logger,
+      })
   if (analysis.skipped.length > 0)
     logger.info(`⏭️  Skipped ${analysis.skipped.length} analyzer(s): ${analysis.skipped.map(entry => entry.name).join(', ')}`)
 
