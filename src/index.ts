@@ -104,3 +104,6 @@ export * from './analysis'
 
 // Comment commands
 export * from './commands'
+
+// CI failure analysis
+export * from './ci'
