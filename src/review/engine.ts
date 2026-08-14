@@ -38,6 +38,13 @@ export interface ReviewOptions {
   pathFilters?: string[]
   /** Glob-keyed guidance applied to the files a review actually touches */
   pathInstructions?: Array<{ path: string, instructions: string }>
+  /**
+   * Findings from static analysis, merged with the model's own.
+   *
+   * Passed in rather than run here so a review works with analyzers alone
+   * when no AI is configured, and so the caller owns tool selection.
+   */
+  analyzerFindings?: ReviewFinding[]
   logger?: Logger
 }
 
@@ -138,7 +145,11 @@ export async function reviewDiff(ai: AiClient, options: ReviewOptions): Promise<
   if (dropped.length > 0)
     logger.debug(`🔍 Dropped ${dropped.length} finding(s) that did not anchor to a changed line`)
 
-  const fresh = dedupeFindings(valid, new Set(options.seenFingerprints ?? []))
+  // Analyzer findings are validated against the same anchor map: a linter
+  // reporting a line outside the diff is as unanchorable as a model doing it.
+  const { valid: validAnalyzer } = validateFindings(options.analyzerFindings ?? [], anchors)
+
+  const fresh = dedupeFindings([...validAnalyzer, ...valid], new Set(options.seenFingerprints ?? []))
   if (fresh.length < valid.length)
     logger.debug(`🔍 Skipped ${valid.length - fresh.length} finding(s) already reported`)
 

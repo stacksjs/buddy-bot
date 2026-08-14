@@ -400,6 +400,44 @@ describe('reviewDiff', () => {
     expect(ai.requests).toHaveLength(0)
   })
 
+  it('success case - merges analyzer findings with the model\'s own', async () => {
+    const ai = scriptedClient({
+      summary: 's',
+      effort: 1,
+      walkthrough: [],
+      findings: [{ path: 'src/app.ts', line: 13, severity: 'minor', category: 'style', message: 'model finding' }],
+    })
+
+    const result = await reviewDiff(ai, {
+      diff: SAMPLE_DIFF,
+      analyzerFindings: [{
+        path: 'src/app.ts',
+        line: 12,
+        severity: 'critical',
+        category: 'secret-scan',
+        message: 'analyzer finding',
+        tool: 'secret-scan',
+      }],
+    })
+
+    expect(result.findings).toHaveLength(2)
+    // Analyzer findings carry their tool so the comment says where it came from.
+    expect(result.findings.find(finding => finding.tool === 'secret-scan')).toBeTruthy()
+  })
+
+  it('failure case - an analyzer finding outside the diff is dropped too', async () => {
+    // A linter reporting a line the diff does not touch is as unanchorable as
+    // a model doing it.
+    const ai = scriptedClient({ summary: 's', effort: 1, walkthrough: [], findings: [] })
+
+    const result = await reviewDiff(ai, {
+      diff: SAMPLE_DIFF,
+      analyzerFindings: [{ path: 'src/app.ts', line: 900, severity: 'major', category: 'x', message: 'y', tool: 't' }],
+    })
+
+    expect(result.findings).toHaveLength(0)
+  })
+
   it('success case - profile changes the instructions sent', async () => {
     const ai = scriptedClient({ summary: 's', effort: 1, walkthrough: [], findings: [] })
 

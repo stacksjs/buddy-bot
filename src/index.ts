@@ -98,3 +98,6 @@ export * from './agent'
 
 // AI code review
 export * from './review'
+
+// Static analysis
+export * from './analysis'
