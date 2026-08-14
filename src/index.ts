@@ -110,3 +110,6 @@ export * from './ci'
 
 // Merge gates
 export * from './gates'
+
+// Issue enrichment
+export * from './issues'

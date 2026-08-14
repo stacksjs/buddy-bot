@@ -8,6 +8,18 @@ export {
   reviewMode,
 } from './modes'
 export { runAgent, wrapUntrusted } from './runner'
+export {
+  autofixTouch,
+  docstringsTouch,
+  FINISHING_TOUCHES,
+  getFinishingTouch,
+  parseTouchSelections,
+  planTouch,
+  renderTouchOffer,
+  simplifyTouch,
+  unitTestsTouch,
+} from './tasks'
+export type { FinishingTouch, TouchOutput } from './tasks'
 export type { AgentRunOptions } from './runner'
 export { BUILTIN_TOOLS, Toolbelt } from './toolbelt'
 export { fsTools, listDirTool, readFileTool, resolveWorkspacePath, writeFileTool } from './tools/fs'
