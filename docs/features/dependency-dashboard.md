@@ -116,6 +116,20 @@ Categorized view of all detected dependencies:
 - Package manager agnostic dependencies
 - Custom dependency file formats
 
+### Capped Dependencies
+
+When a package is already at the newest version every declared range allows, updating this repository cannot move it — a dependant declared the ceiling, and it has to be widened where it is declared. These are listed separately rather than offered as updates:
+
+```markdown
+## Capped dependencies
+
+| Package | Installed | Reachable | Latest | Capped by |
+|---|---|---|---|---|
+| `ts-pantry` | `0.10.56` | `0.10.56` | `0.11.19` | `buddy-bot` (`^0.10.11`) |
+```
+
+Disable with `packages.detectResolutionDrift: false`. The analysis reads `node_modules`, so it reports nothing before an install.
+
 ## Interactive Features
 
 ### Force Retry/Rebase

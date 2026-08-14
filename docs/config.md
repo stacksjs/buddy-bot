@@ -279,6 +279,10 @@ pullRequest: {
 
 A custom `bodyTemplate` replaces the generated prose, but the rebase checkbox and the machine-readable manifest are always appended — rebasing and auto-closing read the manifest, so a template cannot break the PR lifecycle.
 
+### Resolution Drift
+
+`packages.detectResolutionDrift` (default `true`) reports packages held below their latest version by a range declared elsewhere in the dependency tree. They appear on the [dependency dashboard](/features/dependency-dashboard) rather than as pull requests, because no change to this repository can move them.
+
 ### Pinning Packages
 
 `packages.pin` holds a package at an exact version. A pin is both a ceiling and a floor: updates past the pin are dropped, and a package sitting somewhere else has an update proposed that brings it back to the pin.
