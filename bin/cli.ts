@@ -39,7 +39,15 @@ import { Logger } from '../src/utils/logger'
 
 let _resolvedConfig: BuddyBotConfig | null = null
 
-async function resolveConfig(): Promise<BuddyBotConfig> {
+/**
+ * Load the configuration once per process.
+ *
+ * @param configPath - Explicit config file from `--config`, bypassing discovery
+ */
+async function resolveConfig(configPath?: string): Promise<BuddyBotConfig> {
+  if (configPath)
+    return await getConfig(configPath)
+
   if (!_resolvedConfig)
     _resolvedConfig = await getConfig()
   return _resolvedConfig
@@ -473,7 +481,7 @@ cli
   .example('buddy-bot scan --no-respect-latest')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info('Loading configuration...')
@@ -601,7 +609,7 @@ cli
   .example('buddy-bot dashboard --pin')
   .action(async (options: CLIOptions & { pin?: boolean, title?: string, issueNumber?: string }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info('Creating or updating dependency dashboard...')
@@ -653,7 +661,7 @@ cli
   .example('buddy-bot update --no-respect-latest')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info('Starting dependency update process...')
@@ -711,7 +719,7 @@ cli
   .example('buddy-bot rebase 17 --force')
   .action(async (prNumber: string, options: CLIOptions & { force?: boolean }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info(`🔄 Rebasing/retrying PR #${prNumber}...`)
@@ -925,7 +933,7 @@ cli
   .example('buddy-bot update-check --dry-run')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       // Check if repository is configured
@@ -1187,7 +1195,7 @@ cli
     const packages: string[] = args.slice(0, -1)
 
     const checkLogger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     if (!packages.length) {
       checkLogger.error('No packages specified to check')
@@ -1235,7 +1243,7 @@ cli
   .action(async (options: CLIOptions) => {
     const { Scheduler } = await import('../src/scheduler/scheduler')
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info('🕒 Starting Buddy Scheduler...')
@@ -1312,7 +1320,7 @@ cli
     const { writeFileSync, mkdirSync } = await import('node:fs')
     const { resolve } = await import('node:path')
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     console.log('⚠️  The "generate-workflows" command is deprecated.')
     console.log('💡 Use "buddy-bot setup" for a better interactive experience.\n')
@@ -1880,7 +1888,7 @@ cli
   .example('buddy-bot cleanup --force')
   .action(async (options: CLIOptions & { dryRun?: boolean, days?: string, force?: boolean }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info('🧹 Starting buddy-bot branch cleanup...')
@@ -1991,7 +1999,7 @@ cli
   .example('buddy-bot list-branches --stale-only --days 14')
   .action(async (options: CLIOptions & { orphanedOnly?: boolean, staleOnly?: boolean, days?: string }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       logger.info('📋 Listing buddy-bot branches...')
@@ -2101,7 +2109,7 @@ cli
   .example('buddy-bot open-settings')
   .action(async (options: CLIOptions) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
-    const config = await resolveConfig()
+    const config = await resolveConfig(options.config)
 
     try {
       const { exec } = await import('node:child_process')
@@ -2236,6 +2244,9 @@ cli.command('version', 'Show the version of Buddy Bot').action(() => {
   console.log(version)
 })
 
+// Available on every command: each action reads `options.config` and passes it
+// to resolveConfig, which bypasses discovery when a path is given.
+cli.option('--config <path>', 'Path to a buddy-bot config file')
 cli.version(version)
 cli.help()
 cli.parse()

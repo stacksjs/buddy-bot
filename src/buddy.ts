@@ -19,13 +19,14 @@ import { GitHubProvider } from './git/github-provider'
 import { evaluateAutoMerge, evaluateAutoMergeForUpdates, resolveAutoMergeConfig } from './pr/auto-merge'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
+import { applyTemplate, templateTokensForGroup } from './pr/templates'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
 import { DeprecatedDependenciesChecker } from './services/deprecated-dependencies-checker'
 import { advisoryKey, SecurityAdvisoryService, toOsvEcosystem } from './services/security-advisories'
 import { getGitHubServerUrl } from './utils/endpoints'
 import { GitHubApiError } from './utils/errors'
-import { groupUpdates, sortUpdatesByPriority } from './utils/helpers'
+import { getUpdateType, groupUpdates, sortUpdatesByPriority } from './utils/helpers'
 import { Logger, setDefaultLogger } from './utils/logger'
 import { resolveRepositoryConfig } from './utils/repository'
 
@@ -134,6 +135,11 @@ export class Buddy {
       updates = await this.filterUpdatesByMinimumReleaseAge(updates)
       this.logger.info(`⏱️  Minimum release age filtering took ${Date.now() - ageFilterStartTime}ms`)
 
+      // Hold pinned packages at their configured version. Applied after all
+      // sources have contributed, so a pin covers every ecosystem rather than
+      // only package.json.
+      updates = this.applyPins(updates)
+
       // Annotate updates that resolve known vulnerabilities, before sorting so
       // the priority sort can float them to the top.
       const advisoryStartTime = Date.now()
@@ -170,6 +176,86 @@ export class Buddy {
       this.logger.error('Failed to scan for updates:', error)
       throw error
     }
+  }
+
+  /**
+   * Apply `pullRequest.titleFormat` to a group's generated title.
+   *
+   * @param group - Group backing the pull request
+   * @returns The configured title, or the generated one when no template is set
+   */
+  private prTitleFor(group: UpdateGroup): string {
+    const template = this.config.pullRequest?.titleFormat
+    if (!template)
+      return group.title
+
+    return applyTemplate(
+      template,
+      templateTokensForGroup(group, { title: group.title }, this.config.packages?.strategy),
+    )
+  }
+
+  /**
+   * Apply `pullRequest.commitMessageFormat` to a group's commit message.
+   *
+   * @param group - Group backing the commit
+   * @param suffix - Lifecycle marker such as `(rebased)`, appended after the
+   * template so a custom format cannot lose it
+   */
+  private commitMessageFor(group: UpdateGroup, suffix?: string): string {
+    const template = this.config.pullRequest?.commitMessageFormat
+    const base = template
+      ? applyTemplate(
+          template,
+          templateTokensForGroup(group, { message: group.title, title: group.title }, this.config.packages?.strategy),
+        )
+      : group.title
+
+    return suffix ? `${base} ${suffix}` : base
+  }
+
+  /**
+   * Hold pinned packages at the version named in `packages.pin`.
+   *
+   * A pin is a ceiling *and* a floor: an update that would move a package past
+   * its pin is dropped, and a package sitting somewhere other than its pin
+   * gets an update proposed that brings it back — which is what makes a pin
+   * enforceable rather than merely advisory. A pin covering a package that is
+   * also ignored has no effect, since ignored packages never reach here.
+   *
+   * @param updates - Candidate updates from all sources
+   * @returns Updates with pinned packages dropped or retargeted
+   */
+  private applyPins(updates: PackageUpdate[]): PackageUpdate[] {
+    const pins = this.config.packages?.pin
+    if (!pins || Object.keys(pins).length === 0)
+      return updates
+
+    const result: PackageUpdate[] = []
+
+    for (const update of updates) {
+      const pinned = pins[update.name]
+      if (!pinned) {
+        result.push(update)
+        continue
+      }
+
+      if (update.currentVersion === pinned) {
+        this.logger.info(`📌 ${update.name} is pinned to ${pinned}, skipping update to ${update.newVersion}`)
+        continue
+      }
+
+      // The package drifted off its pin — propose moving it back instead of
+      // to the latest version.
+      this.logger.info(`📌 ${update.name} is pinned to ${pinned}, retargeting update from ${update.newVersion}`)
+      result.push({
+        ...update,
+        newVersion: pinned,
+        updateType: getUpdateType(update.currentVersion, pinned),
+      })
+    }
+
+    return result
   }
 
   /**
@@ -310,7 +396,7 @@ export class Buddy {
           }
 
           // Generate PR content first to check for existing PRs
-          const prTitle = group.title
+          const prTitle = this.prTitleFor(group)
           const prBodyStartTime = Date.now()
           const prBody = await prGenerator.generateBody(group)
           const prBodyDuration = Date.now() - prBodyStartTime
@@ -432,19 +518,19 @@ export class Buddy {
                     // IMPORTANT: Still pass the full file list, NOT empty [].
                     // After resetting to base, the dependency changes need to be reapplied.
                     // Passing [] would make the branch identical to main → GitHub auto-closes the PR.
-                    await gitProvider.commitChanges(existingBranchName, `${group.title} (rebased)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                    await gitProvider.commitChanges(existingBranchName, this.commitMessageFor(group, '(rebased)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
                     this.logger.success(`✅ Recreated ${existingBranchName} from ${this.config.repository.baseBranch || 'main'} (dependency versions unchanged)`)
                   }
                   else {
                     // Recreate the branch from base and apply updated changes (Renovate-style)
-                    await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                    await gitProvider.commitChanges(existingBranchName, this.commitMessageFor(group, '(updated)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
                     this.logger.success(`✅ Recreated branch ${existingBranchName} with latest dependency versions`)
                   }
                 }
                 catch (cmpErr) {
                   // If the comparison fails for any reason, fall back to committing (previous behavior)
                   this.logger.warn(`⚠️ Failed to compare branch content, proceeding with commit:`, cmpErr)
-                  await gitProvider.commitChanges(existingBranchName, `${group.title} (updated)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                  await gitProvider.commitChanges(existingBranchName, this.commitMessageFor(group, '(updated)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
                   this.logger.success(`✅ Recreated branch ${existingBranchName} with latest dependency versions`)
                 }
               }
@@ -458,6 +544,7 @@ export class Buddy {
                 body: prBody,
                 labels: dynamicLabels,
                 reviewers: this.config.pullRequest?.reviewers,
+            teamReviewers: this.config.pullRequest?.teamReviewers,
                 assignees: this.config.pullRequest?.assignees,
               })
 
@@ -492,7 +579,7 @@ export class Buddy {
               // Update the existing PR instead of creating a new one (Renovate-style: recreate from base)
               const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
               if (packageJsonUpdates.length > 0) {
-                await gitProvider.commitChanges(branchName, `${group.title} (updated)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                await gitProvider.commitChanges(branchName, this.commitMessageFor(group, '(updated)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
               }
 
               const dynamicLabels = prGenerator.generateLabels(group)
@@ -501,6 +588,7 @@ export class Buddy {
                 body: prBody,
                 labels: dynamicLabels,
                 reviewers: this.config.pullRequest?.reviewers,
+            teamReviewers: this.config.pullRequest?.teamReviewers,
                 assignees: this.config.pullRequest?.assignees,
               })
 
@@ -531,7 +619,7 @@ export class Buddy {
                 // Update the branch with fresh changes before reopening
                 const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
                 if (packageJsonUpdates.length > 0) {
-                  await gitProvider.commitChanges(branchName, `${group.title} (reopened)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                  await gitProvider.commitChanges(branchName, this.commitMessageFor(group, '(reopened)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
                 }
 
                 await gitProvider.reopenPullRequest(recentlyClosed.number)
@@ -541,6 +629,7 @@ export class Buddy {
                   body: prBody,
                   labels: dynamicLabels,
                   reviewers: this.config.pullRequest?.reviewers,
+            teamReviewers: this.config.pullRequest?.teamReviewers,
                   assignees: this.config.pullRequest?.assignees,
                 })
 
@@ -596,7 +685,7 @@ export class Buddy {
               await gitProvider.createBranch(branchName, this.config.repository.baseBranch || 'main')
               const packageJsonUpdates = await this.generateAllFileUpdates(group.updates)
               if (packageJsonUpdates.length > 0) {
-                await gitProvider.commitChanges(branchName, `${group.title} (reopened)`, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+                await gitProvider.commitChanges(branchName, this.commitMessageFor(group, '(reopened)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
               }
 
               // Reopen and update the existing PR
@@ -608,6 +697,7 @@ export class Buddy {
                 body: prBody,
                 labels: dynamicLabels,
                 reviewers: this.config.pullRequest?.reviewers,
+            teamReviewers: this.config.pullRequest?.teamReviewers,
                 assignees: this.config.pullRequest?.assignees,
               })
 
@@ -695,7 +785,7 @@ export class Buddy {
           this.logger.info(`📝 Generated ${packageJsonUpdates.length} file changes for ${group.name}`)
 
           // Commit changes (Renovate-style: branch is created from base, changes applied fresh)
-          await gitProvider.commitChanges(branchName, group.title, packageJsonUpdates, this.config.repository.baseBranch || 'main')
+          await gitProvider.commitChanges(branchName, this.commitMessageFor(group), packageJsonUpdates, this.config.repository.baseBranch || 'main')
 
           // Generate dynamic labels based on update types and package types
           const dynamicLabels = prGenerator.generateLabels(group)
@@ -708,6 +798,7 @@ export class Buddy {
             base: this.config.repository.baseBranch || 'main',
             draft: false,
             reviewers: this.config.pullRequest?.reviewers,
+            teamReviewers: this.config.pullRequest?.teamReviewers,
             assignees: this.config.pullRequest?.assignees,
             labels: dynamicLabels,
           })

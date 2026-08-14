@@ -152,6 +152,11 @@ export interface BuddyBotConfig {
     }
     /** Reviewers to assign */
     reviewers?: string[]
+    /**
+     * GitHub teams to request review from, by team slug (without the
+     * organisation prefix).
+     */
+    teamReviewers?: string[]
     /** Assignees to assign */
     assignees?: string[]
     /** Labels to add */
