@@ -1109,8 +1109,13 @@ export function generateUnifiedWorkflow(_hasCustomToken: boolean): string {
 on:
   # Rebase checkbox: fires instantly when a PR body is edited (e.g. checkbox ticked).
   # No polling needed — this replaces the old every-minute cron for rebase detection.
+  # Deliberately pull_request, NOT pull_request_target: review runs static
+  # analyzers over the checked-out tree, and pull_request_target would run that
+  # against a fork's code with write permissions and secrets in scope. The cost
+  # is that reviews on fork pull requests need a token with more than the
+  # default read-only fork permissions.
   pull_request:
-    types: [edited]
+    types: [edited, opened, ready_for_review, synchronize]
 
   # Dashboard checkboxes: same idea, fired when the dashboard issue is edited.
   # The determine-jobs step filters to the dashboard issue and ignores the
@@ -1126,6 +1131,10 @@ on:
 
   pull_request_review_comment:
     types: [created]
+
+  # Repair a failing run on a buddy-bot pull request.
+  workflow_run:
+    types: [completed]
 
   schedule:
     # Update dependencies every 2 hours
@@ -1228,6 +1237,8 @@ jobs:
       run_update: \${{ steps.determine.outputs.run_update }}
       run_dashboard: \${{ steps.determine.outputs.run_dashboard }}
       run_command: \${{ steps.determine.outputs.run_command }}
+      run_review: \${{ steps.determine.outputs.run_review }}
+      run_fixci: \${{ steps.determine.outputs.run_fixci }}
     steps:
       - name: Determine which jobs to run
         id: determine
@@ -1248,8 +1259,19 @@ jobs:
           echo "run_update=false" >> \$GITHUB_OUTPUT
           echo "run_dashboard=false" >> \$GITHUB_OUTPUT
           echo "run_command=false" >> \$GITHUB_OUTPUT
+          echo "run_review=false" >> \$GITHUB_OUTPUT
+          echo "run_fixci=false" >> \$GITHUB_OUTPUT
 
-          if [ "\${{ github.event_name }}" = "pull_request" ]; then
+          if [ "\${{ github.event_name }}" = "pull_request" ] && [ "\${{ github.event.action }}" != "edited" ]; then
+            # Opened, marked ready, or pushed to — review it. Draft handling and
+            # title/author filters live in config, which the review command reads.
+            if [ "\${{ github.event.pull_request.draft }}" = "true" ]; then
+              echo "ℹ️ Draft pull request — skipping review"
+            else
+              echo "run_review=true" >> \$GITHUB_OUTPUT
+              echo "ℹ️ Pull request \${{ github.event.action }} — reviewing"
+            fi
+          elif [ "\${{ github.event_name }}" = "pull_request" ]; then
             # PR body was edited — check if it's a buddy-bot PR with rebase checkbox
             # Only run the check job (lightweight: just scans for the checkbox and rebases)
             ACTOR="\$PR_ACTOR"
@@ -1280,6 +1302,16 @@ jobs:
               echo "ℹ️ Dashboard edited by user — running checkbox check"
             else
               echo "ℹ️ Non-dashboard issue edited — skipping (title: \$TITLE)"
+            fi
+          elif [ "\${{ github.event_name }}" = "workflow_run" ]; then
+            # Only act on our own failing runs; a green run has nothing to fix.
+            if [ "\${{ github.event.workflow_run.conclusion }}" != "failure" ]; then
+              echo "ℹ️ Run did not fail — nothing to fix"
+            elif [[ "\${{ github.event.workflow_run.head_branch }}" == buddy-bot/* ]]; then
+              echo "run_fixci=true" >> \$GITHUB_OUTPUT
+              echo "ℹ️ Failing run on a buddy-bot branch — attempting a fix"
+            else
+              echo "ℹ️ Failing run on a non-buddy-bot branch — skipping"
             fi
           elif [ "\${{ github.event_name }}" = "issue_comment" ] || [ "\${{ github.event_name }}" = "pull_request_review_comment" ]; then
             # Cheap pre-filter: no mention, no work. This is the guard that
@@ -1341,6 +1373,97 @@ ${generateComposerSetupSteps()}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+  # Handle an @buddy-bot command from a comment
+  command:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [determine-jobs, setup]
+    if: \${{ needs.determine-jobs.outputs.run_command == 'true' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Handle command
+        run: bunx buddy-bot handle-comment --verbose
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: \${{ secrets.GOOGLE_API_KEY }}
+          OPENROUTER_API_KEY: \${{ secrets.OPENROUTER_API_KEY }}
+
+  # Review a pull request on open, ready-for-review, or push
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [determine-jobs, setup]
+    if: \${{ needs.determine-jobs.outputs.run_review == 'true' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      # Skips itself when ai.review.enabled is false, so adding the trigger
+      # does not turn reviews on by itself.
+      - name: Review pull request
+        run: bunx buddy-bot review \${{ github.event.pull_request.number }} --verbose
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: \${{ secrets.GOOGLE_API_KEY }}
+          OPENROUTER_API_KEY: \${{ secrets.OPENROUTER_API_KEY }}
+
+  # Diagnose and repair a failing run on a buddy-bot branch
+  fix-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [determine-jobs, setup]
+    if: \${{ needs.determine-jobs.outputs.run_fixci == 'true' }}
+
+    steps:
+      - name: Checkout the failing branch
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.workflow_run.head_branch }}
+          token: \${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Attempt a fix
+        run: bunx buddy-bot fix-ci --run-id \${{ github.event.workflow_run.id }} --verbose
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_API_KEY: \${{ secrets.GOOGLE_API_KEY }}
+          OPENROUTER_API_KEY: \${{ secrets.OPENROUTER_API_KEY }}
 
   # Check job (handles both rebase requests and auto-closing PRs)
   check:

@@ -9,6 +9,8 @@ export type {
   CommandHandler,
   CommandOutcome,
 } from './dispatcher'
+export { createHandlers } from './handlers'
+export type { HandlerDeps } from './handlers'
 export {
   COMMAND_ALIASES,
   isReadOnlyCommand,

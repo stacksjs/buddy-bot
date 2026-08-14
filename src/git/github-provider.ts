@@ -991,6 +991,116 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * The head commit of a pull request.
+   *
+   * Exposed as its own method rather than letting callers reach into the
+   * provider, because the review state marker keys on this SHA and a wrong
+   * one silently re-reviews or silently skips.
+   *
+   * @param prNumber - Pull request to read
+   * @returns The head SHA, or an empty string when it cannot be read
+   */
+  async getPullRequestHeadSha(prNumber: number): Promise<string> {
+    try {
+      const response = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
+      return response?.head?.sha ?? ''
+    }
+    catch (error) {
+      this.logger.debug(`Could not read head SHA for PR #${prNumber}: ${formatError(error)}`)
+      return ''
+    }
+  }
+
+  /**
+   * Whether a user may push to this repository.
+   *
+   * Public repositories accept comments from anyone, so this is what separates
+   * a maintainer's command from a stranger's.
+   *
+   * @param username - Login to check
+   * @returns `true` for write, maintain or admin access
+   */
+  async hasWriteAccess(username: string): Promise<boolean> {
+    try {
+      const response = await this.apiRequest(
+        `GET /repos/${this.owner}/${this.repo}/collaborators/${encodeURIComponent(username)}/permission`,
+      )
+
+      return ['write', 'maintain', 'admin'].includes(response?.permission)
+    }
+    catch (error) {
+      // A 404 here means "not a collaborator", which is a definitive no.
+      if (error instanceof GitHubApiError && error.isNotFound)
+        return false
+
+      // Anything else is unknown, and unknown must not grant access.
+      this.logger.warn(`⚠️ Could not resolve permissions for @${username}: ${formatError(error)}`)
+      return false
+    }
+  }
+
+  /**
+   * React to a comment, acknowledging that a command was seen.
+   *
+   * Failures are swallowed: an acknowledgement that did not appear is a worse
+   * outcome than a command that did not run, but only slightly, and it must
+   * never be the reason the command itself fails.
+   *
+   * @param commentId - Comment to react to
+   * @param reaction - Reaction content
+   */
+  async reactToComment(commentId: number, reaction: 'eyes' | '+1' | '-1' | 'rocket' | 'confused'): Promise<void> {
+    try {
+      await this.apiRequest(
+        `POST /repos/${this.owner}/${this.repo}/issues/comments/${commentId}/reactions`,
+        { content: reaction },
+      )
+    }
+    catch (error) {
+      this.logger.debug(`Could not react to comment ${commentId}: ${formatError(error)}`)
+    }
+  }
+
+  /**
+   * Fetch the logs of a failed workflow run.
+   *
+   * Returns the raw log archive as text. The classifier works on log text, so
+   * no per-job parsing is needed here — the whole run's output is what a
+   * failure diagnosis wants anyway.
+   *
+   * @param runId - Workflow run to read
+   * @returns Log text, or `null` when the logs are unavailable
+   */
+  async getWorkflowRunLogs(runId: number): Promise<string | null> {
+    try {
+      const response = await fetchWithTimeout(
+        `${this.apiUrl}/repos/${this.owner}/${this.repo}/actions/runs/${runId}/logs`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.token}`,
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'buddy-bot',
+          },
+        },
+      )
+
+      if (!response.ok) {
+        this.logger.debug(`Could not fetch logs for run ${runId}: ${response.status}`)
+        return null
+      }
+
+      // The endpoint returns a zip; the readable text inside is enough for
+      // classification, so it is extracted loosely rather than unzipped.
+      const buffer = Buffer.from(await response.arrayBuffer())
+      return buffer.toString('utf-8').replace(/[^\t\n\r\x20-\x7E]+/g, ' ')
+    }
+    catch (error) {
+      this.logger.debug(`Could not fetch logs for run ${runId}: ${formatError(error)}`)
+      return null
+    }
+  }
+
+  /**
    * Create or update a check run on a commit.
    *
    * Reported as a check run rather than a comment so branch protection can

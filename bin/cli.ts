@@ -1184,6 +1184,239 @@ function checkRebaseCheckbox(body: string): boolean {
 }
 
 cli
+  .command('fix-ci', 'Diagnose a failing workflow run and repair it when the fix is clear')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--run-id <id>', 'Workflow run to diagnose')
+  .option('--pr <number>', 'Pull request to comment on')
+  .option('--dry-run', 'Report the diagnosis without acting')
+  .example('buddy-bot fix-ci --run-id 12345')
+  .action(async (options: CLIOptions & { runId?: string, pr?: string, dryRun?: boolean }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
+      if (!config.repository || !token) {
+        logger.error('❌ Repository configuration and GITHUB_TOKEN are required')
+        process.exit(1)
+      }
+
+      const { GitHubProvider } = await import('../src/git/github-provider')
+      const provider = new GitHubProvider(
+        token,
+        config.repository.owner,
+        config.repository.name,
+        !!process.env.BUDDY_BOT_TOKEN,
+        process.env.BUDDY_BOT_TOKEN,
+      )
+
+      const runId = options.runId ? Number.parseInt(options.runId, 10) : undefined
+      const log = runId ? await provider.getWorkflowRunLogs(runId) : null
+
+      if (!log) {
+        logger.warn('⚠️ Could not read the run logs; nothing to diagnose')
+        return
+      }
+
+      const { attemptFix } = await import('../src/ci')
+      const { createAiClient } = await import('../src/ai')
+
+      const outcome = await attemptFix({
+        log,
+        workspace: process.cwd(),
+        baseBranch: config.repository.baseBranch ?? 'main',
+        ai: createAiClient(config, logger),
+        logger,
+        regenerateLockfile: async () => {
+          const { regenerateLockFile, detectRequiredPackageManagers } = await import('../src/utils/lock-file')
+
+          // Detection keys off the manifests a lockfile is derived from, so a
+          // repository with several ecosystems regenerates each of them.
+          const managers = detectRequiredPackageManagers(['package.json', 'composer.json'])
+          let regenerated = false
+
+          for (const manager of managers) {
+            const result = await regenerateLockFile(manager, process.cwd())
+            if (result.success)
+              regenerated = true
+            else
+              logger.warn(`⚠️ ${result.message}`)
+          }
+
+          return regenerated
+        },
+      })
+
+      logger.info(`\n${outcome.report}\n`)
+
+      const prNumber = options.pr ? Number.parseInt(options.pr, 10) : undefined
+      if (prNumber && !options.dryRun)
+        await provider.createComment(prNumber, outcome.report)
+
+      logger.success(`✅ ${outcome.action}${outcome.fixed ? ' (fixed)' : ''}`)
+    }
+    catch (error) {
+      logger.error('fix-ci failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('handle-comment', 'Handle an @buddy-bot command from a GitHub event payload')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--payload <path>', 'Path to the event payload (default: GITHUB_EVENT_PATH)')
+  .option('--dry-run', 'Report what would run without acting')
+  .example('buddy-bot handle-comment')
+  .action(async (options: CLIOptions & { payload?: string, dryRun?: boolean }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const payloadPath = options.payload || process.env.GITHUB_EVENT_PATH
+      if (!payloadPath) {
+        logger.error('❌ No event payload. Pass --payload or run inside GitHub Actions.')
+        process.exit(1)
+      }
+
+      const event = await Bun.file(payloadPath).json()
+      const comment = event.comment
+      const target = event.issue ?? event.pull_request
+
+      if (!comment?.body || !target?.number) {
+        logger.info('ℹ️ Event carries no comment; nothing to do')
+        return
+      }
+
+      const { mentionsBot, parseCommand } = await import('../src/commands')
+      if (!mentionsBot(comment.body)) {
+        logger.info('ℹ️ Comment does not mention buddy-bot; nothing to do')
+        return
+      }
+
+      const command = parseCommand(comment.body)
+      if (!command) {
+        // The workflow guard is deliberately looser than the parser, so a
+        // mention inside a code fence lands here and stops.
+        logger.info('ℹ️ Mention is not a command (quoted or inside code); nothing to do')
+        return
+      }
+
+      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
+      if (!config.repository || !token) {
+        logger.error('❌ Repository configuration and GITHUB_TOKEN are required')
+        process.exit(1)
+      }
+
+      const { GitHubProvider } = await import('../src/git/github-provider')
+      const provider = new GitHubProvider(
+        token,
+        config.repository.owner,
+        config.repository.name,
+        !!process.env.BUDDY_BOT_TOKEN,
+        process.env.BUDDY_BOT_TOKEN,
+      )
+
+      const login = comment.user?.login ?? ''
+      const isBot = comment.user?.type === 'Bot' || login.endsWith('[bot]')
+
+      const actor = {
+        login,
+        isBot,
+        // Resolved rather than assumed: public repositories accept comments
+        // from anyone, and this is what separates a maintainer from a stranger.
+        canWrite: isBot ? false : await provider.hasWriteAccess(login),
+      }
+
+      const isPullRequest = Boolean(event.pull_request ?? event.issue?.pull_request)
+
+      logger.info(`🤖 Handling \`${command.name}\` from @${login} on #${target.number}`)
+
+      if (options.dryRun) {
+        logger.info(`🔍 [DRY RUN] Would run ${command.name} (canWrite: ${actor.canWrite})`)
+        return
+      }
+
+      await provider.reactToComment(comment.id, 'eyes')
+
+      const { createHandlers, dispatchCommand } = await import('../src/commands')
+      const { runReviewForPR } = await import('../src/review/run')
+
+      const outcome = await dispatchCommand(
+        {
+          command,
+          actor,
+          number: target.number,
+          isPullRequest,
+          commentId: comment.id,
+          logger,
+        },
+        createHandlers({
+          config,
+          provider,
+          review: async (prNumber, reviewOptions) =>
+            await runReviewForPR({ config, provider, prNumber, logger, ...reviewOptions }),
+          rebase: async (prNumber) => {
+            const { spawn } = await import('node:child_process')
+            await new Promise<void>((resolve, reject) => {
+              const child = spawn('bunx', ['buddy-bot', 'rebase', String(prNumber)], { stdio: 'inherit' })
+              child.on('close', code => (code === 0 ? resolve() : reject(new Error(`rebase exited ${code}`))))
+            })
+            return 'Rebased.'
+          },
+          merge: async () => await new Buddy(config).mergeEligiblePullRequests(false),
+          remember: async (text, context) => {
+            const { addLearning, createLearning, loadLearnings, serializeLearnings, DEFAULT_LEARNINGS_FILE }
+              = await import('../src/ai')
+
+            const baseBranch = config.repository?.baseBranch ?? 'main'
+            const existing = await loadLearnings(
+              (path, ref) => provider.getFileContent(path, ref),
+              baseBranch,
+              DEFAULT_LEARNINGS_FILE,
+              logger,
+            )
+
+            const learning = createLearning(text, {
+              source: context.isPullRequest ? { pr: context.number } : { issue: context.number },
+            })
+
+            // Committed on a branch and opened as a PR rather than pushed to
+            // the base: a learning changes how future reviews behave, so it
+            // gets the same review a code change would.
+            const branch = `buddy-bot/learning-${learning.id}`
+            await provider.commitChanges(
+              branch,
+              `chore(buddy): record a learning`,
+              [{ path: DEFAULT_LEARNINGS_FILE, content: serializeLearnings(addLearning(existing, learning)), type: 'update' }],
+              baseBranch,
+            )
+            await provider.createPullRequest({
+              title: 'chore(buddy): record a learning',
+              body: `Recorded from #${context.number}:\n\n> ${text}`,
+              head: branch,
+              base: baseBranch,
+              draft: false,
+            })
+
+            return `Noted. I opened a pull request adding it to \`${DEFAULT_LEARNINGS_FILE}\` so it gets reviewed like any other change.`
+          },
+        }),
+      )
+
+      if (outcome.reply)
+        await provider.createComment(target.number, outcome.reply)
+
+      await provider.reactToComment(comment.id, outcome.handled ? 'rocket' : 'confused')
+
+      logger.success(outcome.handled ? `✅ Handled \`${command.name}\`` : `ℹ️ Did not run: ${outcome.refusal}`)
+    }
+    catch (error) {
+      logger.error('handle-comment failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
   .command('review [pr-number]', 'Review a pull request, or local changes when no PR is given')
   .option('--verbose, -v', 'Enable verbose logging')
   .option('--base <branch>', 'Base branch to diff against for a local review')
