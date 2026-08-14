@@ -130,7 +130,25 @@ export interface BuddyBotConfig {
     autoMerge?: {
       enabled: boolean
       strategy: 'merge' | 'squash' | 'rebase'
+      /**
+       * Which updates may merge without review: `patch-only`, `minor-only`,
+       * `security-only` or `all`. A PR qualifies when any listed condition
+       * accepts it.
+       *
+       * An empty or missing list means nothing auto-merges — the safe reading
+       * of a half-written config.
+       */
       conditions?: string[]
+      /**
+       * Require passing checks before merging (default: true).
+       *
+       * Only meaningful on repositories without branch protection, where
+       * buddy-bot merges directly instead of handing the PR to GitHub's own
+       * auto-merge queue.
+       */
+      requireGreenCI?: boolean
+      /** Label that suppresses auto-merge on a PR (default: `no-auto-merge`) */
+      optOutLabel?: string
     }
     /** Reviewers to assign */
     reviewers?: string[]

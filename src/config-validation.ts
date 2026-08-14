@@ -3,6 +3,7 @@ import { ConfigurationError } from './types'
 
 const UPDATE_STRATEGIES = ['major', 'minor', 'patch', 'all'] as const
 const MERGE_STRATEGIES = ['merge', 'squash', 'rebase'] as const
+const AUTO_MERGE_CONDITIONS = ['patch-only', 'minor-only', 'security-only', 'all'] as const
 const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
 const PROVIDERS = ['github'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
@@ -270,6 +271,28 @@ function validatePullRequest(issues: ConfigIssue[], config: BuddyBotConfig): voi
     }
     checkEnum(issues, 'pullRequest.autoMerge.strategy', autoMerge.strategy, MERGE_STRATEGIES)
     checkStringArray(issues, 'pullRequest.autoMerge.conditions', autoMerge.conditions)
+
+    // Unknown conditions are rejected rather than ignored: silently dropping
+    // a misspelled `patch_only` would widen what merges without review.
+    if (Array.isArray(autoMerge.conditions)) {
+      for (const [index, condition] of autoMerge.conditions.entries()) {
+        checkEnum(issues, `pullRequest.autoMerge.conditions[${index}]`, condition, AUTO_MERGE_CONDITIONS)
+      }
+    }
+
+    if (autoMerge.requireGreenCI !== undefined && typeof autoMerge.requireGreenCI !== 'boolean') {
+      issues.push({
+        path: 'pullRequest.autoMerge.requireGreenCI',
+        message: `expected a boolean, got ${quote(autoMerge.requireGreenCI)}`,
+      })
+    }
+
+    if (autoMerge.optOutLabel !== undefined && typeof autoMerge.optOutLabel !== 'string') {
+      issues.push({
+        path: 'pullRequest.autoMerge.optOutLabel',
+        message: `expected a string, got ${quote(autoMerge.optOutLabel)}`,
+      })
+    }
   }
 }
 
