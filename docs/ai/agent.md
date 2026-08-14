@@ -35,7 +35,7 @@ An unknown mode name raises an error rather than falling back to a default — s
 
 Pull request bodies, issue comments, and contributor branch content are all written by third parties. The runtime never inlines them into the system prompt or the task. They arrive **only as tool output**, wrapped in an explicit marker:
 
-```
+```text
 <untrusted-content source="third-party">
 ...the third party's text...
 </untrusted-content>
@@ -49,7 +49,7 @@ The marker is escaped inside the payload, so content that contains its own `</un
 
 `run_command` starts from an **empty environment and adds an allowlist** — it does not start from the process environment and subtract:
 
-```
+```text
 PATH  HOME  LANG  LC_ALL  TZ  TMPDIR  SHELL  USER  PWD
 NODE_ENV  CI  BUN_INSTALL  XDG_CACHE_HOME
 ```
