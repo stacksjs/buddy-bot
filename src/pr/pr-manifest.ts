@@ -12,6 +12,17 @@ const MANIFEST_CLOSE = '-->'
 export const MANIFEST_SCHEMA_VERSION = 1
 
 /**
+ * Hard ceiling on the serialized manifest.
+ *
+ * The manifest is reserved out of the PR body budget before the prose is
+ * truncated, so it cannot be allowed to grow without bound — a monorepo group
+ * with hundreds of packages would otherwise push the body past GitHub's
+ * 65,536 character limit on its own. Manifests above this size shed optional
+ * fields first, then rows.
+ */
+export const MANIFEST_MAX_LENGTH = 30000
+
+/**
  * Matches a manifest block and captures its JSON payload.
  *
  * Non-greedy so a body containing several comments only yields the manifest.
@@ -48,15 +59,42 @@ export function serializeManifest(
   updates: PackageUpdate[],
   meta: { group?: string, strategy?: string, branch?: string, generatedAt?: string } = {},
 ): string {
-  const manifest: PRManifest = {
+  const base: PRManifest = {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
-    updates: updates.map(toManifestUpdate),
+    updates: [],
     ...(meta.group ? { group: meta.group } : {}),
     ...(meta.strategy ? { strategy: meta.strategy } : {}),
     ...(meta.branch ? { branch: meta.branch } : {}),
     generatedAt: meta.generatedAt ?? new Date().toISOString(),
   }
 
+  const full = updates.map(toManifestUpdate)
+  let rendered = render({ ...base, updates: full })
+  if (rendered.length <= MANIFEST_MAX_LENGTH)
+    return rendered
+
+  // First shed the fields no consumer needs to reconstruct a rebase: the
+  // semver bucket and declaration site are both derivable from the versions
+  // and the file.
+  const minimal: PRManifestUpdate[] = full.map(({ name, current, target, file }) => ({ name, current, target, file }))
+  rendered = render({ ...base, updates: minimal })
+  if (rendered.length <= MANIFEST_MAX_LENGTH)
+    return rendered
+
+  // Still too large: drop rows and say so, so consumers that need the complete
+  // set (rebase group matching) can refuse rather than act on a partial view.
+  let kept = minimal.length
+  while (kept > 0) {
+    kept = Math.floor(kept * 0.9)
+    rendered = render({ ...base, updates: minimal.slice(0, kept), truncated: true })
+    if (rendered.length <= MANIFEST_MAX_LENGTH)
+      return rendered
+  }
+
+  return render({ ...base, updates: [], truncated: true })
+}
+
+function render(manifest: PRManifest): string {
   // Compact JSON: the manifest competes with release notes for the 65,536
   // character body budget, and nothing reads it by eye.
   return `\n\n${MANIFEST_OPEN} v${MANIFEST_SCHEMA_VERSION}\n${JSON.stringify(manifest)}\n${MANIFEST_CLOSE}`

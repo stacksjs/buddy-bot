@@ -4,6 +4,7 @@ import {
   hasManifest,
   manifestFiles,
   manifestUpdates,
+  MANIFEST_MAX_LENGTH,
   MANIFEST_SCHEMA_VERSION,
   parseManifest,
   serializeManifest,
@@ -190,6 +191,40 @@ describe('pr-manifest', () => {
       // release notes.
       expect(serialized.length / updates.length).toBeLessThan(200)
       expect(parseManifest(serialized)?.updates).toHaveLength(50)
+    })
+
+    it('edge case - sheds optional fields before exceeding the size ceiling', () => {
+      // Sized so the full encoding overflows the ceiling but the reduced one
+      // still fits, which is exactly the case field-shedding exists for.
+      const updates = Array.from({ length: 200 }, (_, i) => makeUpdate({
+        name: `@scope/a-fairly-long-package-name-${i}`,
+        file: `packages/workspace-number-${i}/package.json`,
+      }))
+
+      const serialized = serializeManifest(updates)
+      const manifest = parseManifest(serialized)
+
+      expect(serialized.length).toBeLessThanOrEqual(MANIFEST_MAX_LENGTH)
+      // All rows survive; only `type` and `dependencyType` are dropped.
+      expect(manifest?.updates).toHaveLength(200)
+      expect(manifest?.truncated).toBeUndefined()
+      expect(manifest?.updates[0].type).toBeUndefined()
+      expect(manifest?.updates[0].name).toBe('@scope/a-fairly-long-package-name-0')
+    })
+
+    it('edge case - truncates rows and flags it when even minimal fields overflow', () => {
+      const updates = Array.from({ length: 2000 }, (_, i) => makeUpdate({
+        name: `@scope/a-fairly-long-package-name-${i}`,
+        file: `packages/workspace-number-${i}/package.json`,
+      }))
+
+      const serialized = serializeManifest(updates)
+      const manifest = parseManifest(serialized)
+
+      expect(serialized.length).toBeLessThanOrEqual(MANIFEST_MAX_LENGTH)
+      expect(manifest?.truncated).toBe(true)
+      expect(manifest?.updates.length).toBeGreaterThan(0)
+      expect(manifest?.updates.length).toBeLessThan(2000)
     })
   })
 })

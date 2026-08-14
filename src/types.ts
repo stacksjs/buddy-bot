@@ -533,12 +533,15 @@ export interface PRManifestUpdate {
   current: string
   /** Version or range the PR moves to */
   target: string
-  /** Semver impact of the change */
-  type: 'major' | 'minor' | 'patch'
+  /** Semver impact of the change. Omitted from size-reduced manifests. */
+  type?: 'major' | 'minor' | 'patch'
   /** Manifest file the change applies to */
   file: string
-  /** Where in the manifest the dependency is declared */
-  dependencyType: string
+  /**
+   * Where in the manifest the dependency is declared. Omitted from
+   * size-reduced manifests.
+   */
+  dependencyType?: string
 }
 
 /**
@@ -562,6 +565,13 @@ export interface PRManifest {
   branch?: string
   /** ISO timestamp of generation */
   generatedAt?: string
+  /**
+   * Set when the update list was shortened to keep the manifest within its
+   * size ceiling. Consumers that need the complete set — rebase group
+   * matching, for one — must treat a truncated manifest as unusable rather
+   * than acting on a partial view.
+   */
+  truncated?: boolean
 }
 
 export interface DashboardData {
