@@ -1034,7 +1034,23 @@ cli
         logger.error('⚠️ Could not check for obsolete PRs:', error)
       }
 
-      // Step 4: Run branch cleanup (uses local git commands, no API calls)
+      // Step 4: Merge PRs that qualify for auto-merge and have green checks.
+      // Repositories without required checks can't use GitHub's own queue, so
+      // the decision is re-made here now that check results exist.
+      let mergedCount = 0
+      try {
+        const buddy = new Buddy(config)
+        const merged = await buddy.mergeEligiblePullRequests(!!options.dryRun)
+        mergedCount = merged.length
+
+        if (mergedCount > 0)
+          logger.success(`🔀 ${options.dryRun ? 'Would merge' : 'Merged'} ${mergedCount} PR(s)`)
+      }
+      catch (error) {
+        logger.warn('⚠️ Could not process auto-merge:', error)
+      }
+
+      // Step 5: Run branch cleanup (uses local git commands, no API calls)
       logger.info('\n🧹 Running branch cleanup...')
       const result = await gitProvider.cleanupStaleBranches(2, !!options.dryRun)
 
@@ -1046,8 +1062,8 @@ cli
       }
 
       // Summary
-      if (rebasedCount > 0 || result.deleted.length > 0) {
-        logger.success(`\n🎉 Update-check complete: ${rebasedCount} PR(s) rebased, ${result.deleted.length} branches cleaned`)
+      if (rebasedCount > 0 || mergedCount > 0 || result.deleted.length > 0) {
+        logger.success(`\n🎉 Update-check complete: ${rebasedCount} PR(s) rebased, ${mergedCount} merged, ${result.deleted.length} branches cleaned`)
       }
     }
     catch (error) {

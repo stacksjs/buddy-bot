@@ -991,6 +991,121 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * Ask GitHub to merge a pull request itself once its required checks pass.
+   *
+   * This is the preferred auto-merge path: GitHub owns the waiting, so a
+   * workflow run doesn't have to poll. It only works on repositories that
+   * have auto-merge enabled and at least one required check — without those,
+   * the mutation fails and the caller should fall back to merging directly
+   * once checks are observed green.
+   *
+   * @param prNumber - Pull request to queue
+   * @param strategy - Merge method to use
+   * @returns `true` when GitHub accepted the request, `false` when the
+   * repository cannot queue it (branch protection or auto-merge not set up)
+   * @throws {GitHubApiError} When the API call itself fails
+   */
+  async enableAutoMerge(prNumber: number, strategy: 'merge' | 'squash' | 'rebase' = 'squash'): Promise<boolean> {
+    const pr = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
+    const mutation = `mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {
+      enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId, mergeMethod: $mergeMethod }) {
+        pullRequest { number }
+      }
+    }`
+
+    const response = await this.graphqlRequest(mutation, {
+      pullRequestId: pr.node_id,
+      mergeMethod: strategy.toUpperCase(),
+    })
+
+    if (response.errors?.length) {
+      // "Pull request is in clean status" means there is nothing to wait for,
+      // so GitHub refuses to queue it. That is a fallback signal, not a bug.
+      const message = response.errors.map((error: { message: string }) => error.message).join('; ')
+      this.logger.info(`ℹ️ GitHub could not queue auto-merge for PR #${prNumber}: ${message}`)
+      return false
+    }
+
+    this.logger.success(`✅ Auto-merge queued for PR #${prNumber} (${strategy})`)
+    return true
+  }
+
+  /**
+   * Aggregate state of the checks and commit statuses on a PR's head commit.
+   *
+   * @param prNumber - Pull request to inspect
+   * @returns `'success'` when everything passed, `'failure'` when anything
+   * failed, `'pending'` while work is outstanding, and `'none'` when the
+   * repository reports no checks at all
+   */
+  async getPullRequestChecksState(prNumber: number): Promise<'success' | 'failure' | 'pending' | 'none'> {
+    try {
+      const pr = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/pulls/${prNumber}`)
+      const ref = pr.head.sha
+
+      const [status, checks] = await Promise.all([
+        this.apiRequest(`GET /repos/${this.owner}/${this.repo}/commits/${ref}/status`),
+        this.apiRequest(`GET /repos/${this.owner}/${this.repo}/commits/${ref}/check-runs?per_page=100`),
+      ])
+
+      const runs: Array<{ status: string, conclusion: string | null }> = checks?.check_runs ?? []
+      const hasLegacyStatuses = (status?.statuses?.length ?? 0) > 0
+
+      if (runs.length === 0 && !hasLegacyStatuses)
+        return 'none'
+
+      const failed = runs.some(run =>
+        run.conclusion !== null
+        && ['failure', 'cancelled', 'timed_out', 'action_required'].includes(run.conclusion),
+      )
+      if (failed || status?.state === 'failure' || status?.state === 'error')
+        return 'failure'
+
+      const running = runs.some(run => run.status !== 'completed')
+      if (running || status?.state === 'pending')
+        return 'pending'
+
+      return 'success'
+    }
+    catch (error) {
+      // An unreadable check state must not be mistaken for a green one.
+      this.logger.warn(`⚠️ Could not read check state for PR #${prNumber}: ${formatError(error)}`)
+      return 'pending'
+    }
+  }
+
+  /**
+   * Issue a GraphQL request against the configured GitHub API.
+   *
+   * Errors are returned in the payload rather than thrown, because GraphQL
+   * reports business-level refusals (such as a PR not being auto-mergeable)
+   * with HTTP 200 and an `errors` array.
+   */
+  private async graphqlRequest(query: string, variables: Record<string, unknown>): Promise<any> {
+    const response = await fetchWithTimeout(`${this.apiUrl}/graphql`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'buddy-bot',
+      },
+      body: JSON.stringify({ query, variables }),
+    })
+
+    if (!response.ok) {
+      throw new GitHubApiError(
+        `GraphQL request failed: ${response.status} ${response.statusText}`,
+        response.status,
+        'POST',
+        `${this.apiUrl}/graphql`,
+        `${this.owner}/${this.repo}`,
+      )
+    }
+
+    return await response.json()
+  }
+
+  /**
    * Delete a branch using pure git commands (no API calls)
    */
   async deleteBranch(branchName: string): Promise<void> {

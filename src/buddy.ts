@@ -16,6 +16,7 @@ import fs from 'node:fs'
 import process from 'node:process'
 import { DashboardGenerator } from './dashboard/dashboard-generator'
 import { GitHubProvider } from './git/github-provider'
+import { evaluateAutoMerge, evaluateAutoMergeForUpdates, resolveAutoMergeConfig } from './pr/auto-merge'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
 import { RegistryClient } from './registry/registry-client'
@@ -714,6 +715,8 @@ export class Buddy {
           prsCreatedThisRun++
           this.logger.success(`✅ Created PR #${pr.number}: ${pr.title} (${prsCreatedThisRun}/${maxPRsPerRun} this run)`)
           this.logger.info(`🔗 ${pr.url}`)
+
+          await this.queueAutoMerge(gitProvider, pr, group.updates, dynamicLabels)
 
           const groupDuration = Date.now() - groupStartTime
           this.logger.info(`⏱️  Total group processing took ${groupDuration}ms`)
@@ -1827,6 +1830,130 @@ export class Buddy {
       this.logger.debug(`Failed to check for removed files in PR #${existingPR.number}: ${error}`)
       return false
     }
+  }
+
+  /**
+   * Build a GitHub provider from the configured repository and environment
+   * tokens, or `null` when either is missing.
+   *
+   * `GITHUB_TOKEN` is preferred so commits are attributed to
+   * `github-actions[bot]` rather than a maintainer's contribution graph;
+   * `BUDDY_BOT_TOKEN` is the fallback and the source of workflow-file
+   * permissions.
+   */
+  private createGitProvider(): GitHubProvider | null {
+    const repository = this.config.repository
+    if (!repository?.owner || !repository.name) {
+      this.logger.warn('⚠️ Repository owner and name are required for pull request operations')
+      return null
+    }
+
+    const token = process.env.GITHUB_TOKEN
+    const workflowToken = process.env.BUDDY_BOT_TOKEN
+    if (!token && !workflowToken) {
+      this.logger.warn('⚠️ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for pull request operations')
+      return null
+    }
+
+    return new GitHubProvider(
+      token || workflowToken!,
+      repository.owner,
+      repository.name,
+      !!workflowToken,
+      workflowToken,
+    )
+  }
+
+  /**
+   * Hand a freshly created PR to GitHub's auto-merge queue when it qualifies.
+   *
+   * Failures here are logged and swallowed: a PR that could not be queued is
+   * still a perfectly good PR, and `update-check` will reconsider it on the
+   * next run once its checks have reported.
+   */
+  private async queueAutoMerge(
+    gitProvider: GitHubProvider,
+    pr: PullRequest,
+    updates: PackageUpdate[],
+    labels: string[],
+  ): Promise<void> {
+    const decision = evaluateAutoMergeForUpdates(updates, labels, this.config)
+    if (!decision.eligible) {
+      this.logger.debug(`🔀 PR #${pr.number} not auto-merged: ${decision.reason}`)
+      return
+    }
+
+    const { strategy } = resolveAutoMergeConfig(this.config)
+    try {
+      const queued = await gitProvider.enableAutoMerge(pr.number, strategy)
+      if (queued)
+        this.logger.success(`🔀 PR #${pr.number} queued for auto-merge (${decision.reason})`)
+      else
+        this.logger.info(`🔀 PR #${pr.number} qualifies for auto-merge but the repository cannot queue it; update-check will merge it once checks pass`)
+    }
+    catch (error) {
+      this.logger.warn(`⚠️ Failed to queue auto-merge for PR #${pr.number}: ${error}`)
+    }
+  }
+
+  /**
+   * Merge open buddy-bot PRs that qualify for auto-merge and have green checks.
+   *
+   * This is the fallback for repositories where GitHub cannot queue a merge
+   * itself — without required checks configured, `enableAutoMerge` is refused,
+   * so the decision has to be re-made here once check results exist.
+   *
+   * @param dryRun - Report what would merge without merging
+   * @returns The PR numbers that were merged
+   */
+  async mergeEligiblePullRequests(dryRun = false): Promise<number[]> {
+    const settings = resolveAutoMergeConfig(this.config)
+    if (!settings.enabled)
+      return []
+
+    const gitProvider = this.createGitProvider()
+    if (!gitProvider)
+      return []
+
+    const merged: number[] = []
+    const prs = await gitProvider.getPullRequests('open')
+
+    for (const pr of prs.filter(candidate => candidate.head.startsWith('buddy-bot/'))) {
+      const checks = settings.requireGreenCI
+        ? await gitProvider.getPullRequestChecksState(pr.number)
+        : 'none'
+
+      // A repository with no checks at all has nothing to wait for; only an
+      // explicit failure or an unfinished run blocks the merge.
+      const ciGreen = checks === 'success' || checks === 'none'
+      const decision = evaluateAutoMerge(
+        { number: pr.number, title: pr.title, body: pr.body, head: pr.head, labels: pr.labels, draft: pr.draft },
+        this.config,
+        ciGreen,
+      )
+
+      if (!decision.eligible) {
+        this.logger.debug(`🔀 PR #${pr.number} not merged: ${decision.reason}`)
+        continue
+      }
+
+      if (dryRun) {
+        this.logger.info(`🔀 [DRY RUN] Would merge PR #${pr.number} (${decision.reason})`)
+        merged.push(pr.number)
+        continue
+      }
+
+      try {
+        await gitProvider.mergePullRequest(pr.number, settings.strategy)
+        this.logger.success(`🔀 Merged PR #${pr.number}: ${decision.reason}`)
+        merged.push(pr.number)
+      }
+      catch (error) {
+        this.logger.warn(`⚠️ Failed to merge PR #${pr.number}: ${error}`)
+      }
+    }
+
+    return merged
   }
 
   /**

@@ -134,27 +134,11 @@ jobs:
             ./buddy update --strategy "\$STRATEGY" --verbose
           fi
 
-      - name: Auto-merge updates
+      - name: Auto-merge eligible PRs
         if: \${{ ${config.autoMerge ? 'true' : 'false'} }}
-        run: |
-          echo "Auto-merge is enabled for this workflow"
-
-          # Check if conditions are met for auto-merge
-          STRATEGY="\${{ github.event.inputs.strategy || '${config.strategy || 'all'}' }}"
-          AUTO_MERGE_STRATEGY="${typeof config.autoMerge === 'object' ? config.autoMerge.strategy || 'squash' : 'squash'}"
-
-          echo "Update strategy: \$STRATEGY"
-          echo "Auto-merge strategy: \$AUTO_MERGE_STRATEGY"
-
-          # Enable auto-merge for created PRs
-          # This will be implemented when the PR creation logic is fully integrated
-          # For now, this step serves as a placeholder and configuration validation
-
-          if [ "\$STRATEGY" = "patch" ]; then
-            echo "✅ Patch updates are eligible for auto-merge"
-          else
-            echo "ℹ️ Only patch updates are auto-merged by default"
-          fi
+        run: ./buddy update-check --verbose
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
 `
 
     return workflow

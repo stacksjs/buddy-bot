@@ -387,6 +387,16 @@ export interface GitProvider {
   /** Merge pull request */
   mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
 
+  /**
+   * Hand a pull request to the provider's own auto-merge queue. Resolves
+   * `false` when the repository cannot queue it, so the caller can fall back
+   * to merging directly once checks are green.
+   */
+  enableAutoMerge?: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<boolean>
+
+  /** Aggregate check/status state of a pull request's head commit */
+  getPullRequestChecksState?: (prNumber: number) => Promise<'success' | 'failure' | 'pending' | 'none'>
+
   /** Delete a branch */
   deleteBranch: (branchName: string) => Promise<void>
 
