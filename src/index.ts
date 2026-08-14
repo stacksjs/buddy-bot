@@ -92,3 +92,6 @@ export {
 
 // AI provider layer
 export * from './ai'
+
+// Agent runtime
+export * from './agent'
