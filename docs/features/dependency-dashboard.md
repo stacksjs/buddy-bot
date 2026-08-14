@@ -130,19 +130,33 @@ Check the box next to any PR to trigger a retry/rebase:
 
 This will:
 
-1. Close the existing PR
-2. Create a new branch with latest updates
-3. Open a fresh PR with current versions
+1. Recreate the PR branch from the base branch with the latest updates
+2. Refresh the PR title, body and file changes
+3. Untick the box so the request is not replayed
+
+Ticking a box edits the issue, which fires the workflow's `issues: [edited]` trigger, so the rebase starts within that run rather than waiting for the next scheduled tick. The bot's own untick is ignored by an actor guard, so this cannot loop.
+
+### Rebase All
+
+The box below the PR list applies the same rebase to every open Buddy Bot PR at once:
+
+```markdown
+
+ - [x] <!-- rebase-all-open-prs -->**Click on this checkbox to rebase all open PRs at once**
+
+```
 
 ### Manual Trigger
 
-Use the manual trigger at the bottom to force a full repository scan:
+Use the manual trigger at the bottom to force a full repository scan, which creates PRs for anything newly out of date:
 
 ```markdown
 
 - [x] <!-- manual job -->Check this box to trigger a request for Buddy Bot to run again on this repository
 
 ```
+
+All three controls are handled by `buddy-bot update-check`; run it with `--dry-run` to see what a tick would do without acting on it.
 
 ## Automation
 
@@ -288,9 +302,10 @@ dashboard: {
 
 **Solution**:
 
-- Issue pinning requires newer GitHub API features
-- Pinning is not critical and failures are gracefully handled
-- Pin manually in GitHub UI if needed
+- Set `dashboard.pin: true` in your config, or run `buddy-bot dashboard --pin`
+- GitHub allows at most **three** pinned issues per repository — unpin another issue first
+- The token needs `issues: write`
+- Pinning is cosmetic: failures are logged and never fail the run
 
 ## Examples
 
