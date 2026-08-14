@@ -520,6 +520,50 @@ export interface UpdateGroup {
   body: string
 }
 
+/**
+ * A single dependency change recorded in a pull request's metadata manifest.
+ *
+ * Field names are deliberately short: the manifest is embedded in every PR
+ * body and competes with release notes for GitHub's 65,536 character limit.
+ */
+export interface PRManifestUpdate {
+  /** Package name */
+  name: string
+  /** Version or range before the update */
+  current: string
+  /** Version or range the PR moves to */
+  target: string
+  /** Semver impact of the change */
+  type: 'major' | 'minor' | 'patch'
+  /** Manifest file the change applies to */
+  file: string
+  /** Where in the manifest the dependency is declared */
+  dependencyType: string
+}
+
+/**
+ * Machine-readable description of what a buddy-bot pull request changes,
+ * embedded in the PR body as an HTML comment.
+ *
+ * Rebasing and auto-closing read this instead of re-parsing the rendered
+ * markdown tables, so PR body formatting can change freely without breaking
+ * PR lifecycle logic.
+ */
+export interface PRManifest {
+  /** Manifest schema version, for forward compatibility */
+  schemaVersion: number
+  /** Dependency changes contained in the PR */
+  updates: PRManifestUpdate[]
+  /** Update group that produced the PR */
+  group?: string
+  /** Update strategy in effect when the PR was generated */
+  strategy?: string
+  /** Head branch the PR was opened from */
+  branch?: string
+  /** ISO timestamp of generation */
+  generatedAt?: string
+}
+
 export interface DashboardData {
   /** Open pull requests */
   openPRs: PullRequest[]
