@@ -93,16 +93,6 @@ export async function parseDockerfile(filePath: string, content: string): Promis
         }
       }
 
-      // Parse RUN instructions that install packages (common patterns)
-      // eslint-disable-next-line regexp/no-super-linear-backtracking
-      const runMatch = line.match(/^RUN\s+(.+)$/i)
-      if (runMatch) {
-        // const command = runMatch[1]
-
-        // Extract package installations from common package managers
-        const packageDeps = extractPackagesFromRunCommand()
-        dependencies.push(...packageDeps)
-      }
     }
 
     return {
@@ -166,21 +156,6 @@ function parseImageReference(imageRef: string): { name: string, version: string 
     getDefaultLogger().warn(`Failed to parse image reference ${imageRef}:`, error)
     return null
   }
-}
-
-/**
- * Extract package dependencies from RUN commands (basic implementation)
- */
-function extractPackagesFromRunCommand(): Dependency[] {
-  const dependencies: Dependency[] = []
-
-  // This is a basic implementation - could be expanded to handle more package managers
-  // For now, we'll focus on the main Docker image updates via FROM instructions
-
-  // Future enhancement: parse apt-get install, apk add, npm install, etc.
-  // But these are more complex as they often don't specify versions
-
-  return dependencies
 }
 
 /**

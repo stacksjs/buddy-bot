@@ -1,3 +1,4 @@
+import type { Drift } from '../scanner/resolution-drift'
 import type { DashboardData, DeprecatedDependency, PackageFile, PullRequest, VulnerableDependency } from '../types'
 
 /** Badge per advisory severity, matching the PR body rendering. */
@@ -53,6 +54,12 @@ export class DashboardGenerator {
       body += this.generateOpenPRsSection(data.openPRs)
     }
 
+    // Capped packages come after the open PRs: unlike everything above them,
+    // no pull request here can fix one.
+    if (data.cappedDependencies && data.cappedDependencies.length > 0) {
+      body += this.generateCappedDependenciesSection(data.cappedDependencies)
+    }
+
     if (showDetectedDependencies) {
       body += this.generateDetectedDependenciesSection(data.detectedDependencies)
     }
@@ -101,6 +108,33 @@ export class DashboardGenerator {
     catch {
       return null
     }
+  }
+
+  /**
+   * Generate the capped dependencies section.
+   *
+   * These packages are already at the newest version every declared range
+   * allows, so they are listed with the declaration responsible rather than
+   * offered as an update.
+   */
+  private generateCappedDependenciesSection(capped: Drift[]): string {
+    let section = `## Capped dependencies
+
+The following packages are held below their latest version by a range declared elsewhere in the dependency tree. Updating this repository cannot move them — the constraint has to be widened where it is declared.
+
+| Package | Installed | Reachable | Latest | Capped by |
+|---|---|---|---|---|
+`
+
+    for (const drift of capped) {
+      const cappedBy = drift.capping
+        .map(declaration => `\`${this.sanitizeReferences(declaration.by)}\` (\`${declaration.range}\`)`)
+        .join(', ')
+
+      section += `| \`${this.sanitizeReferences(drift.name)}\` | \`${drift.installed}\` | \`${drift.reachable}\` | \`${drift.latest}\` | ${cappedBy} |\n`
+    }
+
+    return `${section}\n`
   }
 
   /**

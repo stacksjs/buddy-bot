@@ -1,4 +1,5 @@
 /* eslint-disable no-cond-assign, ts/no-require-imports */
+import type { Drift } from './scanner/resolution-drift'
 import type { AdvisoryQuery } from './services/security-advisories'
 import type {
   BuddyBotConfig,
@@ -115,8 +116,13 @@ export class Buddy {
       const dockerUpdates = await this.checkDockerfilesForUpdates(packageFiles)
       this.logger.info(`⏱️  Docker image checks took ${Date.now() - dockerStartTime}ms (found ${dockerUpdates.length} updates)`)
 
+      // Get outdated Zig dependencies
+      const zigStartTime = Date.now()
+      const zigUpdates = await this.checkZigForUpdates(packageFiles)
+      this.logger.info(`⏱️  Zig dependency checks took ${Date.now() - zigStartTime}ms (found ${zigUpdates.length} updates)`)
+
       // Merge all updates
-      let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates, ...dockerUpdates]
+      let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates, ...dockerUpdates, ...zigUpdates]
 
       // Apply ignore filter to dependency file updates
       if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
@@ -922,6 +928,82 @@ export class Buddy {
   /**
    * Check GitHub Actions for updates
    */
+  /**
+   * Check `build.zig.zon` dependencies for newer upstream releases.
+   *
+   * Zig package hashes are content-addressed, so an update has to rewrite both
+   * the URL and its hash — and only `zig fetch` can compute the replacement.
+   * When the toolchain is unavailable the whole pass is skipped rather than
+   * proposing a manifest that would fail `zig build` with a hash mismatch.
+   *
+   * @param packageFiles - Scanned files, filtered to Zig manifests here
+   * @returns Updates with the resolved hash carried in metadata
+   */
+  private async checkZigForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
+    const { isZigManifest } = await import('./utils/zig-parser')
+    const { fetchLatestZigVersion, fetchZigHash, isZigAvailable, parseZigSource, zigUrlForVersion }
+      = await import('./utils/zig-registry')
+
+    const zigFiles = packageFiles.filter(file => isZigManifest(file.path))
+    if (zigFiles.length === 0)
+      return []
+
+    if (!(await isZigAvailable())) {
+      this.logger.warn(
+        '⚠️ Found Zig manifests but the zig toolchain is not available. '
+        + 'Skipping Zig updates: their content-addressed hashes cannot be recomputed without `zig fetch`.',
+      )
+      return []
+    }
+
+    const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
+    const candidates = zigFiles.flatMap(file =>
+      file.dependencies
+        .filter(dep => dep.type === 'zig-dependencies')
+        .map(dep => ({ file, dep })),
+    )
+
+    this.logger.info(`⚡ Checking ${candidates.length} Zig dependencies...`)
+
+    const results = await Promise.all(candidates.map(async ({ file, dep }): Promise<PackageUpdate | null> => {
+      const url = dep.metadata?.url
+      if (!url) {
+        this.logger.debug(`Skipping ${dep.name}: no URL recorded`)
+        return null
+      }
+
+      const source = parseZigSource(url)
+      if (!source) {
+        this.logger.debug(`Skipping ${dep.name}: only GitHub-hosted Zig dependencies can be checked`)
+        return null
+      }
+
+      const latest = await fetchLatestZigVersion(source, token)
+      if (!latest || latest === dep.currentVersion)
+        return null
+
+      const newUrl = zigUrlForVersion(url, latest)
+      const hash = await fetchZigHash(newUrl)
+      if (!hash) {
+        this.logger.warn(`⚠️ Skipping ${dep.name} ${dep.currentVersion} → ${latest}: could not compute its package hash`)
+        return null
+      }
+
+      this.logger.info(`📦 ${dep.name}: ${dep.currentVersion} → ${latest}`)
+      return {
+        name: dep.name,
+        currentVersion: dep.currentVersion,
+        newVersion: latest,
+        updateType: getUpdateType(dep.currentVersion, latest),
+        dependencyType: 'zig-dependencies' as const,
+        file: file.path,
+        resolved: { url: newUrl, hash },
+      }
+    }))
+
+    return results.filter((update): update is PackageUpdate => update !== null)
+  }
+
   private async checkGitHubActionsForUpdates(packageFiles: PackageFile[]): Promise<PackageUpdate[]> {
     const { isGitHubActionsFile } = await import('./utils/github-actions-parser')
     const { fetchLatestActionVersion } = await import('./utils/github-actions-parser')
@@ -1356,6 +1438,22 @@ export class Buddy {
       catch (error) {
         this.logger.error('Failed to generate Dockerfile updates:', error)
         // Continue with other updates even if Dockerfile updates fail
+      }
+    }
+
+    // Handle Zig manifest updates
+    const zigManifestUpdates = updates.filter(update =>
+      update.dependencyType === 'zig-dependencies',
+    )
+    if (zigManifestUpdates.length > 0) {
+      try {
+        const { generateZigManifestUpdates } = await import('./utils/zig-parser')
+        const zigUpdates = await generateZigManifestUpdates(zigManifestUpdates)
+        fileUpdates.push(...zigUpdates)
+      }
+      catch (error) {
+        this.logger.error('Failed to generate Zig manifest updates:', error)
+        // Continue with other updates even if Zig updates fail
       }
     }
 
@@ -2693,6 +2791,9 @@ export class Buddy {
     // Check for known vulnerabilities in what is currently declared
     const vulnerableDependencies = await this.findVulnerableDependencies(packageFiles)
 
+    // Report packages a dependant's range is holding back
+    const cappedDependencies = await this.findCappedDependencies(packageFiles)
+
     return {
       openPRs: dependencyPRs,
       detectedDependencies: {
@@ -2702,12 +2803,47 @@ export class Buddy {
       },
       deprecatedDependencies,
       vulnerableDependencies,
+      cappedDependencies,
       repository: {
         owner: this.config.repository!.owner,
         name: this.config.repository!.name,
         provider: this.config.repository!.provider,
       },
       lastUpdated: new Date(),
+    }
+  }
+
+  /**
+   * Find packages held below their latest version by a range declared
+   * elsewhere in the dependency tree.
+   *
+   * Only capped packages are returned. A package that is merely behind its
+   * lockfile is fixed by the ordinary update path, so reporting it here would
+   * duplicate a pull request that already exists.
+   *
+   * @param packageFiles - Parsed manifests from the scan
+   * @returns Capped packages, worst gap first, empty when disabled
+   */
+  private async findCappedDependencies(packageFiles: PackageFile[]): Promise<Drift[]> {
+    if (this.config.packages?.detectResolutionDrift === false)
+      return []
+
+    try {
+      const { collectDriftInputs } = await import('./scanner/drift-collector')
+      const { findDrift } = await import('./scanner/resolution-drift')
+
+      const inputs = await collectDriftInputs(packageFiles, this.registryClient, this.projectPath, this.logger)
+      const capped = findDrift(inputs).filter(drift => drift.kind === 'capped')
+
+      if (capped.length > 0)
+        this.logger.info(`🔗 ${capped.length} package(s) capped by a dependant's range`)
+
+      return capped
+    }
+    catch (error) {
+      // Drift analysis is advisory; never fail a dashboard run over it.
+      this.logger.warn('Resolution drift analysis failed, continuing without it:', error)
+      return []
     }
   }
 

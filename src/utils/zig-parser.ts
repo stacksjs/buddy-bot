@@ -148,8 +148,23 @@ export async function updateZigManifest(filePath: string, content: string, updat
           return hasVPrefix ? `/v${update.newVersion}` : `/${update.newVersion}`
         })
 
+        // Zig verifies the tarball against .hash, so a URL bump with a stale
+        // hash fails the build. The hash is computed during update detection
+        // (via `zig fetch`) and carried here in metadata.
+        const newHash = update.resolved?.hash
+        let newSuffix = suffix
+        if (newHash) {
+          newSuffix = suffix.replace(/(\.hash\s*=\s*")([^"]+)(")/, `$1${newHash}$3`)
+        }
+        else if (/\.hash\s*=/.test(suffix)) {
+          getDefaultLogger().warn(
+            `⚠️ No hash available for ${cleanPackageName}; leaving ${filePath} unchanged to avoid a hash mismatch`,
+          )
+          continue
+        }
+
         // Replace the entire dependency block with updated URL
-        const replacement = `${prefix}${newUrl}${suffix}`
+        const replacement = `${prefix}${newUrl}${newSuffix}`
         updatedContent = updatedContent.replace(fullMatch, replacement)
 
         getDefaultLogger().info(`✅ Updated ${cleanPackageName} from ${match[2]} to ${newUrl}`)

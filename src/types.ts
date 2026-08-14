@@ -1,3 +1,4 @@
+import type { Drift } from './scanner/resolution-drift'
 import type { LogLevel } from './utils/logger'
 
 /**
@@ -113,6 +114,15 @@ export interface BuddyBotConfig {
     minimumReleaseAge?: number
     /** Package names to exclude from minimum release age requirement */
     minimumReleaseAgeExclude?: string[]
+    /**
+     * Report packages held below their latest version by a range declared
+     * elsewhere in the dependency tree (default: true).
+     *
+     * These cannot be fixed by updating this repository — somebody has to
+     * widen a range in the dependant — so they are surfaced on the dashboard
+     * rather than turned into pull requests.
+     */
+    detectResolutionDrift?: boolean
   }
 
   /** Maximum number of PRs to create per workflow run (default: 10) */
@@ -307,6 +317,20 @@ export interface PackageUpdate {
   file: string
   /** Package metadata from registry */
   metadata?: PackageMetadata
+  /**
+   * Ecosystem-specific values resolved while detecting the update, for
+   * ecosystems whose manifests record more than a version.
+   *
+   * Zig is the current user: its manifests pin a tarball URL alongside a
+   * content-addressed hash, and both have to change together or `zig build`
+   * fails verification.
+   */
+  resolved?: {
+    /** Replacement source URL */
+    url?: string
+    /** Replacement integrity hash */
+    hash?: string
+  }
   /** Release notes URL */
   releaseNotesUrl?: string
   /** Changelog URL */
@@ -638,6 +662,12 @@ export interface DashboardData {
   deprecatedDependencies?: DeprecatedDependency[]
   /** Dependencies with known, unresolved security advisories */
   vulnerableDependencies?: VulnerableDependency[]
+  /**
+   * Packages held below their latest version by a range declared elsewhere in
+   * the dependency tree. Reported rather than turned into pull requests: the
+   * fix belongs in another repository.
+   */
+  cappedDependencies?: Drift[]
   /** Repository information */
   repository: {
     owner: string

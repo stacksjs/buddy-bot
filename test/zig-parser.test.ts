@@ -183,6 +183,7 @@ describe('Zig Parser', () => {
         updateType: 'minor' as const,
         dependencyType: 'zig-dependencies' as const,
         file: 'build.zig.zon',
+        resolved: { hash: '1220newhashnewhashnewhashnewhashnewhashnewhashnewhash111111111111' },
       }]
 
       const result = await updateZigManifest('build.zig.zon', originalContent, updates)
@@ -190,6 +191,31 @@ describe('Zig Parser', () => {
       expect(result).toContain('v0.7.0')
       expect(result).not.toContain('v0.6.0')
       expect(result).toContain('https://github.com/karlseguin/http.zig/archive/refs/tags/v0.7.0.tar.gz')
+    })
+
+    it('should refuse to update when no hash was resolved', async () => {
+      // Zig verifies the tarball against .hash, so bumping the URL while
+      // leaving a stale hash produces a manifest that fails `zig build`.
+      const originalContent = `.{
+    .name = "test",
+    .dependencies = .{
+        .httpz = .{
+            .url = "https://github.com/karlseguin/http.zig/archive/refs/tags/v0.6.0.tar.gz",
+            .hash = "1220abcd",
+        },
+    },
+}`
+
+      const result = await updateZigManifest('build.zig.zon', originalContent, [{
+        name: 'httpz',
+        currentVersion: '0.6.0',
+        newVersion: '0.7.0',
+        updateType: 'minor' as const,
+        dependencyType: 'zig-dependencies' as const,
+        file: 'build.zig.zon',
+      }])
+
+      expect(result).toBe(originalContent)
     })
 
     it('should update multiple dependencies', async () => {
@@ -217,6 +243,7 @@ describe('Zig Parser', () => {
           updateType: 'minor' as const,
           dependencyType: 'zig-dependencies' as const,
           file: 'build.zig.zon',
+          resolved: { hash: '1220newhashnewhashnewhashnewhash' },
         },
         {
           name: 'zap',
@@ -225,6 +252,7 @@ describe('Zig Parser', () => {
           updateType: 'minor' as const,
           dependencyType: 'zig-dependencies' as const,
           file: 'build.zig.zon',
+          resolved: { hash: '1220newhashnewhashnewhashnewhash' },
         },
       ]
 
@@ -254,6 +282,7 @@ describe('Zig Parser', () => {
         updateType: 'major' as const,
         dependencyType: 'zig-dependencies' as const,
         file: 'build.zig.zon',
+        resolved: { hash: '1220newhashnewhashnewhashnewhashnewhashnewhashnewhash111111111111' },
       }]
 
       const result = await updateZigManifest('build.zig.zon', originalContent, updates)
@@ -279,6 +308,7 @@ describe('Zig Parser', () => {
         updateType: 'major' as const,
         dependencyType: 'zig-dependencies' as const,
         file: 'build.zig.zon',
+        resolved: { hash: '1220newhashnewhashnewhashnewhashnewhashnewhashnewhash111111111111' },
       }]
 
       const result = await updateZigManifest('build.zig.zon', originalContent, updates)
@@ -320,6 +350,7 @@ describe('Zig Parser', () => {
         updateType: 'minor' as const,
         dependencyType: 'zig-dependencies' as const,
         file: 'build.zig.zon',
+        resolved: { hash: '1220newhashnewhashnewhashnewhashnewhashnewhashnewhash111111111111' },
       }]
 
       const result = await updateZigManifest('build.zig.zon', originalContent, updates)

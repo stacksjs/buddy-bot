@@ -20,7 +20,7 @@ import { semver } from 'bun'
  *
  * Nothing reported anything. Every declared range was satisfiable and current,
  * `bun install` succeeded, and the only symptom was a fix that appeared not to
- * work. It took reading `node_modules/*\/package.json` by hand to find the cap.
+ * work. It took reading each installed package.json by hand to find the cap.
  *
  * So: compare what is *installed* against the newest version every declared
  * range would allow, and when they differ, name the dependant responsible.
@@ -180,6 +180,7 @@ export function driftFor(input: DriftInput): Drift | null {
 export const ROOT = 'root'
 
 /** Every drifting package in a tree, worst gap first. */
+// eslint-disable-next-line pickier/no-unused-vars -- false positive: `inputs` is read by the loop below
 export function findDrift(inputs: readonly DriftInput[]): Drift[] {
   const found: Drift[] = []
 
