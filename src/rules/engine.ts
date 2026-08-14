@@ -1,5 +1,7 @@
 import type { PackageUpdate } from '../types'
 import { createPathMatcher } from '../utils/globs'
+import { satisfiesRange } from '../utils/helpers'
+import { matchesSchedule } from './schedule'
 
 /** Ecosystems a rule can match on. */
 export type RuleEcosystem = 'npm' | 'composer' | 'github-actions' | 'docker' | 'pkgx' | 'zig'
@@ -14,6 +16,13 @@ export interface PackageRule {
   matchUpdateTypes?: Array<'major' | 'minor' | 'patch'>
   /** Globs on the manifest path, for monorepo directories */
   matchFiles?: string[]
+  /**
+   * Semver range the *currently installed* version must satisfy.
+   *
+   * Lets a rule target a version series rather than a package — holding back
+   * everything still on `<2.0.0` while letting the rest through.
+   */
+  matchCurrentVersion?: string
 
   // Effects
   /** `false` drops matching updates entirely */
@@ -28,6 +37,17 @@ export interface PackageRule {
   minimumReleaseAge?: number
   /** Ordering within the per-run PR cap; higher goes first */
   prPriority?: number
+  /** Attempt the migration for matching majors, overriding the global */
+  autoMigrate?: boolean
+  /**
+   * Cron expression describing when these updates may be proposed.
+   *
+   * The window, not the firing minute: `0 0 * * 6,0` holds updates back on a
+   * weekday run and releases them on a weekend one.
+   */
+  schedule?: string
+  /** IANA time zone `schedule` is written in (default: the runner's) */
+  scheduleTimezone?: string
 }
 
 /** The effects that survived rule evaluation for one update. */
@@ -41,6 +61,7 @@ export interface ResolvedEffects {
   autoMerge?: boolean
   minimumReleaseAge?: number
   prPriority: number
+  autoMigrate?: boolean
 }
 
 /** Which ecosystem an update belongs to, inferred from its file and type. */
@@ -69,8 +90,9 @@ export function ecosystemOf(update: PackageUpdate): RuleEcosystem {
  *
  * @param rule - Rule to test
  * @param update - Update to test against
+ * @param now - Instant to evaluate `schedule` against (default: now)
  */
-export function ruleMatches(rule: PackageRule, update: PackageUpdate): boolean {
+export function ruleMatches(rule: PackageRule, update: PackageUpdate, now: Date = new Date()): boolean {
   if (rule.matchPackages?.length) {
     const matcher = createPathMatcher(rule.matchPackages)
     if (!matcher.matches(update.name))
@@ -92,7 +114,27 @@ export function ruleMatches(rule: PackageRule, update: PackageUpdate): boolean {
       return false
   }
 
+  if (rule.matchCurrentVersion && !currentVersionMatches(update.currentVersion, rule.matchCurrentVersion))
+    return false
+
+  // Evaluated last: it is the only matcher that depends on when the run
+  // happened rather than on what is being updated.
+  if (rule.schedule && !matchesSchedule(rule.schedule, now, rule.scheduleTimezone))
+    return false
+
   return true
+}
+
+/**
+ * Whether an installed version satisfies a rule's range.
+ *
+ * Declared versions carry range operators (`^1.2.3`, `~2.0`), which are not
+ * versions and cannot be tested against a range. Stripping to the concrete
+ * floor is what the user means by "packages still on 1.x".
+ */
+function currentVersionMatches(currentVersion: string, range: string): boolean {
+  const concrete = currentVersion.replace(/^[\^~>=<\s]+/, '').trim()
+  return concrete ? satisfiesRange(concrete, range) : false
 }
 
 /**
@@ -114,7 +156,11 @@ export function ruleMatches(rule: PackageRule, update: PackageUpdate): boolean {
  *   return // rule disabled this update
  * ```
  */
-export function resolveRuleEffects(update: PackageUpdate, rules: PackageRule[] = []): ResolvedEffects {
+export function resolveRuleEffects(
+  update: PackageUpdate,
+  rules: PackageRule[] = [],
+  now: Date = new Date(),
+): ResolvedEffects {
   const effects: ResolvedEffects = {
     enabled: true,
     labels: [],
@@ -124,7 +170,7 @@ export function resolveRuleEffects(update: PackageUpdate, rules: PackageRule[] =
   }
 
   for (const rule of rules) {
-    if (!ruleMatches(rule, update))
+    if (!ruleMatches(rule, update, now))
       continue
 
     if (rule.enabled !== undefined)
@@ -139,6 +185,8 @@ export function resolveRuleEffects(update: PackageUpdate, rules: PackageRule[] =
       effects.minimumReleaseAge = rule.minimumReleaseAge
     if (rule.prPriority !== undefined)
       effects.prPriority = rule.prPriority
+    if (rule.autoMigrate !== undefined)
+      effects.autoMigrate = rule.autoMigrate
 
     // Accumulated, not replaced: matching two rules should mean both sets of
     // labels and reviewers, not the later one silently winning.
@@ -169,11 +217,12 @@ export function resolveRuleEffects(update: PackageUpdate, rules: PackageRule[] =
 export function applyRules(
   updates: PackageUpdate[],
   rules: PackageRule[] = [],
+  now: Date = new Date(),
 ): Array<{ update: PackageUpdate, effects: ResolvedEffects }> {
   const result: Array<{ update: PackageUpdate, effects: ResolvedEffects }> = []
 
   for (const update of updates) {
-    const effects = resolveRuleEffects(update, rules)
+    const effects = resolveRuleEffects(update, rules, now)
     if (!effects.enabled)
       continue
 
@@ -204,6 +253,7 @@ export function mergeGroupEffects(effects: ResolvedEffects[]): {
   assignees: string[]
   autoMerge: boolean
   prPriority: number
+  autoMigrate: boolean
 } {
   const labels = new Set<string>()
   const reviewers = new Set<string>()
@@ -223,6 +273,9 @@ export function mergeGroupEffects(effects: ResolvedEffects[]): {
     assignees: [...assignees],
     autoMerge: effects.length > 0 && effects.every(entry => entry.autoMerge === true),
     prPriority,
+    // Unlike auto-merge, one package opting in is enough: migrating what can
+    // be migrated leaves the rest exactly as it would have been.
+    autoMigrate: effects.some(entry => entry.autoMigrate === true),
   }
 }
 

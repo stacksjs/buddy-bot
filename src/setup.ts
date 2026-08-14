@@ -1,3 +1,4 @@
+import type { PackageRule } from './rules/engine'
 import type { Logger } from './utils/logger'
 import { exec } from 'node:child_process'
 import fs from 'node:fs'
@@ -5,6 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
 import prompts from 'prompts'
+import { convertRenovateRules } from './rules/renovate'
 import { GitHubActionsTemplate } from './templates/github-actions'
 import { getGitHubApiUrl } from './utils/endpoints'
 import { fetchWithTimeout } from './utils/http'
@@ -221,6 +223,8 @@ export class ConfigurationMigrator {
       // Migrate package rules
       if (renovateConfig.packageRules) {
         result.migratedSettings.packages = this.convertRenovatePackageRules(renovateConfig.packageRules)
+        result.incompatibleFeatures.push(...this.lastRuleConversion.incompatible)
+        result.warnings.push(...this.lastRuleConversion.warnings)
       }
 
       // Migrate ignore patterns
@@ -327,24 +331,43 @@ export class ConfigurationMigrator {
     return { preset: 'standard' }
   }
 
-  private convertRenovatePackageRules(packageRules: any[]): any {
-    const groups: any[] = []
-    const ignore: string[] = []
+  /** What the last `packageRules` conversion could not carry over. */
+  private lastRuleConversion: { incompatible: string[], warnings: string[] } = { incompatible: [], warnings: [] }
 
-    for (const rule of packageRules) {
-      if (rule.enabled === false && rule.matchPackageNames) {
-        ignore.push(...rule.matchPackageNames)
-      }
-      if (rule.groupName && rule.matchPackagePatterns) {
-        groups.push({
-          name: rule.groupName,
-          patterns: rule.matchPackagePatterns,
-          strategy: rule.updateTypes?.includes('major') ? 'all' : 'minor',
-        })
-      }
+  /**
+   * Convert Renovate `packageRules` into buddy-bot's equivalent.
+   *
+   * `packages.rules` is now a full target shape, so rules map across as rules
+   * rather than being flattened into groups and ignores — which previously
+   * dropped labels, reviewers, auto-merge, priorities and every matcher except
+   * two. What still cannot be carried over is reported on the migration result
+   * instead of vanishing.
+   */
+  private convertRenovatePackageRules(packageRules: any[]): any {
+    const { rules, incompatible, warnings } = convertRenovateRules(packageRules)
+    this.lastRuleConversion = { incompatible, warnings }
+
+    // `enabled: false` on a name-only rule is how Renovate spells "ignore",
+    // and buddy-bot's `packages.ignore` is the more legible home for it.
+    const ignore: string[] = []
+    const remaining: PackageRule[] = []
+
+    for (const rule of rules) {
+      const isPlainIgnore = rule.enabled === false
+        && rule.matchPackages?.length
+        && Object.keys(rule).every(key => key === 'enabled' || key === 'matchPackages')
+
+      if (isPlainIgnore)
+        ignore.push(...rule.matchPackages!)
+      else
+        remaining.push(rule)
     }
 
-    return { groups, ignore }
+    // Only `rules` and `ignore` are emitted. Writing the same rule out as a
+    // legacy `groups` entry as well would express it twice in two mechanisms,
+    // and the group form cannot carry the matchers a rule has — the update
+    // types, files and version ranges would be silently dropped on the way.
+    return { rules: remaining, ignore }
   }
 
   private convertDependabotSchedule(interval: string): any {

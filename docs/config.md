@@ -109,6 +109,148 @@ const config: BuddyBotConfig = {
 }
 ```
 
+### Package Rules
+
+Groups handle "these packages travel together". Rules handle everything else:
+conditional labels, reviewers, auto-merge, priorities and holds, matched on any
+combination of package name, ecosystem, dependency type, file path, update type
+and installed version.
+
+Rules are evaluated in order. Later matches override earlier ones **per field**,
+so a broad rule can set a default and a narrow one refine it. List effects —
+labels, reviewers, assignees — accumulate instead of replacing, because a
+package matching both a "security" and a "frontend" rule should carry both sets
+rather than whichever happened to be last.
+
+#### Matchers
+
+All matchers present on a rule must match (AND within a rule).
+
+| Matcher               | Matches on                                              |
+| --------------------- | ------------------------------------------------------- |
+| `matchPackages`       | Package names or globs (`@types/_`)                     |
+| `matchEcosystems`     | `npm`, `composer`, `github-actions`, `docker`, `pkgx`, `zig` |
+| `matchDepTypes`       | `dependencies`, `devDependencies`, `peerDependencies`, … |
+| `matchUpdateTypes`    | `major`, `minor`, `patch`                               |
+| `matchFiles`          | Globs on the manifest path, for monorepo directories    |
+| `matchCurrentVersion` | Semver range the _installed_ version must satisfy       |
+| `schedule`            | Cron window during which the rule applies               |
+
+A rule with no matchers applies to every update. Configuration validation
+rejects that unless you write `matchPackages: ['_']`, because a matcherless
+rule is almost always a typo'd matcher — and a typo does not disable a rule, it
+widens it.
+
+#### Effects
+
+| Effect              | Does                                                     |
+| ------------------- | -------------------------------------------------------- |
+| `enabled: false`    | Drops matching updates entirely                          |
+| `strategy`          | Narrows what may be proposed, independent of the global   |
+| `groupName`         | Puts matching updates in a named group                    |
+| `labels`            | Adds labels to the pull request                           |
+| `reviewers`         | Requests review, unioned with `pullRequest.reviewers`     |
+| `assignees`         | Assigns, unioned with `pullRequest.assignees`             |
+| `autoMerge`         | Allows unattended merge — see the caveat below            |
+| `autoMigrate`       | Attempts the migration for matching majors                |
+| `minimumReleaseAge` | Minutes a version must have been published                |
+| `prPriority`        | Ordering within `maxPRsPerRun`; higher goes first         |
+
+`prPriority` is applied **before** the per-run cap, so a high-priority group
+survives a cap that would otherwise have cut it.
+
+`autoMerge` resolves conservatively across a group: **every** update in the pull
+request must allow it. One package that must not merge unattended holds back the
+whole PR containing it. `autoMigrate` resolves the other way — one package
+opting in is enough, since migrating what can be migrated leaves everything else
+exactly as it would have been.
+
+#### Cookbook
+
+**Hold back majors on one package** while everything else updates normally:
+
+```typescript
+rules: [
+  { matchPackages: ['react', 'react-dom'], matchUpdateTypes: ['major'], enabled: false },
+]
+```
+
+**Auto-merge types-only patches**, keeping everything else manual:
+
+```typescript
+rules: [
+  {
+    matchPackages: ['@types/*'],
+    matchUpdateTypes: ['patch'],
+    autoMerge: true,
+    labels: ['types', 'automerge'],
+  },
+]
+```
+
+**Per-workspace reviewers** in a monorepo:
+
+```typescript
+rules: [
+  { matchFiles: ['packages/api/**'], reviewers: ['backend-team'] },
+  { matchFiles: ['packages/web/**'], reviewers: ['frontend-team'] },
+]
+```
+
+**Weekend-only majors** — the schedule is a _window_, not a firing minute, so a
+Tuesday run holds these back and a Saturday run lets them through:
+
+```typescript
+rules: [
+  {
+    matchUpdateTypes: ['major'],
+    schedule: '0 0-23 _ _ 6,0',
+    scheduleTimezone: 'Europe/Berlin',
+  },
+]
+```
+
+**Hold a legacy version series** while letting the modern one move:
+
+```typescript
+rules: [
+  { matchPackages: ['vue'], matchCurrentVersion: '<3.0.0', enabled: false },
+]
+```
+
+**Prioritise security-relevant dependencies** so they survive the per-run cap:
+
+```typescript
+rules: [
+  { matchPackages: ['*'], prPriority: 0 },
+  { matchDepTypes: ['dependencies'], prPriority: 10, labels: ['runtime'] },
+]
+```
+
+#### Migrating from Renovate
+
+`buddy-bot setup` converts Renovate `packageRules` automatically.
+`matchPackageNames`, `matchPackagePrefixes`, `matchDepTypes`, `matchFileNames`,
+`matchManagers`, `matchCurrentVersion`, `automerge`, `labels`, `reviewers`,
+`assignees`, `groupName`, `prPriority` and `minimumReleaseAge` all map across.
+
+Three things do not, and the migration report names each one rather than
+approximating it:
+
+- **Renovate schedules** are natural language (`"after 10pm every weekday"`);
+
+  buddy-bot rules take cron. Translating prose would be guessing.
+
+- **Update types** Renovate has and buddy-bot does not — `digest`, `pin`,
+
+  `lockFileMaintenance`, `rollback`, `replacement`.
+
+- **`matchPackagePatterns` that use real regex features.** Anchored prefixes
+
+  (`^@types/`) convert exactly; anything else is copied verbatim with a warning,
+  because a rule that silently matches the wrong packages is worse than one you
+  have to rewrite.
+
 ### Custom PR Templates
 
 Customize pull request formatting:
@@ -179,8 +321,8 @@ const config: BuddyBotConfig = {
 | `name` | `string` | Repository name | Required |
 | `baseBranch` | `string` | Base branch for PRs | `'main'` |
 | `token` | `string` | Access token (use env var) | `undefined` |
-| `apiUrl` | `string` | REST API base URL, for GitHub Enterprise Server | `$GITHUB_API_URL`, else `https://api.github.com` |
-| `serverUrl` | `string` | Web base URL used for links | `$GITHUB_SERVER_URL`, else `https://github.com` |
+| `apiUrl` | `string` | REST API base URL, for GitHub Enterprise Server | `$GITHUB_API_URL`, else `<https://api.github.com>` |
+| `serverUrl` | `string` | Web base URL used for links | `$GITHUB_SERVER_URL`, else `<https://github.com>` |
 
 ### Package Settings
 
@@ -209,9 +351,9 @@ what npm itself would resolve.
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `registries.npm` | `string` | npm registry base URL | `.npmrc`, else `https://registry.npmjs.org` |
+| `registries.npm` | `string` | npm registry base URL | `.npmrc`, else `<https://registry.npmjs.org>` |
 | `registries.npmScopes` | `Record<string, string>` | Per-scope registry overrides, keyed by scope including `@` | `.npmrc` |
-| `registries.composer` | `string` | Composer/Packagist base URL | `https://packagist.org` |
+| `registries.composer` | `string` | Composer/Packagist base URL | `<https://packagist.org>` |
 
 ```typescript
 const config: BuddyBotConfig = {
@@ -313,7 +455,7 @@ GH_TOKEN=ghp_xxxxxxxxxxxx
 # Optional: alternative token, preferred when set (needs `workflow` scope)
 BUDDY_BOT_TOKEN=ghp_xxxxxxxxxxxx
 
-# Optional: GitHub Enterprise Server. GitHub Actions sets both automatically.
+# Optional: GitHub Enterprise Server. GitHub Actions sets both automatically
 GITHUB_API_URL=https://github.acme.com/api/v3
 GITHUB_SERVER_URL=https://github.acme.com
 

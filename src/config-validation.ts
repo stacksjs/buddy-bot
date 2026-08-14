@@ -12,6 +12,8 @@ const REVIEW_PROFILES = ['chill', 'assertive'] as const
 const REQUEST_CHANGES_MODES = ['never', 'critical'] as const
 const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
+const RULE_ECOSYSTEMS = ['npm', 'composer', 'github-actions', 'docker', 'pkgx', 'zig'] as const
+const RULE_UPDATE_TYPES = ['major', 'minor', 'patch'] as const
 
 /** A single problem found in a loaded configuration. */
 export interface ConfigIssue {
@@ -64,6 +66,22 @@ function checkNumber(
   }
   if (integer && !Number.isInteger(value))
     issues.push({ path, message: `expected a whole number, got ${quote(value)}` })
+}
+
+/** Collect issues for a value that must be an array drawn from a fixed set. */
+function checkArrayEnum<T extends string>(
+  issues: ConfigIssue[],
+  path: string,
+  value: unknown,
+  allowed: readonly T[],
+): void {
+  if (value === undefined)
+    return
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: `expected an array, got ${quote(value)}` })
+    return
+  }
+  value.forEach((entry, index) => checkEnum(issues, `${path}[${index}]`, entry, allowed))
 }
 
 /** Collect issues for a value that must be an array of non-empty strings. */
@@ -254,6 +272,101 @@ function validatePackages(issues: ConfigIssue[], config: BuddyBotConfig): void {
       checkEnum(issues, `${base}.strategy`, group.strategy, UPDATE_STRATEGIES)
     })
   }
+
+  validateRules(issues, packages.rules)
+}
+
+const RULE_MATCHERS = [
+  'matchPackages',
+  'matchEcosystems',
+  'matchDepTypes',
+  'matchUpdateTypes',
+  'matchFiles',
+  'matchCurrentVersion',
+  'schedule',
+] as const
+
+const RULE_EFFECTS = [
+  'enabled',
+  'strategy',
+  'groupName',
+  'labels',
+  'reviewers',
+  'assignees',
+  'autoMerge',
+  'autoMigrate',
+  'minimumReleaseAge',
+  'prPriority',
+  'scheduleTimezone',
+] as const
+
+/**
+ * Validate `packages.rules`.
+ *
+ * A rule that matches nothing is inert and a rule that matches everything is
+ * a footgun, so both get caught here rather than at the point some package
+ * silently fails to update.
+ */
+function validateRules(issues: ConfigIssue[], rules: unknown): void {
+  if (rules === undefined)
+    return
+  if (!Array.isArray(rules)) {
+    issues.push({ path: 'packages.rules', message: `expected an array of rules, got ${quote(rules)}` })
+    return
+  }
+
+  const known = new Set<string>([...RULE_MATCHERS, ...RULE_EFFECTS])
+
+  rules.forEach((rule, index) => {
+    const base = `packages.rules[${index}]`
+    if (!isPlainObject(rule)) {
+      issues.push({ path: base, message: `expected an object, got ${quote(rule)}` })
+      return
+    }
+
+    for (const key of Object.keys(rule)) {
+      if (!known.has(key)) {
+        // A typo'd matcher is worse than an error: the rule still applies, it
+        // just applies to everything.
+        issues.push({ path: `${base}.${key}`, message: `unknown key; expected one of ${[...known].map(quote).join(', ')}` })
+      }
+    }
+
+    const hasMatcher = RULE_MATCHERS.some(matcher => rule[matcher] !== undefined)
+    if (!hasMatcher) {
+      issues.push({
+        path: base,
+        message: 'has no matchers, so it applies to every update — add `matchPackages: ["*"]` if that is intended',
+      })
+    }
+
+    checkStringArray(issues, `${base}.matchPackages`, rule.matchPackages)
+    checkStringArray(issues, `${base}.matchDepTypes`, rule.matchDepTypes)
+    checkStringArray(issues, `${base}.matchFiles`, rule.matchFiles)
+    checkStringArray(issues, `${base}.labels`, rule.labels)
+    checkStringArray(issues, `${base}.reviewers`, rule.reviewers)
+    checkStringArray(issues, `${base}.assignees`, rule.assignees)
+
+    checkArrayEnum(issues, `${base}.matchEcosystems`, rule.matchEcosystems, RULE_ECOSYSTEMS)
+    checkArrayEnum(issues, `${base}.matchUpdateTypes`, rule.matchUpdateTypes, RULE_UPDATE_TYPES)
+    checkEnum(issues, `${base}.strategy`, rule.strategy, UPDATE_STRATEGIES)
+    checkNumber(issues, `${base}.minimumReleaseAge`, rule.minimumReleaseAge, { min: 0 })
+
+    if (rule.prPriority !== undefined && typeof rule.prPriority !== 'number')
+      issues.push({ path: `${base}.prPriority`, message: `expected a number, got ${quote(rule.prPriority)}` })
+
+    for (const key of ['enabled', 'autoMerge', 'autoMigrate'] as const) {
+      if (rule[key] !== undefined && typeof rule[key] !== 'boolean')
+        issues.push({ path: `${base}.${key}`, message: `expected a boolean, got ${quote(rule[key])}` })
+    }
+
+    for (const key of ['groupName', 'matchCurrentVersion', 'scheduleTimezone'] as const) {
+      if (rule[key] !== undefined && (typeof rule[key] !== 'string' || !String(rule[key]).trim()))
+        issues.push({ path: `${base}.${key}`, message: `expected a non-empty string, got ${quote(rule[key])}` })
+    }
+
+    checkCron(issues, `${base}.schedule`, rule.schedule)
+  })
 }
 
 function validatePullRequest(issues: ConfigIssue[], config: BuddyBotConfig): void {

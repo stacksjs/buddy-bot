@@ -25,7 +25,8 @@ import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
 import { appendUpgradeReport } from './upgrades/wire'
 import { EventBus } from './events/bus'
 import { createSinks } from './events/sinks'
-import { applyRules, groupsToRules } from './rules/engine'
+import type { PackageRule } from './rules/engine'
+import { applyRules, groupsToRules, mergeGroupEffects, resolveRuleEffects } from './rules/engine'
 import { applyTemplate, templateTokensForGroup } from './pr/templates'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
@@ -306,6 +307,56 @@ export class Buddy {
     return applied.map(entry => entry.update)
   }
 
+  /** Union configured values with rule-supplied ones, dropping duplicates. */
+  private static mergeUnique(configured: string[] | undefined, fromRules: string[]): string[] | undefined {
+    const merged = [...new Set([...(configured ?? []), ...fromRules])]
+    // Undefined rather than empty: the provider treats an empty array as an
+    // explicit request for no reviewers.
+    return merged.length > 0 ? merged : undefined
+  }
+
+  /** Every rule governing this run, legacy groups compiled in first. */
+  private activeRules(): PackageRule[] {
+    return [...groupsToRules(this.config.packages?.groups), ...(this.config.packages?.rules ?? [])]
+  }
+
+  /**
+   * Merge the rule effects of every update in a group.
+   *
+   * Effects are recomputed here rather than threaded through the scan result,
+   * because the scan and the pull request can be separated by a rebase run
+   * that never saw the original resolution.
+   *
+   * @param updates - Updates the pull request will contain
+   */
+  private groupEffectsFor(updates: PackageUpdate[]): ReturnType<typeof mergeGroupEffects> {
+    const rules = this.activeRules()
+    if (rules.length === 0)
+      return mergeGroupEffects([])
+
+    return mergeGroupEffects(updates.map(update => resolveRuleEffects(update, rules)))
+  }
+
+  /**
+   * Order groups so the highest-priority ones are created first.
+   *
+   * Applied before the per-run cap, since a priority that only reordered the
+   * pull requests already fitting under the cap would be decorative. Ties keep
+   * their original order, so an unprioritised configuration is unaffected.
+   *
+   * @param groups - Groups in scan order
+   */
+  private orderGroupsByPriority(groups: UpdateGroup[]): UpdateGroup[] {
+    const rules = this.activeRules()
+    if (rules.length === 0)
+      return groups
+
+    return groups
+      .map((group, index) => ({ group, index, priority: this.groupEffectsFor(group.updates).prPriority }))
+      .sort((a, b) => b.priority - a.priority || a.index - b.index)
+      .map(entry => entry.group)
+  }
+
   /**
    * Hold pinned packages at the version named in `packages.pin`.
    *
@@ -437,8 +488,12 @@ export class Buddy {
       const maxPRsPerRun = this.config.maxPRsPerRun ?? 10
       let prsCreatedThisRun = 0
 
+      // Ordered before the cap, not after: a `prPriority` that only reordered
+      // the PRs that already fit would not do the one thing it is for.
+      const orderedGroups = this.orderGroupsByPriority(scanResult.groups)
+
       // Process each group
-      for (const group of scanResult.groups) {
+      for (const group of orderedGroups) {
         try {
           const groupStartTime = Date.now()
           this.logger.info(`Creating PR for group: ${group.name} (${group.updates.length} updates)`)
@@ -885,8 +940,10 @@ export class Buddy {
           // Commit changes (Renovate-style: branch is created from base, changes applied fresh)
           await gitProvider.commitChanges(branchName, this.commitMessageFor(group), packageJsonUpdates, this.config.repository.baseBranch || 'main')
 
-          // Generate dynamic labels based on update types and package types
-          const dynamicLabels = prGenerator.generateLabels(group)
+          // Generate dynamic labels based on update types and package types,
+          // then union whatever the matching rules asked for.
+          const groupEffects = this.groupEffectsFor(group.updates)
+          const dynamicLabels = [...new Set([...prGenerator.generateLabels(group), ...groupEffects.labels])]
 
           // Create pull request
           const pr = await gitProvider.createPullRequest({
@@ -896,9 +953,9 @@ export class Buddy {
             base: this.config.repository.baseBranch || 'main',
             // A migration a maintainer must check should not look finished.
             draft: upgrade.draft,
-            reviewers: this.config.pullRequest?.reviewers,
+            reviewers: Buddy.mergeUnique(this.config.pullRequest?.reviewers, groupEffects.reviewers),
             teamReviewers: this.config.pullRequest?.teamReviewers,
-            assignees: this.config.pullRequest?.assignees,
+            assignees: Buddy.mergeUnique(this.config.pullRequest?.assignees, groupEffects.assignees),
             labels: dynamicLabels,
           })
 
@@ -1673,7 +1730,14 @@ export class Buddy {
    */
   private groupUpdatesByConfig(updates: PackageUpdate[]): UpdateGroup[] {
     const groups: UpdateGroup[] = []
-    const ungroupedUpdates = [...updates]
+
+    // Rule-supplied `groupName` is claimed first, so `packages.rules` and the
+    // legacy `packages.groups` produce one set of groups rather than two
+    // mechanisms competing for the same updates.
+    const { grouped, remaining } = this.groupByRuleNames(updates)
+    groups.push(...grouped)
+
+    const ungroupedUpdates = [...remaining]
 
     // Process configured groups
     if (this.config.packages?.groups) {
@@ -1740,6 +1804,49 @@ export class Buddy {
     }
 
     return groups
+  }
+
+  /**
+   * Claim updates into the groups their rules named.
+   *
+   * Only `packages.rules` participates: legacy `packages.groups` keeps its own
+   * path below, including its per-group strategy filtering, so existing
+   * configurations behave exactly as before.
+   *
+   * @param updates - Candidate updates
+   * @returns The rule-named groups and everything left over
+   */
+  private groupByRuleNames(updates: PackageUpdate[]): { grouped: UpdateGroup[], remaining: PackageUpdate[] } {
+    const rules = this.config.packages?.rules ?? []
+    if (rules.length === 0)
+      return { grouped: [], remaining: updates }
+
+    const byName = new Map<string, PackageUpdate[]>()
+    const remaining: PackageUpdate[] = []
+
+    for (const update of updates) {
+      const groupName = resolveRuleEffects(update, rules).groupName
+      if (!groupName) {
+        remaining.push(update)
+        continue
+      }
+
+      const existing = byName.get(groupName)
+      if (existing)
+        existing.push(update)
+      else
+        byName.set(groupName, [update])
+    }
+
+    const grouped = [...byName.entries()].map(([name, groupUpdates]) => ({
+      name,
+      updates: groupUpdates,
+      updateType: this.getHighestUpdateType(groupUpdates),
+      title: `chore(deps): update ${name}`,
+      body: `Update ${groupUpdates.length} packages in ${name} group`,
+    }))
+
+    return { grouped, remaining }
   }
 
   /**

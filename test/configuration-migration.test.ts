@@ -184,12 +184,19 @@ updates:
       const result = await migrator.migrateFromRenovate('renovate.json')
 
       expect(result.migratedSettings.packages).toBeDefined()
-      expect(result.migratedSettings.packages.groups).toHaveLength(1)
-      expect(result.migratedSettings.packages.groups[0]).toEqual({
-        name: 'React ecosystem',
-        patterns: ['react*', '@types/react*'],
-        strategy: 'minor',
+
+      // Rules migrate as rules. The old path flattened them into legacy
+      // groups, which cannot express `matchUpdateTypes` — so a rule scoped to
+      // minor and patch silently became one that also matched majors.
+      expect(result.migratedSettings.packages.rules).toHaveLength(1)
+      expect(result.migratedSettings.packages.rules[0]).toEqual({
+        matchPackages: ['react*', '@types/react*'],
+        matchUpdateTypes: ['minor', 'patch'],
+        groupName: 'React ecosystem',
       })
+
+      // `enabled: false` on a name-only rule is how Renovate spells "ignore",
+      // and it reads better in buddy-bot's own ignore list.
       expect(result.migratedSettings.packages.ignore).toEqual(['typescript', '@types/node'])
     })
 
