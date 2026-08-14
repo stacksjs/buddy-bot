@@ -2713,6 +2713,96 @@ cli
   })
 
 cli
+  .command('touch <pr-number>', 'Run a finishing touch ticked on a pull request, as a stacked PR')
+  .option('--name <touch>', 'Run a specific touch rather than reading the checkboxes')
+  .option('--test-command <command>', 'Command that verifies the change')
+  .option('--dry-run', 'Report what would run without acting')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot touch 42')
+  .example('buddy-bot touch 42 --name unit-tests')
+  .action(async (prNumber: string, options: CLIOptions & {
+    name?: string
+    testCommand?: string
+    dryRun?: boolean
+  }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const number = Number.parseInt(prNumber, 10)
+      const provider = await providerFor(config, 'finishing touches', logger)
+
+      const prs = await provider.getPullRequests('open')
+      const pullRequest = prs.find(candidate => candidate.number === number)
+      if (!pullRequest) {
+        logger.error(`❌ Pull request #${number} is not open`)
+        process.exit(1)
+      }
+
+      const { FINISHING_TOUCHES, getFinishingTouch, parseTouchSelections } = await import('../src/agent/tasks')
+
+      // The checkboxes are the request. A touch named on the command line is
+      // the manual path, for a maintainer who did not want to tick a box.
+      const selected = options.name
+        ? [options.name]
+        : parseTouchSelections(pullRequest.body)
+
+      if (selected.length === 0) {
+        logger.info('ℹ️ No finishing touches are ticked on this pull request')
+        return
+      }
+
+      const { createAiClient } = await import('../src/ai')
+      const ai = createAiClient(config, logger)
+      if (!ai) {
+        logger.error('❌ Finishing touches need an API key. See https://buddy-bot.sh/ai/providers')
+        process.exit(1)
+      }
+
+      if (options.dryRun) {
+        logger.info(`🔍 [DRY RUN] Would run: ${selected.join(', ')}`)
+        return
+      }
+
+      const { runStackedTouch } = await import('../src/agent/stacked')
+
+      for (const name of selected) {
+        if (!FINISHING_TOUCHES[name]) {
+          logger.warn(`⚠️ Unknown finishing touch '${name}', skipping`)
+          continue
+        }
+
+        const result = await runStackedTouch({
+          provider,
+          pullRequest,
+          touch: getFinishingTouch(name),
+          ai,
+          workspace: process.cwd(),
+          ...(options.testCommand ? { testCommand: options.testCommand.split(' ') } : {}),
+          logger,
+        })
+
+        await provider.createComment(number, result.comment)
+        logger.success(`✅ ${name}: ${result.mode}`)
+      }
+
+      // Cleared afterwards so the next poll does not run them again — the same
+      // reason the dashboard unchecks its own boxes.
+      const cleared = pullRequest.body.replace(
+        /^(\s*-\s*)\[[xX]\](\s*<!--\s*buddy-bot:touch=)/gm,
+        '$1[ ]$2',
+      )
+
+      if (cleared !== pullRequest.body)
+        await provider.updatePullRequest(number, { body: cleared })
+    }
+    catch (error) {
+      logger.error('Finishing touch failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
   .command('gate <pr-number>', 'Run pre-merge gates on a pull request and publish the result')
   .option('--dry-run', 'Print the result instead of publishing a check run')
   .option('--verbose, -v', 'Enable verbose logging')

@@ -34,3 +34,11 @@ export type {
   ToolTier,
   TranscriptEntry,
 } from './types'
+export {
+  detectChangedFiles,
+  runStackedTouch,
+  stackedBranchName,
+  TEST_COMMANDS,
+  verifyChanges,
+} from './stacked'
+export type { DeliveryMode, StackedOptions, StackedResult, Verification } from './stacked'
