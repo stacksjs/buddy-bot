@@ -1184,6 +1184,108 @@ function checkRebaseCheckbox(body: string): boolean {
 }
 
 cli
+  .command('review [pr-number]', 'Review a pull request, or local changes when no PR is given')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .option('--base <branch>', 'Base branch to diff against for a local review')
+  .option('--profile <name>', 'Review profile: chill|assertive')
+  .option('--summary-only', 'Post only the summary, without inline findings')
+  .option('--dry-run', 'Print the review instead of posting it')
+  .example('buddy-bot review 42')
+  .example('buddy-bot review --base main --dry-run')
+  .action(async (prNumber: string | undefined, options: CLIOptions & {
+    base?: string
+    profile?: 'chill' | 'assertive'
+    summaryOnly?: boolean
+    dryRun?: boolean
+  }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const { createAiClient } = await import('../src/ai')
+      const ai = createAiClient(config, logger)
+      if (!ai) {
+        logger.error('❌ AI review needs an API key. See https://buddy-bot.sh/ai/providers')
+        process.exit(1)
+      }
+
+      const { collectGitDiff, parseReviewState, prepareReview, reviewDiff } = await import('../src/review')
+
+      let diff: string
+      let headSha = ''
+      let seenFingerprints: string[] = []
+      let gitProvider: InstanceType<typeof import('../src/git/github-provider').GitHubProvider> | null = null
+
+      if (prNumber) {
+        const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
+        if (!config.repository || !token) {
+          logger.error('❌ Reviewing a PR needs repository config and GITHUB_TOKEN')
+          process.exit(1)
+        }
+
+        const { GitHubProvider } = await import('../src/git/github-provider')
+        gitProvider = new GitHubProvider(
+          token,
+          config.repository.owner,
+          config.repository.name,
+          !!process.env.BUDDY_BOT_TOKEN,
+          process.env.BUDDY_BOT_TOKEN,
+        )
+
+        const number = Number.parseInt(prNumber, 10)
+        diff = await gitProvider.getPullRequestDiff(number)
+
+        // Carry forward what earlier reviews already said, so a re-review
+        // reports only what is new rather than repeating itself.
+        const prs = await gitProvider.getPullRequests('open')
+        const pr = prs.find(candidate => candidate.number === number)
+        const state = parseReviewState(pr?.body)
+        seenFingerprints = state?.fingerprints ?? []
+        headSha = state?.reviewedSha ?? ''
+      }
+      else {
+        const base = options.base || config.repository?.baseBranch || 'main'
+        logger.info(`🔍 Reviewing local changes against ${base}...`)
+        diff = await collectGitDiff(base)
+      }
+
+      if (!diff.trim()) {
+        logger.success('✅ No changes to review')
+        return
+      }
+
+      const result = await reviewDiff(ai, {
+        diff,
+        profile: options.profile ?? config.ai?.review?.profile,
+        summaryOnly: options.summaryOnly ?? config.ai?.review?.summaryOnly,
+        seenFingerprints,
+        logger,
+      })
+
+      const prepared = prepareReview(result, {
+        headSha,
+        requestChangesOn: config.ai?.review?.requestChangesOn,
+        seenFingerprints,
+      })
+
+      if (!prNumber || options.dryRun) {
+        logger.info(`\n${prepared.body}\n`)
+        for (const comment of prepared.comments)
+          logger.info(`${comment.path}:${comment.line}\n${comment.body}\n`)
+        logger.success(`✅ Review complete: ${result.findings.length} finding(s)`)
+        return
+      }
+
+      await gitProvider!.createReview(Number.parseInt(prNumber, 10), prepared)
+      logger.success(`✅ Reviewed PR #${prNumber}: ${result.findings.length} finding(s)`)
+    }
+    catch (error) {
+      logger.error('Review failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
   .command('check <packages...>', 'Check specific packages for updates')
   .option('--verbose, -v', 'Enable verbose logging')
   .option('--strategy <type>', 'Update strategy: major|minor|patch|all', { default: 'all' })

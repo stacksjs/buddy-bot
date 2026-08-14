@@ -157,6 +157,30 @@ export interface BuddyBotConfig {
      * requests fail rather than spending more.
      */
     maxTokensPerRun?: number
+
+    /** AI pull request review settings */
+    review?: {
+      /** Enable AI review (default: false until you opt in) */
+      enabled?: boolean
+      /**
+       * How thorough to be. `chill` reports only confident defects;
+       * `assertive` also reports lower-confidence findings, marked so they can
+       * be filtered downstream.
+       */
+      profile?: 'chill' | 'assertive'
+      /** Review draft pull requests too (default: false) */
+      drafts?: boolean
+      /** Review automatically on open and push (default: true when enabled) */
+      autoReview?: boolean
+      /** Skip pull requests whose title contains any of these, e.g. `wip` */
+      ignoreTitleKeywords?: string[]
+      /** Skip pull requests opened by these users */
+      ignoreUsernames?: string[]
+      /** Request changes at this severity, or never (default: never) */
+      requestChangesOn?: 'never' | 'critical'
+      /** Post only the summary and walkthrough, no inline findings */
+      summaryOnly?: boolean
+    }
   }
 
   /** Maximum number of PRs to create per workflow run (default: 10) */

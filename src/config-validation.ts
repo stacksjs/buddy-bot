@@ -6,6 +6,8 @@ const MERGE_STRATEGIES = ['merge', 'squash', 'rebase'] as const
 const AUTO_MERGE_CONDITIONS = ['patch-only', 'minor-only', 'security-only', 'all'] as const
 const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'openrouter', 'openai-compatible'] as const
 const AI_EFFORTS = ['low', 'medium', 'high'] as const
+const REVIEW_PROFILES = ['chill', 'assertive'] as const
+const REQUEST_CHANGES_MODES = ['never', 'critical'] as const
 const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
 const PROVIDERS = ['github'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
@@ -327,6 +329,24 @@ function validateAi(issues: ConfigIssue[], config: BuddyBotConfig): void {
       path: 'ai.apiKeyEnv',
       message: 'expected the NAME of an environment variable, not an API key',
     })
+  }
+
+  const review = ai.review as Record<string, unknown> | undefined
+  if (review !== undefined) {
+    if (!isPlainObject(review)) {
+      issues.push({ path: 'ai.review', message: `expected an object, got ${quote(review)}` })
+    }
+    else {
+      for (const key of ['enabled', 'drafts', 'autoReview', 'summaryOnly'] as const) {
+        if (review[key] !== undefined && typeof review[key] !== 'boolean')
+          issues.push({ path: `ai.review.${key}`, message: `expected a boolean, got ${quote(review[key])}` })
+      }
+
+      checkEnum(issues, 'ai.review.profile', review.profile, REVIEW_PROFILES)
+      checkEnum(issues, 'ai.review.requestChangesOn', review.requestChangesOn, REQUEST_CHANGES_MODES)
+      checkStringArray(issues, 'ai.review.ignoreTitleKeywords', review.ignoreTitleKeywords)
+      checkStringArray(issues, 'ai.review.ignoreUsernames', review.ignoreUsernames)
+    }
   }
 
   if (ai.maxTokensPerRun !== undefined) {

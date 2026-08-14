@@ -991,6 +991,86 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * Fetch a pull request's unified diff.
+   *
+   * Uses the diff media type rather than assembling per-file patches, so the
+   * result is the same shape `git diff` produces and one parser serves both
+   * local and pull request review.
+   *
+   * @param prNumber - Pull request to read
+   * @returns Unified diff text
+   */
+  async getPullRequestDiff(prNumber: number): Promise<string> {
+    const response = await fetchWithTimeout(
+      `${this.apiUrl}/repos/${this.owner}/${this.repo}/pulls/${prNumber}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Accept': 'application/vnd.github.v3.diff',
+          'User-Agent': 'buddy-bot',
+        },
+      },
+    )
+
+    if (!response.ok) {
+      throw new GitHubApiError(
+        `Failed to fetch diff for PR #${prNumber}: ${response.status} ${response.statusText}`,
+        response.status,
+        'GET',
+        `${this.apiUrl}/repos/${this.owner}/${this.repo}/pulls/${prNumber}`,
+        `${this.owner}/${this.repo}`,
+      )
+    }
+
+    return await response.text()
+  }
+
+  /**
+   * Post a review with inline comments.
+   *
+   * Comments whose anchor GitHub rejects are retried once without them, so a
+   * single bad line number costs its own comment rather than the whole review.
+   *
+   * @param prNumber - Pull request to review
+   * @param review - Summary body, inline comments and the review event
+   * @returns Whether inline comments survived the post
+   */
+  async createReview(
+    prNumber: number,
+    review: {
+      body: string
+      event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+      comments?: Array<{ path: string, line: number, side: 'RIGHT' | 'LEFT', body: string }>
+    },
+  ): Promise<{ posted: boolean, inlineComments: number }> {
+    const endpoint = `POST /repos/${this.owner}/${this.repo}/pulls/${prNumber}/reviews`
+
+    try {
+      await this.apiRequest(endpoint, {
+        body: review.body,
+        event: review.event,
+        ...(review.comments?.length ? { comments: review.comments } : {}),
+      })
+
+      this.logger.success(`✅ Posted review on PR #${prNumber} (${review.comments?.length ?? 0} inline comment(s))`)
+      return { posted: true, inlineComments: review.comments?.length ?? 0 }
+    }
+    catch (error) {
+      if (!review.comments?.length) {
+        this.logger.error(`❌ Failed to post review on PR #${prNumber}: ${formatError(error)}`)
+        throw error
+      }
+
+      this.logger.warn(
+        `⚠️ Review with inline comments was rejected (${formatError(error)}); posting the summary alone`,
+      )
+
+      await this.apiRequest(endpoint, { body: review.body, event: review.event })
+      return { posted: true, inlineComments: 0 }
+    }
+  }
+
+  /**
    * Ask GitHub to merge a pull request itself once its required checks pass.
    *
    * This is the preferred auto-merge path: GitHub owns the waiting, so a

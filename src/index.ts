@@ -95,3 +95,6 @@ export * from './ai'
 
 // Agent runtime
 export * from './agent'
+
+// AI code review
+export * from './review'
