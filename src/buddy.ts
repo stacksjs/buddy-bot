@@ -2538,6 +2538,15 @@ export class Buddy {
         }
       }
 
+      // Pinning is cosmetic and capped at three issues per repository, so a
+      // refusal is reported but never fails the run.
+      if (dashboardConfig.pin !== undefined) {
+        if (dashboardConfig.pin)
+          await gitProvider.pinIssue(issue.number)
+        else
+          await gitProvider.unpinIssue(issue.number)
+      }
+
       this.logger.success(`✅ Dashboard updated: ${issue.url}`)
       return issue
     }

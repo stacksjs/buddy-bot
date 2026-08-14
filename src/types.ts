@@ -238,6 +238,14 @@ export interface BuddyBotConfig {
     showDeprecatedDependencies?: boolean
     /** Issue number to update (if it exists) */
     issueNumber?: number
+    /**
+     * Pin the dashboard issue to the top of the repository's issue list
+     * (default: false).
+     *
+     * GitHub allows at most three pinned issues per repository; when that
+     * limit is already reached the dashboard is still created, just unpinned.
+     */
+    pin?: boolean
   }
 }
 
@@ -413,7 +421,14 @@ export interface GitProvider {
   closeIssue: (issueNumber: number) => Promise<void>
 
   /** Unpin issue - Note: GitHub REST API does not support pinning issues programmatically */
-  unpinIssue: (issueNumber: number) => Promise<void>
+  /**
+   * Remove an issue from the repository's pinned list. Resolves `false` when
+   * the provider refused, since pinning is cosmetic and never fatal.
+   */
+  unpinIssue: (issueNumber: number) => Promise<boolean>
+
+  /** Pin an issue to the top of the repository's issue list */
+  pinIssue?: (issueNumber: number) => Promise<boolean>
 }
 
 export interface FileChange {

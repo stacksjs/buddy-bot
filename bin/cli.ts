@@ -8,6 +8,11 @@ import prompts from 'prompts'
 import { version } from '../package.json'
 import { Buddy } from '../src/buddy'
 import { getConfig } from '../src/config'
+import {
+  hasDashboardActions,
+  parseDashboardActions,
+  uncheckDashboardActions,
+} from '../src/dashboard/dashboard-actions'
 import { manifestUpdates, parseManifest } from '../src/pr/pr-manifest'
 import {
   analyzeProject,
@@ -588,9 +593,12 @@ cli
   .option('--verbose, -v', 'Enable verbose logging')
   .option('--title <title>', 'Custom dashboard title')
   .option('--issue-number <number>', 'Update specific issue number')
+  .option('--pin', 'Pin the dashboard issue to the top of the issue list')
+  .option('--no-pin', 'Unpin the dashboard issue')
   .example('buddy-bot dashboard')
   .example('buddy-bot dashboard --title "My Dependencies"')
   .example('buddy-bot dashboard --issue-number 42')
+  .example('buddy-bot dashboard --pin')
   .action(async (options: CLIOptions & { pin?: boolean, title?: string, issueNumber?: string }) => {
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
     const config = await resolveConfig()
@@ -614,6 +622,7 @@ cli
           enabled: true,
           title: options.title ?? config.dashboard?.title,
           issueNumber: options.issueNumber ? Number.parseInt(options.issueNumber, 10) : config.dashboard?.issueNumber,
+          pin: options.pin ?? config.dashboard?.pin,
         },
       }
 
@@ -943,6 +952,20 @@ cli
         process.env.BUDDY_BOT_TOKEN,
       )
 
+      // Step 0: Read the dashboard issue's checkboxes. A maintainer ticking a
+      // box there is the same request as ticking one in the PR itself, so the
+      // two are resolved into a single set of branches before any rebasing.
+      const dashboard = await findDashboardIssue(gitProvider, config, logger)
+      const dashboardActions = parseDashboardActions(dashboard?.body)
+
+      if (hasDashboardActions(dashboardActions)) {
+        logger.info(`📋 Dashboard requests: ${dashboardActions.rebaseBranches.length} branch(es)`
+          + `${dashboardActions.rebaseAll ? ', rebase all' : ''}`
+          + `${dashboardActions.manualRun ? ', manual run' : ''}`)
+      }
+
+      const requestedBranches = new Set(dashboardActions.rebaseBranches)
+
       // Step 1: Check for rebase checkboxes using GitHub API (proper body access)
       logger.info('🔍 Checking for PRs with rebase checkbox enabled...')
 
@@ -960,10 +983,11 @@ cli
 
         for (const pr of buddyBotPRs) {
           checkedPRs++
-          const hasRebaseChecked = checkRebaseCheckbox(pr.body || '')
+          const requestedFromDashboard = dashboardActions.rebaseAll || requestedBranches.has(pr.head)
+          const hasRebaseChecked = checkRebaseCheckbox(pr.body || '') || requestedFromDashboard
 
           if (hasRebaseChecked) {
-            logger.info(`🔄 PR #${pr.number} has rebase checkbox checked`)
+            logger.info(`🔄 PR #${pr.number} has rebase ${requestedFromDashboard ? 'requested from the dashboard' : 'checkbox checked'}`)
 
             if (options.dryRun) {
               logger.info(`🔍 [DRY RUN] Would rebase PR #${pr.number}`)
@@ -1010,6 +1034,46 @@ cli
       }
       catch (error) {
         logger.warn('⚠️ Could not check for rebase requests:', error)
+      }
+
+      // Step 1b: Clear the dashboard checkboxes and honour a manual run
+      // request. Unticking happens whether or not the rebases succeeded —
+      // leaving a box ticked would replay the same request every run.
+      if (hasDashboardActions(dashboardActions) && dashboard) {
+        if (options.dryRun) {
+          logger.info('🔍 [DRY RUN] Would clear dashboard checkboxes')
+        }
+        else {
+          try {
+            await gitProvider.updateIssue(dashboard.number, {
+              body: uncheckDashboardActions(dashboard.body || ''),
+            })
+            logger.success('✅ Cleared dashboard checkboxes')
+          }
+          catch (error) {
+            logger.warn('⚠️ Could not clear dashboard checkboxes:', error)
+          }
+        }
+
+        if (dashboardActions.manualRun) {
+          logger.info('🔄 Dashboard requested a full update run...')
+          if (options.dryRun) {
+            logger.info('🔍 [DRY RUN] Would run a full scan and create PRs')
+          }
+          else {
+            try {
+              const buddy = new Buddy(config)
+              const scanResult = await buddy.scanForUpdates()
+              if (scanResult.updates.length > 0)
+                await buddy.createPullRequests(scanResult)
+              else
+                logger.info('✅ No updates found during the requested run')
+            }
+            catch (error) {
+              logger.error('❌ Requested update run failed:', error)
+            }
+          }
+        }
       }
 
       // Step 2: Check for satisfied PRs (dependencies already at target version)
@@ -1071,6 +1135,37 @@ cli
       process.exit(1)
     }
   })
+
+/**
+ * Locate the dependency dashboard issue.
+ *
+ * Prefers the configured issue number and otherwise matches on the dashboard
+ * title, which is how the dashboard command itself finds the issue it owns.
+ *
+ * @returns The dashboard issue, or `null` when the repository has none
+ */
+async function findDashboardIssue(
+  gitProvider: { getIssues: (state?: 'open' | 'closed' | 'all') => Promise<Array<{ number: number, title: string, body: string }>> },
+  config: BuddyBotConfig,
+  logger: Logger,
+): Promise<{ number: number, title: string, body: string } | null> {
+  try {
+    const issues = await gitProvider.getIssues('open')
+    const configured = config.dashboard?.issueNumber
+
+    if (configured)
+      return issues.find(issue => issue.number === configured) ?? null
+
+    const title = config.dashboard?.title ?? 'Dependency Dashboard'
+    return issues.find(issue => issue.title === title)
+      ?? issues.find(issue => issue.title.includes('Dependency Dashboard'))
+      ?? null
+  }
+  catch (error) {
+    logger.warn('⚠️ Could not load the dependency dashboard:', error)
+    return null
+  }
+}
 
 // Helper function to check if rebase checkbox is checked
 function checkRebaseCheckbox(body: string): boolean {

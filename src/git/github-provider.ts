@@ -1665,17 +1665,54 @@ export class GitHubProvider implements GitProvider {
     }
   }
 
-  async unpinIssue(issueNumber: number): Promise<void> {
-    try {
-      await this.apiRequest(`DELETE /repos/${this.owner}/${this.repo}/issues/${issueNumber}/pin`, undefined)
-    }
-    catch (error: any) {
-      this.logger.info(`⚠️ Failed to unpin issue #${issueNumber}: ${formatError(error)}`)
-      // Don't throw error for pinning failures as it's not critical
-    }
+  /**
+   * Pin an issue to the top of the repository's issue list.
+   *
+   * Pinning is a GraphQL-only operation — the REST API has no endpoint for it.
+   * GitHub allows at most three pinned issues per repository; exceeding that
+   * is reported as a failure and logged rather than thrown, since a dashboard
+   * that failed to pin is still a usable dashboard.
+   *
+   * @param issueNumber - Issue to pin
+   * @returns `true` when the issue is now pinned
+   */
+  async pinIssue(issueNumber: number): Promise<boolean> {
+    return await this.setIssuePinned(issueNumber, true)
   }
 
-  // Note: GitHub REST API does not support pinning issues programmatically
-  // Pinning can only be done manually through the GitHub web interface
-  // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/administering-issues/pinning-an-issue-to-your-repository
+  /**
+   * Remove an issue from the repository's pinned list.
+   *
+   * @param issueNumber - Issue to unpin
+   * @returns `true` when the issue is no longer pinned
+   */
+  async unpinIssue(issueNumber: number): Promise<boolean> {
+    return await this.setIssuePinned(issueNumber, false)
+  }
+
+  private async setIssuePinned(issueNumber: number, pinned: boolean): Promise<boolean> {
+    const action = pinned ? 'pin' : 'unpin'
+    try {
+      const issue = await this.apiRequest(`GET /repos/${this.owner}/${this.repo}/issues/${issueNumber}`)
+      const mutation = pinned
+        ? `mutation($issueId: ID!) { pinIssue(input: { issueId: $issueId }) { issue { number } } }`
+        : `mutation($issueId: ID!) { unpinIssue(input: { issueId: $issueId }) { issue { number } } }`
+
+      const response = await this.graphqlRequest(mutation, { issueId: issue.node_id })
+
+      if (response.errors?.length) {
+        const message = response.errors.map((error: { message: string }) => error.message).join('; ')
+        this.logger.info(`⚠️ Failed to ${action} issue #${issueNumber}: ${message}`)
+        return false
+      }
+
+      this.logger.info(`📌 ${pinned ? 'Pinned' : 'Unpinned'} issue #${issueNumber}`)
+      return true
+    }
+    catch (error) {
+      // Pinning is cosmetic — never fail a dashboard run over it.
+      this.logger.info(`⚠️ Failed to ${action} issue #${issueNumber}: ${formatError(error)}`)
+      return false
+    }
+  }
 }

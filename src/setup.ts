@@ -1112,6 +1112,12 @@ on:
   pull_request:
     types: [edited]
 
+  # Dashboard checkboxes: same idea, fired when the dashboard issue is edited.
+  # The determine-jobs step filters to the dashboard issue and ignores the
+  # bot's own edits, so unticking a handled box cannot re-trigger the workflow.
+  issues:
+    types: [edited]
+
   schedule:
     # Update dependencies every 2 hours
     - cron: '0 */2 * * *'
@@ -1224,6 +1230,7 @@ jobs:
         env:
           PR_ACTOR: \${{ github.actor }}
           PR_BRANCH: \${{ github.event.pull_request.head.ref }}
+          ISSUE_TITLE: \${{ github.event.issue.title }}
         run: |
           # Default to not running any jobs
           echo "run_check=false" >> \$GITHUB_OUTPUT
@@ -1245,6 +1252,22 @@ jobs:
               echo "ℹ️ buddy-bot PR edited by user — running rebase check for branch: \$BRANCH"
             else
               echo "ℹ️ Non-buddy-bot PR edited — skipping (branch: \$BRANCH)"
+            fi
+          elif [ "\${{ github.event_name }}" = "issues" ]; then
+            # Dashboard issue edited — a maintainer may have ticked a rebase or
+            # manual-run checkbox. The check job reads them and unticks them.
+            ACTOR="\$PR_ACTOR"
+            TITLE="\$ISSUE_TITLE"
+
+            # The bot unticks handled boxes, which edits the issue. Without this
+            # guard that edit would re-trigger the workflow in a loop.
+            if [[ "\$ACTOR" == *"[bot]"* ]] || [[ "\$ACTOR" == "github-actions[bot]" ]] || [[ "\$ACTOR" == "buddy-bot" ]]; then
+              echo "ℹ️ Skipping — issue edit was made by bot actor: \$ACTOR"
+            elif [[ "\$TITLE" == *"Dependency Dashboard"* ]]; then
+              echo "run_check=true" >> \$GITHUB_OUTPUT
+              echo "ℹ️ Dashboard edited by user — running checkbox check"
+            else
+              echo "ℹ️ Non-dashboard issue edited — skipping (title: \$TITLE)"
             fi
           elif [ "\${{ github.event_name }}" = "workflow_dispatch" ]; then
             JOB="\${{ github.event.inputs.job || 'all' }}"
@@ -1556,6 +1579,12 @@ ${generateComposerSetupSteps()}
 
           if [ "\$ISSUE_NUMBER" != "" ]; then
             COMMAND="\$COMMAND --issue-number \\"\$ISSUE_NUMBER\\""
+          fi
+
+          if [ "\$PIN" = "true" ]; then
+            COMMAND="\$COMMAND --pin"
+          else
+            COMMAND="\$COMMAND --no-pin"
           fi
 
           if [ "\$VERBOSE" = "true" ]; then
