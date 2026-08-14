@@ -113,3 +113,6 @@ export * from './gates'
 
 // Issue enrichment
 export * from './issues'
+
+// Package rules engine
+export * from './rules'

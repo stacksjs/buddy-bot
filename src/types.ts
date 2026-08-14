@@ -115,6 +115,14 @@ export interface BuddyBotConfig {
     /** Package names to exclude from minimum release age requirement */
     minimumReleaseAgeExclude?: string[]
     /**
+     * Conditional rules applied to matching updates.
+     *
+     * Rules are evaluated in order and later matches override earlier ones
+     * per field, so a broad rule can set a default and a narrow one refine it.
+     * See https://buddy-bot.sh/config#package-rules
+     */
+    rules?: import('./rules/engine').PackageRule[]
+    /**
      * Report packages held below their latest version by a range declared
      * elsewhere in the dependency tree (default: true).
      *

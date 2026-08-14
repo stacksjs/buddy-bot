@@ -20,6 +20,7 @@ import { GitHubProvider } from './git/github-provider'
 import { evaluateAutoMerge, evaluateAutoMergeForUpdates, resolveAutoMergeConfig } from './pr/auto-merge'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
+import { applyRules, groupsToRules } from './rules/engine'
 import { applyTemplate, templateTokensForGroup } from './pr/templates'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
@@ -146,6 +147,10 @@ export class Buddy {
       // only package.json.
       updates = this.applyPins(updates)
 
+      // Package rules run last among the filters, so a rule can override what
+      // the global strategy allowed rather than being overridden by it.
+      updates = this.applyPackageRules(updates)
+
       // Annotate updates that resolve known vulnerabilities, before sorting so
       // the priority sort can float them to the top.
       const advisoryStartTime = Date.now()
@@ -218,6 +223,33 @@ export class Buddy {
       : group.title
 
     return suffix ? `${base} ${suffix}` : base
+  }
+
+  /**
+   * Apply `packages.rules` to the candidate updates.
+   *
+   * Legacy `packages.groups` are compiled into rules first, so grouping has a
+   * single code path rather than two mechanisms that can disagree.
+   *
+   * @param updates - Candidate updates
+   * @returns Updates that survived every matching rule
+   */
+  private applyPackageRules(updates: PackageUpdate[]): PackageUpdate[] {
+    const configured = this.config.packages?.rules ?? []
+    const compiled = groupsToRules(this.config.packages?.groups)
+    const rules = [...compiled, ...configured]
+
+    if (rules.length === 0)
+      return updates
+
+    const applied = applyRules(updates, rules)
+
+    if (applied.length < updates.length)
+      this.logger.info(`📋 Package rules dropped ${updates.length - applied.length} update(s)`)
+
+    // Effects are recomputed where they are needed (labels, reviewers,
+    // grouping) rather than threaded through every downstream signature.
+    return applied.map(entry => entry.update)
   }
 
   /**
