@@ -32,6 +32,14 @@ export function toOsvEcosystem(dependencyType: Dependency['type']): string | nul
     case 'require':
     case 'require-dev':
       return 'Packagist'
+    case 'python':
+      return 'PyPI'
+    case 'rust':
+      return 'crates.io'
+    case 'go':
+      return 'Go'
+    case 'ruby':
+      return 'RubyGems'
     case 'github-actions':
       // OSV carries GitHub Actions advisories, and an action runs with the
       // workflow's credentials — a compromised one is a repository compromise,

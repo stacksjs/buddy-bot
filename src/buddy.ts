@@ -15,6 +15,7 @@ import type {
   VulnerableDependency,
 } from './types'
 import fs from 'node:fs'
+import { join } from 'node:path'
 import process from 'node:process'
 import { DashboardGenerator } from './dashboard/dashboard-generator'
 import { createProvider, supports } from './git/provider'
@@ -169,8 +170,35 @@ export class Buddy {
       const zigUpdates = await this.checkZigForUpdates(packageFiles)
       this.logger.info(`⏱️  Zig dependency checks took ${Date.now() - zigStartTime}ms (found ${zigUpdates.length} updates)`)
 
+      // Ecosystems behind the adapter interface: Python, Rust, Go and Ruby.
+      // These run as one pass rather than a method each, which is the point of
+      // the interface — a fifth ecosystem is a new module, not a new branch here.
+      const adapterStartTime = Date.now()
+      const { scanEcosystems } = await import('./ecosystems/scan')
+      const adapterScan = await scanEcosystems({
+        dir: this.projectPath,
+        ...(this.config.packages?.includePrerelease !== undefined
+          ? { includePrerelease: this.config.packages.includePrerelease }
+          : {}),
+        ...(this.config.packages?.ignore ? { ignore: this.config.packages.ignore } : {}),
+        logger: this.logger,
+      })
+      if (adapterScan.manifests.length > 0) {
+        this.logger.info(
+          `⏱️  Ecosystem checks took ${Date.now() - adapterStartTime}ms `
+          + `(found ${adapterScan.updates.length} updates across ${adapterScan.manifests.map(entry => entry.ecosystem).join(', ')})`,
+        )
+      }
+
       // Merge all updates
-      let updates = [...packageJsonUpdates, ...dependencyFileUpdates, ...githubActionsUpdates, ...dockerUpdates, ...zigUpdates]
+      let updates = [
+        ...packageJsonUpdates,
+        ...dependencyFileUpdates,
+        ...githubActionsUpdates,
+        ...dockerUpdates,
+        ...zigUpdates,
+        ...adapterScan.updates,
+      ]
 
       // Apply ignore filter to dependency file updates
       if (this.config.packages?.ignore && this.config.packages.ignore.length > 0) {
@@ -1620,7 +1648,78 @@ export class Buddy {
       }
     }
 
+    fileUpdates.push(...await this.generateAdapterFileUpdates(updates))
+
     return fileUpdates
+  }
+
+  /**
+   * Write updates for the ecosystems behind the adapter interface.
+   *
+   * Each adapter owns its own write, because every manifest format has its own
+   * quoting and operator vocabulary — a shared rewriter would flatten a
+   * Gemfile's `~>` into a pin and a Python `~=` into `==`.
+   *
+   * Updates are grouped by file so a manifest with several changed
+   * dependencies is written once, and applied in sequence against the
+   * accumulating content rather than against the original.
+   *
+   * @param updates - Every update in the group
+   * @returns File changes for the adapter-owned manifests
+   */
+  private async generateAdapterFileUpdates(
+    updates: PackageUpdate[],
+  ): Promise<Array<{ path: string, content: string, type: 'update' }>> {
+    const { adapterNamed } = await import('./ecosystems')
+
+    const byFile = new Map<string, PackageUpdate[]>()
+    for (const update of updates) {
+      if (!adapterNamed(update.dependencyType))
+        continue
+
+      const existing = byFile.get(update.file)
+      if (existing)
+        existing.push(update)
+      else
+        byFile.set(update.file, [update])
+    }
+
+    const changes: Array<{ path: string, content: string, type: 'update' }> = []
+
+    for (const [file, fileUpdates] of byFile) {
+      const adapter = adapterNamed(fileUpdates[0].dependencyType)
+      if (!adapter)
+        continue
+
+      try {
+        const path = join(this.projectPath, file)
+        const original = await Bun.file(path).text()
+
+        let content = original
+        for (const update of fileUpdates) {
+          content = adapter.applyUpdate(content, {
+            name: update.name,
+            currentVersion: update.currentVersion,
+            newVersion: update.newVersion,
+            section: update.dependencyType,
+          })
+        }
+
+        // An unchanged file means no dependency matched, which is a parser or
+        // writer disagreement rather than a no-op worth committing.
+        if (content === original) {
+          this.logger.warn(`⚠️ ${adapter.name}: no changes written to ${file}`)
+          continue
+        }
+
+        changes.push({ path: file, content, type: 'update' })
+      }
+      catch (error) {
+        this.logger.error(`Failed to write ${adapter.name} updates to ${file}:`, error)
+      }
+    }
+
+    return changes
   }
 
   /**

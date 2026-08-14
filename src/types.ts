@@ -518,7 +518,7 @@ export interface Dependency {
   /** Current version or range */
   currentVersion: string
   /** Dependency type */
-  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies'
+  type: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies' | 'python' | 'rust' | 'go' | 'ruby'
   /** File where dependency is defined */
   file: string
   /** Line number in file */
@@ -537,7 +537,7 @@ export interface PackageUpdate {
   /** Update type */
   updateType: 'major' | 'minor' | 'patch'
   /** Dependency type */
-  dependencyType: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies' | 'require' | 'require-dev' | 'github-actions' | 'docker-image' | 'zig-dependencies'
+  dependencyType: Dependency['type']
   /** Source file */
   file: string
   /** Package metadata from registry */

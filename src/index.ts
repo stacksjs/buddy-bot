@@ -29,6 +29,36 @@ export { diagnose, renderDoctorReport } from './doctor'
 export type { DoctorCheck, DoctorEnvironment, DoctorReport } from './doctor'
 export { formatGithubOutput, publishOutput, runHeadless, validateAgainstSchema } from './headless/run'
 export type { HeadlessOptions, HeadlessResult, SchemaViolation } from './headless/run'
+export {
+  adapterFor,
+  adapterNamed,
+  BUILTIN_ADAPTERS,
+  comparePep440,
+  compareNumeric,
+  detectFiles,
+  goAdapter,
+  isPep440Prerelease,
+  numericUpdateType,
+  parsePep440,
+  pep440UpdateType,
+  pythonAdapter,
+  regenerateLockfiles,
+  rubyAdapter,
+  rustAdapter,
+  scanEcosystems,
+  splitConstraint,
+  stripOperators,
+} from './ecosystems'
+export type {
+  AdapterScanOptions,
+  AdapterScanResult,
+  EcosystemAdapter,
+  EcosystemDependency,
+  EcosystemUpdate,
+  LatestOptions,
+  Pep440Version,
+  VersionInfo,
+} from './ecosystems'
 export { PullRequestGenerator } from './pr/pr-generator'
 export {
   compareVersions,

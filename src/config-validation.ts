@@ -13,7 +13,7 @@ const REVIEW_PROFILES = ['chill', 'assertive'] as const
 const REQUEST_CHANGES_MODES = ['never', 'critical'] as const
 const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
-const RULE_ECOSYSTEMS = ['npm', 'composer', 'github-actions', 'docker', 'pkgx', 'zig'] as const
+const RULE_ECOSYSTEMS = ['npm', 'composer', 'github-actions', 'docker', 'pkgx', 'zig', 'python', 'rust', 'go', 'ruby'] as const
 const RULE_UPDATE_TYPES = ['major', 'minor', 'patch'] as const
 const ANALYZER_NAMES: string[] = BUILTIN_ANALYZERS.map(analyzer => analyzer.name)
 

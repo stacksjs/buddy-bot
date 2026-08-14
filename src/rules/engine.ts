@@ -4,7 +4,7 @@ import { satisfiesRange } from '../utils/helpers'
 import { matchesSchedule } from './schedule'
 
 /** Ecosystems a rule can match on. */
-export type RuleEcosystem = 'npm' | 'composer' | 'github-actions' | 'docker' | 'pkgx' | 'zig'
+export type RuleEcosystem = 'npm' | 'composer' | 'github-actions' | 'docker' | 'pkgx' | 'zig' | 'python' | 'rust' | 'go' | 'ruby'
 
 /** A conditional override applied to matching updates. */
 export interface PackageRule {
@@ -72,6 +72,10 @@ export function ecosystemOf(update: PackageUpdate): RuleEcosystem {
     return 'docker'
   if (update.dependencyType === 'zig-dependencies')
     return 'zig'
+  if (update.dependencyType === 'python' || update.dependencyType === 'rust'
+    || update.dependencyType === 'go' || update.dependencyType === 'ruby') {
+    return update.dependencyType
+  }
   if (update.file.endsWith('composer.json') || update.file.endsWith('composer.lock'))
     return 'composer'
   if (update.file.endsWith('package.json'))
