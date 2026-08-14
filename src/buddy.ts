@@ -22,6 +22,7 @@ import { formatError } from './utils/errors'
 import { evaluateAutoMerge, evaluateAutoMergeForUpdates, resolveAutoMergeConfig } from './pr/auto-merge'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
+import { appendUpgradeReport } from './upgrades/wire'
 import { EventBus } from './events/bus'
 import { createSinks } from './events/sinks'
 import { applyRules, groupsToRules } from './rules/engine'
@@ -61,6 +62,46 @@ export class Buddy {
     this.scanner = new PackageScanner(this.projectPath, this.logger, this.config.packages?.ignorePaths)
     this.registryClient = new RegistryClient(this.projectPath, this.logger, this.config)
     this.dashboardGenerator = new DashboardGenerator()
+  }
+
+  /**
+   * Analyse the major updates in a group before its pull request is opened.
+   *
+   * Everything here is opt-in and failure-tolerant: without
+   * `ai.majorUpgrades.enabled` and a provider key it returns nothing and the
+   * pull request is byte-identical to what it would have been. A failed
+   * analysis is reported as skipped rather than raised, because a missing
+   * report is a far smaller problem than a blocked dependency update.
+   *
+   * @param updates - Every update in the group, majors and otherwise
+   * @param files - Repository-relative paths the group touches
+   * @returns The report to splice into the body and the draft decision
+   */
+  private async analyzeMajors(
+    updates: PackageUpdate[],
+    files: string[],
+  ): Promise<{ report: string, draft: boolean }> {
+    if (!this.config.ai?.majorUpgrades?.enabled)
+      return { report: '', draft: false }
+
+    const { analyzeGroupMajors } = await import('./upgrades/wire')
+    const { createAiClient } = await import('./ai')
+
+    const { ReleaseNotesFetcher } = await import('./services/release-notes-fetcher')
+    const fetcher = new ReleaseNotesFetcher(this.logger)
+
+    const outcome = await analyzeGroupMajors({
+      updates,
+      config: this.config,
+      workspace: this.projectPath,
+      baseBranch: this.config.repository?.baseBranch || 'main',
+      files,
+      ai: createAiClient(this.config, this.logger),
+      fetchReleases: (name, from, to) => fetcher.fetchSpanReleases(name, from, to),
+      logger: this.logger,
+    })
+
+    return { report: outcome.report, draft: outcome.draft }
   }
 
   /**
@@ -450,9 +491,14 @@ export class Buddy {
           // Generate PR content first to check for existing PRs
           const prTitle = this.prTitleFor(group)
           const prBodyStartTime = Date.now()
-          const prBody = await prGenerator.generateBody(group)
+          const generatedBody = await prGenerator.generateBody(group)
           const prBodyDuration = Date.now() - prBodyStartTime
           this.logger.info(`⏱️  PR body generation took ${prBodyDuration}ms`)
+
+          // Analyse major upgrades when configured. Returns nothing without an
+          // AI provider, so the PR is byte-identical to before in that case.
+          const upgrade = await this.analyzeMajors(group.updates, earlyFileUpdates.map(change => change.path))
+          const prBody = appendUpgradeReport(generatedBody, upgrade.report)
 
           // Check for existing open PRs with similar content
           const existingPRs = await gitProvider.getPullRequests('open')
@@ -848,7 +894,8 @@ export class Buddy {
             body: prBody,
             head: branchName,
             base: this.config.repository.baseBranch || 'main',
-            draft: false,
+            // A migration a maintainer must check should not look finished.
+            draft: upgrade.draft,
             reviewers: this.config.pullRequest?.reviewers,
             teamReviewers: this.config.pullRequest?.teamReviewers,
             assignees: this.config.pullRequest?.assignees,

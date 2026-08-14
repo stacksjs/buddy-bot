@@ -299,6 +299,80 @@ export class ReleaseNotesFetcher {
   }
 
   /**
+   * Fetch every release describing a version span.
+   *
+   * `fetchPackageInfo` reads one page of the newest releases, which is right
+   * for a patch bump and wrong for a major one: a 5.x → 7.x upgrade needs the
+   * 6.0.0 and 7.0.0 notes, and an active project can easily push those past
+   * the first fifty tags. This pages back until it passes the current version
+   * or hits the page cap, so the analysis sees the releases that actually
+   * describe the breaking changes.
+   *
+   * @param packageName - npm package name
+   * @param currentVersion - Version currently installed
+   * @param newVersion - Version being upgraded to
+   * @param maxPages - Pages of 100 to walk before giving up (default: 5)
+   * @returns Releases in the span, newest first; empty when none are reachable
+   * @example
+   * ```ts
+   * const releases = await fetcher.fetchSpanReleases('react', '17.0.2', '19.0.0')
+   * const span = collectSpanNotes(releases, '17.0.2', '19.0.0')
+   * ```
+   */
+  async fetchSpanReleases(
+    packageName: string,
+    currentVersion: string,
+    newVersion: string,
+    maxPages = 5,
+  ): Promise<ReleaseNote[]> {
+    const packageInfo = await this.fetchNpmPackageInfo(packageName).catch(() => null)
+    const repoInfo = packageInfo?.repository?.url ? this.parseGitHubUrl(packageInfo.repository.url) : null
+    if (!repoInfo) {
+      this.logger.debug(`No GitHub repository for ${packageName}; no span notes available`)
+      return []
+    }
+
+    const collected: ReleaseNote[] = []
+
+    for (let page = 1; page <= maxPages; page++) {
+      const response = await fetchWithTimeout(
+        `${getGitHubApiUrl()}/repos/${repoInfo.owner}/${repoInfo.repo}/releases?per_page=100&page=${page}`,
+        { headers: this.githubHeaders() },
+      ).catch(() => null)
+
+      if (!response?.ok)
+        break
+
+      const releases = await response.json().catch(() => null) as GitHubReleaseResponse[] | null
+      if (!Array.isArray(releases) || releases.length === 0)
+        break
+
+      for (const release of releases) {
+        collected.push({
+          version: release.tag_name,
+          date: release.published_at,
+          title: release.name ?? release.tag_name,
+          body: release.body ?? '',
+          htmlUrl: release.html_url,
+          isPrerelease: release.prerelease,
+        })
+      }
+
+      // Releases come back newest-first, so once a page contains something at
+      // or below the installed version there is nothing older worth reading.
+      const reachedFloor = releases.some(release =>
+        this.isVersionBetween(release.tag_name.replace(/^v/, ''), '0.0.0', currentVersion),
+      )
+      if (reachedFloor || releases.length < 100)
+        break
+    }
+
+    return collected.filter(release =>
+      this.isVersionBetween(release.version.replace(/^v/, ''), currentVersion, newVersion),
+    )
+  }
+
+  /**
    * Parse GitHub repository URL
    */
   private parseGitHubUrl(repositoryUrl: string): { owner: string, repo: string } | null {
