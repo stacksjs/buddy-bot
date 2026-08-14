@@ -17,6 +17,7 @@ import process from 'node:process'
 import { DashboardGenerator } from './dashboard/dashboard-generator'
 import { GitHubProvider } from './git/github-provider'
 import { PullRequestGenerator } from './pr/pr-generator'
+import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
 import { RegistryClient } from './registry/registry-client'
 import { PackageScanner } from './scanner/package-scanner'
 import { DeprecatedDependenciesChecker } from './services/deprecated-dependencies-checker'
@@ -1830,8 +1831,15 @@ export class Buddy {
 
   /**
    * Extract file paths from PR body
+   *
+   * Reads the embedded manifest when present, falling back to scraping the
+   * rendered tables for PRs opened before manifests existed.
    */
   private extractFilePathsFromPRBody(prBody: string): string[] {
+    const manifest = parseManifest(prBody)
+    if (manifest)
+      return manifestFiles(manifest)
+
     const filePaths: string[] = []
 
     // Look for file paths in the PR body table (File column)
@@ -1879,8 +1887,15 @@ export class Buddy {
 
   /**
    * Extract package names from PR body
+   *
+   * Reads the embedded manifest when present, falling back to scraping the
+   * rendered tables for PRs opened before manifests existed.
    */
   private extractPackagesFromPRBody(prBody: string): string[] {
+    const manifest = parseManifest(prBody)
+    if (manifest)
+      return [...new Set(manifest.updates.map(update => update.name))]
+
     const packages: string[] = []
 
     // Look for package names in the PR body table
@@ -1911,8 +1926,15 @@ export class Buddy {
 
   /**
    * Extract package updates with versions from PR body
+   *
+   * Reads the embedded manifest when present, falling back to scraping the
+   * rendered tables for PRs opened before manifests existed.
    */
   private extractPackageUpdatesFromPRBody(body: string): Array<{ name: string, currentVersion: string, newVersion: string }> {
+    const manifest = parseManifest(body)
+    if (manifest)
+      return manifestUpdates(manifest)
+
     const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
     const seen = new Set<string>()
 

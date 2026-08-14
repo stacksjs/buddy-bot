@@ -1,6 +1,7 @@
 /* eslint-disable no-cond-assign */
 import type { Dependency, PackageFile, PackageUpdate, UpdateGroup } from '../types'
 import type { Logger } from './logger'
+import { manifestFiles, parseManifest } from '../pr/pr-manifest'
 import { isDependencyFile, parseDependencyFile } from './dependency-file-parser'
 import { getGitHubApiUrl } from './endpoints'
 import { fetchWithTimeout } from './http'
@@ -539,8 +540,15 @@ export async function checkForRebaseRequests(token: string, owner: string, repo:
 
 /**
  * Extract package names from PR body
+ *
+ * Reads the embedded manifest when present, falling back to scraping the
+ * rendered tables for PRs opened before manifests existed.
  */
 export function extractPackageNamesFromPRBody(body: string): string[] {
+  const manifest = parseManifest(body)
+  if (manifest)
+    return [...new Set(manifest.updates.map(update => update.name))]
+
   const packages: string[] = []
 
   // Look for package names in the PR body table
@@ -595,6 +603,18 @@ async function checkForAutoCloseRespectLatest(pr: any, config: any, logger: Logg
   // Extract actual version data from table rows using both arrow formats (-> and →)
   // This avoids false positives from searching the full body text for words like "main"
   const dynamicIndicators = ['latest', '*', 'main', 'master', 'develop', 'dev']
+
+  const manifest = parseManifest(pr.body)
+  if (manifest) {
+    const dynamic = manifest.updates.filter(update =>
+      dynamicIndicators.includes(update.current.toLowerCase().trim()),
+    )
+    for (const update of dynamic)
+      logger.debug(`🔍 PR #${pr.number}: Package ${update.name} has dynamic version "${update.current}"`)
+
+    logger.debug(`🔍 PR #${pr.number}: Should auto-close: ${dynamic.length > 0}`)
+    return dynamic.length > 0
+  }
 
   // Regex matches table rows: | [package](url) | `version` → `version` | ... |
   // Handles both ASCII (->) and Unicode (→) arrows, with optional version prefixes (^, ~, v, >=)
@@ -670,8 +690,15 @@ async function checkForAutoCloseIgnorePaths(pr: any, config: any, logger: Logger
 
 /**
  * Extract file paths from PR body
+ *
+ * Reads the embedded manifest when present, falling back to scraping the
+ * rendered tables for PRs opened before manifests existed.
  */
 function extractFilePathsFromPRBody(prBody: string): string[] {
+  const manifest = parseManifest(prBody)
+  if (manifest)
+    return manifestFiles(manifest)
+
   const filePaths: string[] = []
 
   // Look for file paths in the PR body table (File column)

@@ -8,6 +8,7 @@ import prompts from 'prompts'
 import { version } from '../package.json'
 import { Buddy } from '../src/buddy'
 import { getConfig } from '../src/config'
+import { manifestUpdates, parseManifest } from '../src/pr/pr-manifest'
 import {
   analyzeProject,
   ConfigurationMigrator,
@@ -869,8 +870,22 @@ cli
     }
   })
 
-// Helper function to extract package updates from PR body
+/**
+ * Extract package updates from a PR body.
+ *
+ * Prefers the embedded manifest and falls back to scraping the rendered
+ * tables for PRs opened before manifests existed. A manifest that had to drop
+ * rows is rejected outright: rebase matches the PR against a scan result by
+ * exact package set, so acting on a partial list would silently rebase the PR
+ * into the wrong group.
+ */
 async function extractPackageUpdatesFromPRBody(body: string): Promise<Array<{ name: string, currentVersion: string, newVersion: string }>> {
+  const manifest = parseManifest(body)
+  if (manifest?.truncated)
+    return []
+  if (manifest)
+    return manifestUpdates(manifest)
+
   const updates: Array<{ name: string, currentVersion: string, newVersion: string }> = []
 
   // Match table rows with package updates - handles both npm and Composer formats

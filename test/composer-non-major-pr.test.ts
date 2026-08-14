@@ -1,6 +1,7 @@
 import type { UpdateGroup } from '../src/types'
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { PullRequestGenerator } from '../src/pr/pr-generator'
+import { stripManifest } from '../src/pr/pr-manifest'
 import { ReleaseNotesFetcher } from '../src/services/release-notes-fetcher'
 
 describe('Composer Non-Major PR', () => {
@@ -297,8 +298,10 @@ describe('Composer Non-Major PR', () => {
 
     const prBody = await prGenerator.generateBody(duplicateComposerGroup)
 
-    // Should only show monolog/monolog once (deduplicated)
-    const monologMatches = (prBody.match(/monolog\/monolog/g) || []).length
+    // Should only show monolog/monolog once (deduplicated). Counted against
+    // the rendered prose only: the metadata manifest names every updated
+    // package by design, which is not a display duplicate.
+    const monologMatches = (stripManifest(prBody).match(/monolog\/monolog/g) || []).length
     // Should appear: table (1) + release notes (1) + package stats (1) + URLs (~1) = ~4 times total
     expect(monologMatches).toBeLessThanOrEqual(5) // Allow some flexibility for URLs
 
