@@ -61,6 +61,7 @@
     "release:patch": "bunx --bun bumpx patch --recursive --commit --tag --push --yes"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
     "prompts": "^2.4.2",
     "ts-pantry": "^0.11.19"
   },

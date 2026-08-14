@@ -4,6 +4,8 @@ import { ConfigurationError } from './types'
 const UPDATE_STRATEGIES = ['major', 'minor', 'patch', 'all'] as const
 const MERGE_STRATEGIES = ['merge', 'squash', 'rebase'] as const
 const AUTO_MERGE_CONDITIONS = ['patch-only', 'minor-only', 'security-only', 'all'] as const
+const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'openrouter', 'openai-compatible'] as const
+const AI_EFFORTS = ['low', 'medium', 'high'] as const
 const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
 const PROVIDERS = ['github'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
@@ -152,6 +154,7 @@ export function validateConfig(config: BuddyBotConfig): ConfigIssue[] {
   validateSchedules(issues, config)
   validateReleaseNotes(issues, config)
   validateDashboard(issues, config)
+  validateAi(issues, config)
 
   return issues
 }
@@ -291,6 +294,46 @@ function validatePullRequest(issues: ConfigIssue[], config: BuddyBotConfig): voi
       issues.push({
         path: 'pullRequest.autoMerge.optOutLabel',
         message: `expected a string, got ${quote(autoMerge.optOutLabel)}`,
+      })
+    }
+  }
+}
+
+function validateAi(issues: ConfigIssue[], config: BuddyBotConfig): void {
+  const ai = config.ai
+  if (ai === undefined)
+    return
+
+  if (!isPlainObject(ai)) {
+    issues.push({ path: 'ai', message: `expected an object, got ${quote(ai)}` })
+    return
+  }
+
+  if (ai.enabled !== undefined && typeof ai.enabled !== 'boolean')
+    issues.push({ path: 'ai.enabled', message: `expected a boolean, got ${quote(ai.enabled)}` })
+
+  checkEnum(issues, 'ai.provider', ai.provider, AI_PROVIDERS)
+  checkEnum(issues, 'ai.effort', ai.effort, AI_EFFORTS)
+
+  for (const key of ['model', 'apiKeyEnv', 'baseUrl'] as const) {
+    if (ai[key] !== undefined && typeof ai[key] !== 'string')
+      issues.push({ path: `ai.${key}`, message: `expected a string, got ${quote(ai[key])}` })
+  }
+
+  // A key inline in config would be committed to the repository; the option
+  // names an environment variable instead, so reject anything key-shaped.
+  if (typeof ai.apiKeyEnv === 'string' && /^sk-|^AIza/.test(ai.apiKeyEnv)) {
+    issues.push({
+      path: 'ai.apiKeyEnv',
+      message: 'expected the NAME of an environment variable, not an API key',
+    })
+  }
+
+  if (ai.maxTokensPerRun !== undefined) {
+    if (typeof ai.maxTokensPerRun !== 'number' || !Number.isFinite(ai.maxTokensPerRun) || ai.maxTokensPerRun <= 0) {
+      issues.push({
+        path: 'ai.maxTokensPerRun',
+        message: `expected a positive number, got ${quote(ai.maxTokensPerRun)}`,
       })
     }
   }

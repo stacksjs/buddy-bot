@@ -125,6 +125,40 @@ export interface BuddyBotConfig {
     detectResolutionDrift?: boolean
   }
 
+  /**
+   * AI provider settings.
+   *
+   * Every AI-powered feature is off unless a provider key is available, and
+   * degrades to a no-op rather than failing the run — the dependency bot works
+   * exactly as before with no AI configured.
+   */
+  ai?: {
+    /** Turn all AI features off even when a key is present */
+    enabled?: boolean
+    /**
+     * Which provider to use. Omitted, the first provider with an available API
+     * key is chosen, in the order anthropic, openai, google, openrouter.
+     */
+    provider?: 'anthropic' | 'openai' | 'google' | 'openrouter' | 'openai-compatible'
+    /**
+     * Model alias or concrete ID. Aliases (`opus`, `sonnet`, `haiku`) resolve
+     * to current Anthropic models; every other provider needs a concrete ID.
+     * Overridable per run with `BUDDY_BOT_MODEL`.
+     */
+    model?: string
+    /** Reasoning depth to request (default: provider default) */
+    effort?: 'low' | 'medium' | 'high'
+    /** Environment variable holding the API key, when not the provider default */
+    apiKeyEnv?: string
+    /** Base URL override, for gateways and OpenAI-compatible endpoints */
+    baseUrl?: string
+    /**
+     * Hard ceiling on output tokens generated per run. Once reached, further
+     * requests fail rather than spending more.
+     */
+    maxTokensPerRun?: number
+  }
+
   /** Maximum number of PRs to create per workflow run (default: 10) */
   maxPRsPerRun?: number
 
