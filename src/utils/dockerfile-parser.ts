@@ -1,6 +1,7 @@
+import type { DockerRegistryConfig } from '../registry/oci-client'
 import type { Dependency, PackageFile, PackageUpdate } from '../types'
-import process from 'node:process'
-import { fetchWithTimeout } from './http'
+import { selectLatestTag } from '../registry/docker-tags'
+import { OciClient, parseImageRef } from '../registry/oci-client'
 import { getDefaultLogger } from './logger'
 
 /**
@@ -159,76 +160,71 @@ function parseImageReference(imageRef: string): { name: string, version: string 
 }
 
 /**
- * Fetch the latest version for a Docker image
+ * Fetch the newest tag for a Docker image.
+ *
+ * Goes through the OCI distribution API rather than Docker Hub's own, so the
+ * same code path serves GHCR, Quay, GCR, Artifact Registry and self-hosted
+ * registries. Registries that answer anonymously keep working; those that
+ * challenge get the standard bearer exchange.
+ *
+ * @param imageName - Image reference, with or without a registry host
+ * @param currentTag - Tag currently in the file, used to preserve its variant
+ * and precision
+ * @param options - Registry credentials and behaviour
+ * @returns The newer tag, or null when there is nothing better
+ * @example
+ * ```ts
+ * await fetchLatestDockerImageVersion('ghcr.io/org/app', '1.2.0')
+ * ```
  */
-export async function fetchLatestDockerImageVersion(imageName: string): Promise<string | null> {
+export async function fetchLatestDockerImageVersion(
+  imageName: string,
+  currentTag?: string,
+  options: { registries?: DockerRegistryConfig, includePrerelease?: boolean } = {},
+): Promise<string | null> {
   try {
-    // For popular images, we can use Docker Hub API
-    // For now, implement a basic version that handles common cases
+    const cleanName = imageName.replace(/\s*\(.*\)$/, '')
+    const ref = parseImageRef(currentTag ? `${cleanName}:${currentTag}` : cleanName)
 
-    const cleanImageName = imageName.replace(/^docker\.io\//, '').replace(/^library\//, '')
+    const client = new OciClient({
+      ...(options.registries ? { registries: options.registries } : {}),
+      logger: getDefaultLogger(),
+    })
 
-    // Handle official images (no slash in name)
-    let apiUrl: string
-    if (!cleanImageName.includes('/')) {
-      // Official image like 'node', 'python', 'ubuntu'
-      apiUrl = `https://registry.hub.docker.com/v2/repositories/library/${cleanImageName}/tags/?page_size=100`
-    }
-    else {
-      // User/org image like 'alpine/git'
-      apiUrl = `https://registry.hub.docker.com/v2/repositories/${cleanImageName}/tags/?page_size=100`
-    }
-
-    // Docker Hub throttles anonymous callers aggressively; a personal access
-    // token in DOCKERHUB_TOKEN lifts the limit when one is configured.
-    const headers: Record<string, string> = { 'User-Agent': 'buddy-bot' }
-    const dockerToken = process.env.DOCKERHUB_TOKEN || process.env.DOCKER_TOKEN
-    if (dockerToken)
-      headers.Authorization = `Bearer ${dockerToken}`
-
-    const response = await fetchWithTimeout(apiUrl, { headers })
-    if (!response.ok) {
-      getDefaultLogger().warn(`Failed to fetch tags for ${imageName}: ${response.status}`)
+    const tags = await client.listTags(ref)
+    if (tags.length === 0)
       return null
-    }
 
-    const data = await response.json() as { results?: Array<{ name: string }> }
-    if (!data.results || !Array.isArray(data.results)) {
-      return null
-    }
-
-    // Filter and sort tags to find the latest stable version
-    const tags = data.results
-      .map((tag: any) => tag.name)
-      .filter((tag: string) => {
-        // Skip tags that are clearly not version numbers
-        if (tag === 'latest' || tag.includes('rc') || tag.includes('beta') || tag.includes('alpha')) {
-          return false
-        }
-        // Look for semantic version patterns
-        return /^\d+(?:\.\d+)*(?:-\w+)?$/.test(tag)
-      })
-      .sort((a: string, b: string) => {
-        // Simple version comparison - could be improved with proper semver
-        const aParts = a.split('.').map(Number)
-        const bParts = b.split('.').map(Number)
-
-        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-          const aVal = aParts[i] || 0
-          const bVal = bParts[i] || 0
-          if (aVal !== bVal) {
-            return bVal - aVal // Descending order
-          }
-        }
-        return 0
-      })
-
-    return tags.length > 0 ? tags[0] : null
+    return selectLatestTag(ref.tag, tags, {
+      includePrerelease: options.includePrerelease ?? false,
+    })
   }
   catch (error) {
     getDefaultLogger().warn(`Failed to fetch latest version for Docker image ${imageName}:`, error)
     return null
   }
+}
+
+/**
+ * Resolve a tag to its digest, for references pinned with `@sha256:…`.
+ *
+ * Moving the tag without moving the digest would leave the old image running
+ * while the file claims otherwise, which is worse than not updating at all.
+ *
+ * @param imageName - Image reference
+ * @param tag - Tag to resolve
+ * @param registries - Registry credentials
+ * @returns The digest, or null when it cannot be resolved
+ */
+export async function resolveDockerDigest(
+  imageName: string,
+  tag: string,
+  registries?: DockerRegistryConfig,
+): Promise<string | null> {
+  const ref = parseImageRef(`${imageName.replace(/\s*\(.*\)$/, '')}:${tag}`)
+  const client = new OciClient({ ...(registries ? { registries } : {}), logger: getDefaultLogger() })
+
+  return client.resolveDigest(ref)
 }
 
 /**

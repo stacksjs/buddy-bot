@@ -183,6 +183,37 @@ export function validateConfig(config: BuddyBotConfig): ConfigIssue[] {
   return issues
 }
 
+function validateDockerRegistries(issues: ConfigIssue[], docker: unknown): void {
+  if (docker === undefined)
+    return
+  if (!isPlainObject(docker)) {
+    issues.push({ path: 'registries.docker', message: `expected an object keyed by registry host, got ${quote(docker)}` })
+    return
+  }
+
+  for (const [host, auth] of Object.entries(docker)) {
+    const base = `registries.docker.${host}`
+    if (!isPlainObject(auth)) {
+      issues.push({ path: base, message: `expected an object, got ${quote(auth)}` })
+      continue
+    }
+
+    for (const key of ['username', 'passwordEnv', 'tokenEnv'] as const) {
+      const value = auth[key]
+      if (value !== undefined && (typeof value !== 'string' || !value.trim()))
+        issues.push({ path: `${base}.${key}`, message: `expected a non-empty string, got ${quote(value)}` })
+    }
+
+    // A username with no password names half a credential, which fails at the
+    // registry rather than here unless it is caught.
+    if (auth.username && !auth.passwordEnv && !auth.tokenEnv)
+      issues.push({ path: `${base}.passwordEnv`, message: 'is required when a username is given' })
+
+    if (auth.passwordEnv && !auth.username)
+      issues.push({ path: `${base}.username`, message: 'is required when passwordEnv is given' })
+  }
+}
+
 function validateAnalysis(issues: ConfigIssue[], config: BuddyBotConfig): void {
   const analysis = config.analysis
   if (analysis === undefined)
@@ -550,6 +581,7 @@ function validateRegistries(issues: ConfigIssue[], config: BuddyBotConfig): void
     return
   }
 
+  validateDockerRegistries(issues, registries.docker)
   checkUrl(issues, 'registries.npm', registries.npm)
   checkUrl(issues, 'registries.composer', registries.composer)
 

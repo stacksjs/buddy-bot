@@ -47,8 +47,13 @@ describe('security-advisories', () => {
       expect(toOsvEcosystem('require-dev')).toBe('Packagist')
     })
 
+    it('success case - indexes GitHub Actions', () => {
+      // An action runs with the workflow's credentials, so a compromised one
+      // is a repository compromise.
+      expect(toOsvEcosystem('github-actions')).toBe('GitHub Actions')
+    })
+
     it('edge case - returns null for kinds OSV does not index', () => {
-      expect(toOsvEcosystem('github-actions')).toBeNull()
       expect(toOsvEcosystem('docker-image')).toBeNull()
       expect(toOsvEcosystem('zig-dependencies')).toBeNull()
     })
@@ -216,11 +221,28 @@ describe('security-advisories', () => {
     it('should not query OSV for ecosystems it does not index', async () => {
       fetchSpy = spyOn(globalThis, 'fetch')
 
-      const updates = [update({ dependencyType: 'github-actions', name: 'actions/checkout' })]
+      const updates = [update({ dependencyType: 'docker-image', name: 'node' })]
       await new SecurityAdvisoryService(logger).annotateUpdates(updates)
 
       expect(fetchSpy).not.toHaveBeenCalled()
       expect(updates[0].securityAdvisories).toBeUndefined()
+    })
+
+    it('should strip the v prefix from an action version', async () => {
+      // OSV indexes GitHub Actions as `4`, not `v4`; sending the written form
+      // matches nothing and would read as "no advisories".
+      fetchSpy = mockOsv('4.2.2')
+
+      await new SecurityAdvisoryService(logger).annotateUpdates([
+        update({ dependencyType: 'github-actions', name: 'actions/checkout', currentVersion: 'v4', newVersion: 'v4.2.2' }),
+      ])
+
+      const batch = fetchSpy.mock.calls.find((call: any) => String(call[0]).includes('querybatch'))
+      const body = JSON.parse(String((batch![1] as RequestInit).body))
+      expect(body.queries[0]).toMatchObject({
+        version: '4',
+        package: { name: 'actions/checkout', ecosystem: 'GitHub Actions' },
+      })
     })
 
     it('should query the lower bound of a caret range', async () => {

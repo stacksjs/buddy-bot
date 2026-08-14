@@ -70,6 +70,22 @@ export interface BuddyBotConfig {
     npmScopes?: Record<string, string>
     /** Composer/Packagist base URL (default: packagist.org) */
     composer?: string
+    /**
+     * Per-host container registry credentials, keyed by host
+     * (`ghcr.io`, `quay.io`, `123.dkr.ecr.us-east-1.amazonaws.com`).
+     *
+     * Secrets are referenced by environment variable name, never inlined, so
+     * a registry can be committed to the repository without committing the
+     * credential that reaches it. `ghcr.io` falls back to `GITHUB_TOKEN`
+     * automatically, so private GHCR images work in Actions with no config.
+     */
+    docker?: Record<string, {
+      username?: string
+      /** Environment variable holding the password */
+      passwordEnv?: string
+      /** Environment variable holding a pre-issued bearer token */
+      tokenEnv?: string
+    }>
   }
 
   /** Security advisory settings */

@@ -211,8 +211,9 @@ describe('Buddy - GitHub Actions Integration', () => {
 
       const result = await buddy.scanForUpdates()
 
-      // Should only check GitHub Actions files
-      expect(fetchSpy).toHaveBeenCalledTimes(3) // 3 actions in the workflow file
+      // Should only check GitHub Actions files: one release lookup per action,
+      // plus the single batched OSV advisory query for them.
+      expect(fetchSpy).toHaveBeenCalledTimes(4)
       expect(result.updates.every(u => u.dependencyType === 'github-actions')).toBe(true)
     })
 

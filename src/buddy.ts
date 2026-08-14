@@ -1286,8 +1286,14 @@ export class Buddy {
           return null
         }
 
-        // Fetch latest version for this Docker image
-        const latestVersion = await fetchLatestDockerImageVersion(dep.name)
+        // The current tag is passed so its variant and precision survive: an
+        // `-alpine` image must not be "updated" to a Debian one.
+        const latestVersion = await fetchLatestDockerImageVersion(dep.name, dep.currentVersion, {
+          ...(this.config.registries?.docker ? { registries: this.config.registries.docker } : {}),
+          ...(this.config.packages?.includePrerelease !== undefined
+            ? { includePrerelease: this.config.packages.includePrerelease }
+            : {}),
+        })
 
         if (latestVersion) {
           this.logger.info(`Latest version for ${dep.name}: ${latestVersion}`)

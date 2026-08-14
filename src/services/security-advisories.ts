@@ -32,6 +32,11 @@ export function toOsvEcosystem(dependencyType: Dependency['type']): string | nul
     case 'require':
     case 'require-dev':
       return 'Packagist'
+    case 'github-actions':
+      // OSV carries GitHub Actions advisories, and an action runs with the
+      // workflow's credentials — a compromised one is a repository compromise,
+      // which makes this the least optional ecosystem to cover.
+      return 'GitHub Actions'
     default:
       return null
   }
@@ -242,7 +247,12 @@ export class SecurityAdvisoryService {
       const version = stripRangePrefix(update.currentVersion)
       if (!version)
         return
-      queries.push({ name: update.name, version, ecosystem })
+      // Actions are referenced as `v4`, which OSV indexes as `4`. Sending the
+      // written form matches nothing and would read as "no advisories".
+      const normalized = ecosystem === 'GitHub Actions' ? version.replace(/^v/i, '') : version
+      if (!normalized)
+        return
+      queries.push({ name: update.name, version: normalized, ecosystem })
       queryIndexes.push(index)
     })
 
