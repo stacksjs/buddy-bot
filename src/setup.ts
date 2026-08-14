@@ -1118,6 +1118,15 @@ on:
   issues:
     types: [edited]
 
+  # @buddy-bot commands. The guard below terminates in seconds for the
+  # overwhelming majority of comments, which never mention the bot, so ordinary
+  # discussion costs no meaningful Actions time.
+  issue_comment:
+    types: [created]
+
+  pull_request_review_comment:
+    types: [created]
+
   schedule:
     # Update dependencies every 2 hours
     - cron: '0 */2 * * *'
@@ -1218,6 +1227,7 @@ jobs:
       run_check: \${{ steps.determine.outputs.run_check }}
       run_update: \${{ steps.determine.outputs.run_update }}
       run_dashboard: \${{ steps.determine.outputs.run_dashboard }}
+      run_command: \${{ steps.determine.outputs.run_command }}
     steps:
       - name: Determine which jobs to run
         id: determine
@@ -1231,11 +1241,13 @@ jobs:
           PR_ACTOR: \${{ github.actor }}
           PR_BRANCH: \${{ github.event.pull_request.head.ref }}
           ISSUE_TITLE: \${{ github.event.issue.title }}
+          COMMENT_BODY: \${{ github.event.comment.body }}
         run: |
           # Default to not running any jobs
           echo "run_check=false" >> \$GITHUB_OUTPUT
           echo "run_update=false" >> \$GITHUB_OUTPUT
           echo "run_dashboard=false" >> \$GITHUB_OUTPUT
+          echo "run_command=false" >> \$GITHUB_OUTPUT
 
           if [ "\${{ github.event_name }}" = "pull_request" ]; then
             # PR body was edited — check if it's a buddy-bot PR with rebase checkbox
@@ -1268,6 +1280,20 @@ jobs:
               echo "ℹ️ Dashboard edited by user — running checkbox check"
             else
               echo "ℹ️ Non-dashboard issue edited — skipping (title: \$TITLE)"
+            fi
+          elif [ "\${{ github.event_name }}" = "issue_comment" ] || [ "\${{ github.event_name }}" = "pull_request_review_comment" ]; then
+            # Cheap pre-filter: no mention, no work. This is the guard that
+            # keeps ordinary discussion from spending Actions minutes.
+            ACTOR="\$PR_ACTOR"
+            BODY="\$COMMENT_BODY"
+
+            if [[ "\$ACTOR" == *"[bot]"* ]] || [[ "\$ACTOR" == "github-actions[bot]" ]]; then
+              echo "ℹ️ Skipping — comment written by bot actor: \$ACTOR"
+            elif [[ "\$BODY" == *"@buddy-bot"* ]]; then
+              echo "run_command=true" >> \$GITHUB_OUTPUT
+              echo "ℹ️ Comment mentions buddy-bot — handling command"
+            else
+              echo "ℹ️ Comment does not mention buddy-bot — skipping"
             fi
           elif [ "\${{ github.event_name }}" = "workflow_dispatch" ]; then
             JOB="\${{ github.event.inputs.job || 'all' }}"

@@ -101,3 +101,6 @@ export * from './review'
 
 // Static analysis
 export * from './analysis'
+
+// Comment commands
+export * from './commands'
