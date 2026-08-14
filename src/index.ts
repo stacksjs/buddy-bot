@@ -119,3 +119,6 @@ export * from './rules'
 
 // AI-assisted major upgrades
 export * from './upgrades'
+
+// Runtime events and notifications
+export * from './events'

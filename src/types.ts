@@ -226,6 +226,19 @@ export interface BuddyBotConfig {
     }
   }
 
+  /**
+   * Where to send notifications about what buddy-bot did.
+   *
+   * Credentials are referenced by environment variable name, never inlined,
+   * so a destination can be committed without committing its credential.
+   */
+  notifications?: {
+    slack?: { webhookEnv?: string, events?: string[] }
+    discord?: { webhookEnv?: string, events?: string[] }
+    /** Signed JSON POSTs to your own endpoints */
+    webhooks?: Array<{ url: string, secretEnv?: string, events?: string[] }>
+  }
+
   /** Maximum number of PRs to create per workflow run (default: 10) */
   maxPRsPerRun?: number
 

@@ -20,6 +20,8 @@ import { GitHubProvider } from './git/github-provider'
 import { evaluateAutoMerge, evaluateAutoMergeForUpdates, resolveAutoMergeConfig } from './pr/auto-merge'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
+import { EventBus } from './events/bus'
+import { createSinks } from './events/sinks'
 import { applyRules, groupsToRules } from './rules/engine'
 import { applyTemplate, templateTokensForGroup } from './pr/templates'
 import { RegistryClient } from './registry/registry-client'
@@ -36,6 +38,7 @@ export class Buddy {
   private readonly logger: Logger
   private readonly scanner: PackageScanner
   private readonly registryClient: RegistryClient
+  private eventBus: EventBus | null = null
   private readonly dashboardGenerator: DashboardGenerator
 
   constructor(
@@ -181,6 +184,14 @@ export class Buddy {
       }
 
       this.logger.success(`Scan completed in ${scanDuration}ms. Found ${updates.length} updates.`)
+
+      await this.events.emit('scan.completed', {
+        total: updates.length,
+        major: updates.filter(update => update.updateType === 'major').length,
+        minor: updates.filter(update => update.updateType === 'minor').length,
+        patch: updates.filter(update => update.updateType === 'patch').length,
+      })
+
       return result
     }
     catch (error) {
@@ -844,6 +855,13 @@ export class Buddy {
           prsCreatedThisRun++
           this.logger.success(`✅ Created PR #${pr.number}: ${pr.title} (${prsCreatedThisRun}/${maxPRsPerRun} this run)`)
           this.logger.info(`🔗 ${pr.url}`)
+
+          await this.events.emit('pr.created', {
+            number: pr.number,
+            title: pr.title,
+            url: pr.url,
+            packages: group.updates.map(update => update.name),
+          })
 
           await this.queueAutoMerge(gitProvider, pr, group.updates, dynamicLabels)
 
@@ -2054,6 +2072,22 @@ export class Buddy {
   }
 
   /**
+   * The notification bus for this run, built once.
+   *
+   * Built lazily so a configuration with no notification destinations never
+   * constructs sinks or reads credentials it does not need.
+   */
+  private get events(): EventBus {
+    if (!this.eventBus) {
+      this.eventBus = new EventBus(this.logger)
+      for (const sink of createSinks(this.config.notifications as Parameters<typeof createSinks>[0]))
+        this.eventBus.register(sink)
+    }
+
+    return this.eventBus
+  }
+
+  /**
    * Build a GitHub provider from the configured repository and environment
    * tokens, or `null` when either is missing.
    *
@@ -2167,6 +2201,7 @@ export class Buddy {
       try {
         await gitProvider.mergePullRequest(pr.number, settings.strategy)
         this.logger.success(`🔀 Merged PR #${pr.number}: ${decision.reason}`)
+        await this.events.emit('pr.merged', { number: pr.number, title: pr.title, strategy: settings.strategy })
         merged.push(pr.number)
       }
       catch (error) {
