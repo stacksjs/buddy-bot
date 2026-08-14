@@ -253,6 +253,48 @@ Set `security.enabled: false` for fully offline runs.
 | `labels` | `string[]` | Labels to apply | `['dependencies']` |
 | `autoMerge` | `AutoMergeConfig` | Auto-merge configuration, see [Auto-Merge](/features/auto-merge) | `undefined` |
 
+### Pull Request Templates
+
+`titleFormat`, `commitMessageFormat` and `bodyTemplate` accept `{token}` placeholders. Unknown tokens are left as-is rather than blanked, so a typo is visible instead of silently dropping content.
+
+| Token | Available in | Value |
+|---|---|---|
+| `{title}` | title | The generated title |
+| `{message}` | commit message | The generated commit message |
+| `{group}` | all | Update group name, e.g. `Non-Major Updates` |
+| `{count}`, `{package_count}` | all | Number of packages in the PR |
+| `{strategy}` | all | Configured update strategy |
+| `{update_type}` | all | Highest semver impact in the group |
+| `{packages}` | all | Comma-separated package names |
+| `{updates_table}` | body | The generated dependency tables and release notes |
+| `{footer}` | body | The rebase/retry checkbox |
+
+```ts
+pullRequest: {
+  titleFormat: '[deps] {title}',
+  commitMessageFormat: 'deps: {message}',
+  bodyTemplate: '# {group}\n\n{updates_table}\n\n{footer}',
+}
+```
+
+A custom `bodyTemplate` replaces the generated prose, but the rebase checkbox and the machine-readable manifest are always appended — rebasing and auto-closing read the manifest, so a template cannot break the PR lifecycle.
+
+### Pinning Packages
+
+`packages.pin` holds a package at an exact version. A pin is both a ceiling and a floor: updates past the pin are dropped, and a package sitting somewhere else has an update proposed that brings it back to the pin.
+
+```ts
+packages: {
+  strategy: 'all',
+  pin: {
+    'typescript': '5.8.2',
+    '@types/node': '20.11.0',
+  },
+}
+```
+
+Use `packages.ignore` instead when you want a package left alone entirely.
+
 ## Environment Variables
 
 Buddy uses these environment variables:
