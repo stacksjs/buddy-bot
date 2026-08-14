@@ -991,6 +991,40 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * Create or update a check run on a commit.
+   *
+   * Reported as a check run rather than a comment so branch protection can
+   * require it — a gate that cannot block is only advice.
+   *
+   * @param name - Check name, as it appears in the checks list
+   * @param headSha - Commit to attach the result to
+   * @param result - Conclusion and the text shown in the checks tab
+   */
+  async createCheckRun(
+    name: string,
+    headSha: string,
+    result: { conclusion: 'success' | 'failure' | 'neutral', title: string, summary: string },
+  ): Promise<void> {
+    try {
+      await this.apiRequest(`POST /repos/${this.owner}/${this.repo}/check-runs`, {
+        name,
+        head_sha: headSha,
+        status: 'completed',
+        conclusion: result.conclusion,
+        completed_at: new Date().toISOString(),
+        output: { title: result.title, summary: result.summary },
+      })
+
+      this.logger.info(`✅ Reported check run ${name}: ${result.conclusion}`)
+    }
+    catch (error) {
+      // Check runs need `checks: write`, which a default GITHUB_TOKEN may
+      // lack; a missing gate result must not fail the run that produced it.
+      this.logger.warn(`⚠️ Could not report check run ${name}: ${formatError(error)}`)
+    }
+  }
+
+  /**
    * Read a repository file at a specific ref.
    *
    * The ref is explicit rather than defaulting to the branch under review:

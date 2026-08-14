@@ -107,3 +107,6 @@ export * from './commands'
 
 // CI failure analysis
 export * from './ci'
+
+// Merge gates
+export * from './gates'
