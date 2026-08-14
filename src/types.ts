@@ -156,6 +156,55 @@ export interface BuddyBotConfig {
   }
 
   /**
+   * Pre-merge gates and post-merge actions.
+   *
+   * The deterministic gates need no AI; the assertion gates degrade to a
+   * neutral result rather than a pass when no provider is configured, so a
+   * check that could not run never reads as one that succeeded.
+   */
+  gates?: {
+    /** Require a conventional-commit pull request title */
+    titleFormat?: 'off' | 'warning' | 'error'
+    /** Require a description, optionally with named sections */
+    description?: { mode: 'off' | 'warning' | 'error', requireSections?: string[] }
+    /** Block dependencies by licence, advisory or deprecation */
+    dependencyGate?: {
+      mode: 'off' | 'warning' | 'error'
+      licenseAllowlist?: string[]
+      blockVulnerable?: boolean
+      blockDeprecated?: boolean
+    }
+    /** Check that a change addresses the issue it says it closes */
+    linkedIssue?: 'off' | 'warning' | 'error'
+    /** Repository-specific natural-language assertions */
+    custom?: Array<{
+      name: string
+      assertion: string
+      mode?: 'off' | 'warning' | 'error'
+    }>
+    /** What to do once a pull request merges */
+    postMerge?: {
+      changelog?: { enabled?: boolean, path?: string }
+      commentOnIssues?: boolean
+      refreshDashboard?: boolean
+    }
+  }
+
+  /**
+   * Comment posted on newly opened issues, offering Buddy Bot's help.
+   *
+   * Both actions are opt-in checkboxes: an issue is a request for a
+   * conversation as often as for code, and a bot that opens a pull request
+   * against every new issue is one a maintainer turns off in a week.
+   */
+  issues?: {
+    /** Post the quick-links comment on new issues (default: false) */
+    quickLinks?: boolean
+    /** Include dependency context when the issue names a known package */
+    dependencyContext?: boolean
+  }
+
+  /**
    * Scheduled dependency-health and activity reports.
    *
    * The report is computed from scan results and pull request history, so it

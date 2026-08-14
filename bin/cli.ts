@@ -2713,6 +2713,140 @@ cli
   })
 
 cli
+  .command('gate <pr-number>', 'Run pre-merge gates on a pull request and publish the result')
+  .option('--dry-run', 'Print the result instead of publishing a check run')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot gate 42')
+  .action(async (prNumber: string, options: CLIOptions & { dryRun?: boolean }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const number = Number.parseInt(prNumber, 10)
+      if (Number.isNaN(number)) {
+        logger.error('❌ Invalid PR number')
+        process.exit(1)
+      }
+
+      const provider = await providerFor(config, 'running gates', logger)
+      const { findLinkedIssues, runAiGates, runGates, summarizeGates } = await import('../src/gates')
+      const { parseManifest } = await import('../src/pr/pr-manifest')
+
+      const prs = await provider.getPullRequests('open')
+      const pr = prs.find(candidate => candidate.number === number)
+      if (!pr) {
+        logger.error(`❌ Pull request #${number} is not open`)
+        process.exit(1)
+      }
+
+      const gates = config.gates ?? {}
+
+      const deterministic = runGates(
+        { title: pr.title, body: pr.body, manifest: parseManifest(pr.body) },
+        {
+          ...(gates.titleFormat ? { titleFormat: gates.titleFormat } : {}),
+          ...(gates.description ? { description: gates.description } : {}),
+          ...(gates.dependencyGate ? { dependencyGate: gates.dependencyGate } : {}),
+        },
+      )
+
+      // The linked issues are fetched so the assessment reads what the issue
+      // actually says rather than only its number.
+      const linkedNumbers = findLinkedIssues(pr.body ?? '')
+      const allIssues = linkedNumbers.length > 0 ? await provider.getIssues('all') : []
+      const linkedIssues = linkedNumbers
+        .map(issueNumber => allIssues.find(issue => issue.number === issueNumber))
+        .filter((issue): issue is NonNullable<typeof issue> => Boolean(issue))
+        .map(issue => ({ number: issue.number, title: issue.title, body: issue.body }))
+
+      const { createAiClient } = await import('../src/ai')
+
+      const aiResults = await runAiGates(
+        createAiClient(config, logger),
+        {
+          title: pr.title,
+          body: pr.body,
+          diff: await provider.getPullRequestDiff(number),
+          linkedIssues,
+        },
+        {
+          ...(gates.linkedIssue ? { linkedIssue: gates.linkedIssue } : {}),
+          ...(gates.custom ? { custom: gates.custom } : {}),
+        },
+        logger,
+      )
+
+      const results = [...deterministic, ...aiResults]
+      const summary = summarizeGates(results)
+
+      for (const result of results)
+        logger.info(`${result.passed ? '✅' : result.mode === 'error' ? '❌' : '⚠️'} ${result.name}: ${result.summary}`)
+
+      const blocking = summary.conclusion === 'failure'
+
+      if (options.dryRun || !supports(provider, 'checkRuns', 'createCheckRun')) {
+        logger.info(summary.summary)
+        // Exit code carries the verdict when there is no check run to carry it.
+        if (blocking)
+          process.exit(1)
+        return
+      }
+
+      await provider.createCheckRun('buddy-bot/gates', await provider.getPullRequestHeadSha(number), summary)
+
+      if (blocking)
+        process.exit(1)
+    }
+    catch (error) {
+      logger.error('Gate run failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
+  .command('post-merge <pr-number>', 'Run post-merge actions for a merged pull request')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot post-merge 42')
+  .action(async (prNumber: string, options: CLIOptions) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const number = Number.parseInt(prNumber, 10)
+      const provider = await providerFor(config, 'post-merge actions', logger)
+
+      const prs = await provider.getPullRequests('all')
+      const pr = prs.find(candidate => candidate.number === number)
+      if (!pr) {
+        logger.error(`❌ Pull request #${number} not found`)
+        process.exit(1)
+      }
+
+      // Guarded rather than assumed: `pull_request: [closed]` fires for
+      // abandoned pull requests too, and these actions must not run for one.
+      if (pr.state !== 'merged') {
+        logger.info(`ℹ️ PR #${number} was closed without merging; nothing to do`)
+        return
+      }
+
+      const { runPostMerge } = await import('../src/gates')
+      const outcome = await runPostMerge(provider, pr, config.gates?.postMerge ?? {}, {
+        baseBranch: config.repository?.baseBranch ?? pr.base,
+        logger,
+      })
+
+      for (const action of outcome.performed)
+        logger.success(`✅ ${action}`)
+      for (const entry of outcome.skipped)
+        logger.info(`⏭️  ${entry.action}: ${entry.reason}`)
+    }
+    catch (error) {
+      logger.error('Post-merge actions failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
   .command('report', 'Generate a dependency-health and activity report')
   .option('--period <window>', 'Reporting window: 7d|30d|90d', { default: '30d' })
   .option('--format <name>', 'Output format: markdown|json', { default: 'markdown' })
