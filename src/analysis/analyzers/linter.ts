@@ -211,6 +211,14 @@ export const LINTER_SPECS: LinterSpec[] = [
 /**
  * Find the linter this repository actually uses.
  *
+ * Two signals, either of which is a deliberate choice: a config file, or a
+ * package script that invokes the tool. The script matters because several of
+ * these linters run happily with no config at all — detecting only config
+ * files would miss a repository whose `lint` script is the whole setup.
+ *
+ * A bare dependency is *not* a signal: a linter in `devDependencies` that
+ * nothing invokes is a transitive artifact rather than a decision.
+ *
  * @param root - Repository root
  * @returns The matching spec, or null when no linter is configured
  */
@@ -222,7 +230,32 @@ export async function detectLinter(root: string): Promise<LinterSpec | null> {
     }
   }
 
+  const scripts = await readScripts(join(root, 'package.json'))
+
+  for (const spec of LINTER_SPECS) {
+    // Word-bounded so `eslint-config-x` in a script does not count as running
+    // eslint, and so `pickier` does not match `pickier-plugin`.
+    const invoked = new RegExp(`(?:^|[\\s/])${spec.name}(?:$|[\\s@])`)
+    if (Object.values(scripts).some(script => invoked.test(script)))
+      return spec
+  }
+
   return null
+}
+
+/** Read a package.json's scripts, tolerating absence and malformed JSON. */
+async function readScripts(path: string): Promise<Record<string, string>> {
+  const file = Bun.file(path)
+  if (!(await file.exists()))
+    return {}
+
+  try {
+    const parsed = await file.json() as { scripts?: Record<string, string> }
+    return parsed.scripts ?? {}
+  }
+  catch {
+    return {}
+  }
 }
 
 /**

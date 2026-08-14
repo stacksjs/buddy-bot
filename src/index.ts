@@ -25,6 +25,10 @@ export type {
   ReviewSubmission,
   ReviewSubmissionResult,
 } from './git/provider'
+export { diagnose, renderDoctorReport } from './doctor'
+export type { DoctorCheck, DoctorEnvironment, DoctorReport } from './doctor'
+export { formatGithubOutput, publishOutput, runHeadless, validateAgainstSchema } from './headless/run'
+export type { HeadlessOptions, HeadlessResult, SchemaViolation } from './headless/run'
 export { PullRequestGenerator } from './pr/pr-generator'
 export { RegistryClient } from './registry/registry-client'
 // Core functionality exports

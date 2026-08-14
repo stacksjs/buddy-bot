@@ -1,0 +1,97 @@
+name: Buddy Bot
+description: Run Buddy Bot as a pipeline step, with schema-validated output later steps can consume
+author: stacksjs
+
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  prompt:
+    description: The prompt to run. Mutually exclusive with prompt-file.
+    required: false
+  prompt-file:
+    description: Path to a file containing the prompt.
+    required: false
+  output-schema:
+    description: >-
+      JSON Schema the output must satisfy. When set, output that does not
+      conform fails the step rather than being emitted in the wrong shape.
+    required: false
+  model:
+    description: Model override, e.g. claude-opus-5.
+    required: false
+  retries:
+    description: How many times to re-ask on a schema violation before failing.
+    required: false
+    default: '2'
+  version:
+    description: Version of buddy-bot to run.
+    required: false
+    default: latest
+  verbose:
+    description: Log diagnostics to stderr.
+    required: false
+    default: 'false'
+
+outputs:
+  result:
+    description: >-
+      The model's output. A JSON string when output-schema was given, so later
+      steps can use fromJSON(); the raw text otherwise.
+    value: ${{ steps.run.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Run Buddy Bot
+      id: run
+      shell: bash
+      # The prompt is passed through the environment rather than interpolated
+      # into the command, so a prompt containing quotes or shell metacharacters
+      # is data. Interpolating `${{ inputs.prompt }}` directly would be a
+      # command injection wherever the prompt comes from a PR title or comment.
+      env:
+        BUDDY_PROMPT: ${{ inputs.prompt }}
+        BUDDY_PROMPT_FILE: ${{ inputs.prompt-file }}
+        BUDDY_OUTPUT_SCHEMA: ${{ inputs.output-schema }}
+        BUDDY_MODEL: ${{ inputs.model }}
+        BUDDY_RETRIES: ${{ inputs.retries }}
+        BUDDY_VERSION: ${{ inputs.version }}
+        BUDDY_VERBOSE: ${{ inputs.verbose }}
+      run: |
+        set -euo pipefail
+
+        args=()
+
+        if [ -n "$BUDDY_PROMPT_FILE" ]; then
+          args+=(--prompt-file "$BUDDY_PROMPT_FILE")
+        elif [ -n "$BUDDY_PROMPT" ]; then
+          args+=(--prompt "$BUDDY_PROMPT")
+        else
+          echo "::error::Provide either 'prompt' or 'prompt-file'"
+          exit 1
+        fi
+
+        if [ -n "$BUDDY_OUTPUT_SCHEMA" ]; then
+          args+=(--output-schema "$BUDDY_OUTPUT_SCHEMA")
+        fi
+
+        if [ -n "$BUDDY_MODEL" ]; then
+          args+=(--model "$BUDDY_MODEL")
+        fi
+
+        if [ -n "$BUDDY_RETRIES" ]; then
+          args+=(--retries "$BUDDY_RETRIES")
+        fi
+
+        if [ "$BUDDY_VERBOSE" = "true" ]; then
+          args+=(--verbose)
+        fi
+
+        bunx "buddy-bot@${BUDDY_VERSION}" run "${args[@]}"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import type { GitProvider } from '../src/git/provider'
+import type { ReviewFinding } from '../src/review/findings'
+import type { ReviewFormat } from '../src/review/local'
 import type { BuddyBotConfig } from '../src/types'
 import fs from 'node:fs'
 import process from 'node:process'
@@ -37,6 +39,7 @@ import {
   validateRepositoryAccess,
   validateWorkflowGeneration,
 } from '../src/setup'
+import { applySuggestion, REVIEW_FORMATS } from '../src/review/local'
 import { formatError } from '../src/utils/errors'
 import { Logger } from '../src/utils/logger'
 
@@ -89,6 +92,80 @@ async function providerFor(config: BuddyBotConfig, purpose: string, logger: Logg
     logger.error(`❌ ${formatError(error)}`)
     process.exit(1)
   }
+}
+
+
+/**
+ * Apply committable suggestions to the working tree.
+ *
+ * Confirmation is per finding unless `--yes`, because a suggestion is a
+ * proposal: a reviewer reads each one before accepting it, and applying a
+ * batch unseen is how a review turns into an unreviewed commit.
+ *
+ * Findings are applied bottom-up within each file so that replacing a line
+ * cannot shift the line numbers of the ones still to be applied.
+ *
+ * @param findings - Findings from the review
+ * @param assumeYes - Apply without asking
+ * @param logger - Where to report progress
+ * @returns How many suggestions were applied
+ */
+async function applyFixes(findings: ReviewFinding[], assumeYes: boolean, logger: Logger): Promise<number> {
+  const fixable = findings.filter(finding => finding.suggestion)
+  if (fixable.length === 0) {
+    logger.info('No committable suggestions in this review')
+    return 0
+  }
+
+  const byFile = new Map<string, ReviewFinding[]>()
+  for (const finding of fixable) {
+    const existing = byFile.get(finding.path)
+    if (existing)
+      existing.push(finding)
+    else
+      byFile.set(finding.path, [finding])
+  }
+
+  let applied = 0
+
+  for (const [path, fileFindings] of byFile) {
+    const file = Bun.file(path)
+    if (!(await file.exists())) {
+      logger.warn(`⚠️ Skipping ${path}: not in the working tree`)
+      continue
+    }
+
+    let content = await file.text()
+
+    for (const finding of [...fileFindings].sort((a, b) => b.line - a.line)) {
+      if (!assumeYes) {
+        const response = await prompts({
+          type: 'confirm',
+          name: 'apply',
+          message: `${path}:${finding.line} — ${finding.message}\n  ${finding.suggestion}\nApply?`,
+          initial: false,
+        })
+
+        // A cancelled prompt (Ctrl-C) leaves `apply` undefined; treating that
+        // as "no" is the only safe reading.
+        if (!response.apply)
+          continue
+      }
+
+      const updated = applySuggestion(content, finding.line, finding.suggestion!)
+      if (updated === null) {
+        logger.warn(`⚠️ Skipping ${path}:${finding.line}: the file changed since the review`)
+        continue
+      }
+
+      content = updated
+      applied++
+    }
+
+    await Bun.write(path, content)
+  }
+
+  return applied
 }
 
 const cli = new CLI('buddy-bot')
@@ -1411,13 +1488,28 @@ cli
   .command('review [pr-number]', 'Review a pull request, or local changes when no PR is given')
   .option('--verbose, -v', 'Enable verbose logging')
   .option('--base <branch>', 'Base branch to diff against for a local review')
+  .option('--staged', 'Review staged changes only')
+  .option('--branch', 'Review this branch against its base, rather than the working tree')
+  .option('--light', 'Analyzers only — no AI call, fast enough for a pre-commit hook')
+  .option('--format <name>', 'Output format: pretty|json|github|agent', { default: 'pretty' })
+  .option('--fix', 'Apply committable suggestions to the working tree')
+  .option('--yes', 'Apply fixes without confirming each one')
+  .option('--fail-on <severity>', 'Exit non-zero when a finding at or above this severity is found')
   .option('--profile <name>', 'Review profile: chill|assertive')
   .option('--summary-only', 'Post only the summary, without inline findings')
   .option('--dry-run', 'Print the review instead of posting it')
   .example('buddy-bot review 42')
-  .example('buddy-bot review --base main --dry-run')
+  .example('buddy-bot review --staged --light')
+  .example('buddy-bot review --format agent | claude')
   .action(async (prNumber: string | undefined, options: CLIOptions & {
     base?: string
+    staged?: boolean
+    branch?: boolean
+    light?: boolean
+    format?: string
+    fix?: boolean
+    yes?: boolean
+    failOn?: string
     profile?: 'chill' | 'assertive'
     summaryOnly?: boolean
     dryRun?: boolean
@@ -1425,22 +1517,37 @@ cli
     const logger = options.verbose ? Logger.verbose() : Logger.quiet()
     const config = await resolveConfig(options.config)
 
+    const format = (options.format ?? 'pretty') as ReviewFormat
+    if (!REVIEW_FORMATS.includes(format)) {
+      logger.error(`❌ Unknown format '${format}'. Expected one of ${REVIEW_FORMATS.join(', ')}.`)
+      process.exit(1)
+    }
+
+    // Machine-readable formats own stdout: a log line in the middle of a JSON
+    // document or an agent prompt breaks whatever is consuming it.
+    const quiet = format !== 'pretty'
+    const log = quiet ? Logger.silent() : logger
+
     try {
       const { createAiClient } = await import('../src/ai')
-      const ai = createAiClient(config, logger)
-      if (!ai) {
-        logger.error('❌ AI review needs an API key. See https://buddy-bot.sh/ai/providers')
+      const ai = createAiClient(config, log)
+
+      // Local review runs without a key when only analyzers are wanted. A PR
+      // review needs the model — analyzers alone cannot write a summary.
+      if (!ai && (prNumber || !options.light)) {
+        logger.error('❌ AI review needs an API key, or use --light for analyzers only. See https://buddy-bot.sh/ai/providers')
         process.exit(1)
       }
 
       const {
-        collectGitDiff,
         composeInstructions,
         loadGuidelines,
         parseReviewState,
         prepareReview,
         reviewDiff,
       } = await import('../src/review')
+      const { collectLocalDiff, formatReview, shouldFail } = await import('../src/review/local')
+      const { runAnalyzers } = await import('../src/analysis')
 
       let diff: string
       let headSha = ''
@@ -1448,7 +1555,7 @@ cli
       let gitProvider: GitProvider | null = null
 
       if (prNumber) {
-        gitProvider = await providerFor(config, 'reviewing a pull request', logger)
+        gitProvider = await providerFor(config, 'reviewing a pull request', log)
 
         const number = Number.parseInt(prNumber, 10)
         diff = await gitProvider.getPullRequestDiff(number)
@@ -1463,12 +1570,43 @@ cli
       }
       else {
         const base = options.base || config.repository?.baseBranch || 'main'
-        logger.info(`🔍 Reviewing local changes against ${base}...`)
-        diff = await collectGitDiff(base)
+        const mode = options.staged ? 'staged' : options.branch ? 'branch' : 'working'
+        log.info(`🔍 Reviewing ${mode} changes${mode === 'branch' ? ` against ${base}` : ''}...`)
+        diff = await collectLocalDiff(mode, base)
       }
 
       if (!diff.trim()) {
-        logger.success('✅ No changes to review')
+        if (!quiet)
+          logger.success('✅ No changes to review')
+        return
+      }
+
+      // Analyzers run locally against the working tree, so a local review gets
+      // the same secret scanning and linting a CI review does — with no token.
+      const { parseUnifiedDiff } = await import('../src/review/diff')
+      const changedFiles = parseUnifiedDiff(diff).files.map(file => file.path)
+      const analysis = config.analysis?.enabled === false || prNumber
+        ? { findings: [], ran: [], skipped: [] }
+        : await runAnalyzers({
+            files: changedFiles,
+            root: process.cwd(),
+            ...(config.analysis?.tools ? { enabled: config.analysis.tools } : {}),
+            logger: log,
+          })
+
+      if (options.light) {
+        const result = {
+          summary: `Static analysis of ${changedFiles.length} changed file(s).`,
+          walkthrough: [],
+          findings: analysis.findings,
+          effort: 1,
+          omittedFiles: analysis.skipped.map(entry => `${entry.name} (${entry.reason})`),
+        }
+
+        process.stdout.write(formatReview(result, format))
+
+        if (options.failOn && shouldFail(result.findings, options.failOn as 'critical'))
+          process.exit(1)
         return
       }
 
@@ -1485,7 +1623,7 @@ cli
           )
         : ''
 
-      const result = await reviewDiff(ai, {
+      const reviewed = await reviewDiff(ai!, {
         diff,
         profile: options.profile ?? config.ai?.review?.profile,
         summaryOnly: options.summaryOnly ?? config.ai?.review?.summaryOnly,
@@ -1496,8 +1634,16 @@ cli
         pathFilters: config.ai?.review?.pathFilters,
         pathInstructions: config.ai?.review?.pathInstructions,
         seenFingerprints,
-        logger,
+        logger: log,
       })
+
+      // Analyzer findings join the model's, so one review reports everything
+      // rather than the user having to run two commands and merge them.
+      const result = {
+        ...reviewed,
+        findings: [...analysis.findings, ...reviewed.findings],
+        omittedFiles: [...reviewed.omittedFiles, ...analysis.skipped.map(entry => `${entry.name} (${entry.reason})`)],
+      }
 
       const prepared = prepareReview(result, {
         headSha,
@@ -1505,7 +1651,20 @@ cli
         seenFingerprints,
       })
 
-      if (!prNumber || options.dryRun) {
+      if (!prNumber) {
+        process.stdout.write(formatReview(result, format))
+
+        if (options.fix) {
+          const applied = await applyFixes(result.findings, Boolean(options.yes), logger)
+          logger.success(`🔧 Applied ${applied} suggestion(s)`)
+        }
+
+        if (options.failOn && shouldFail(result.findings, options.failOn as 'critical'))
+          process.exit(1)
+        return
+      }
+
+      if (options.dryRun) {
         logger.info(`\n${prepared.body}\n`)
         for (const comment of prepared.comments)
           logger.info(`${comment.path}:${comment.line}\n${comment.body}\n`)
@@ -2551,6 +2710,123 @@ cli
     if (output)
       process.stdout.write(`${output}\n`)
     process.exit(result.failed ? 1 : 0)
+  })
+
+cli
+  .command('doctor', 'Diagnose this environment: credentials, git state and analyzer tooling')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot doctor')
+  .action(async (options: CLIOptions) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+
+    // A broken config is exactly what `doctor` exists to report, so loading it
+    // must not be the thing that stops the diagnosis from running.
+    const config = await resolveConfig(options.config).catch((error) => {
+      logger.warn(`⚠️ Could not load configuration: ${formatError(error)}`)
+      return {} as BuddyBotConfig
+    })
+
+    const { diagnose, renderDoctorReport } = await import('../src/doctor')
+    const report = await diagnose(config)
+
+    process.stdout.write(renderDoctorReport(report))
+
+    if (!report.healthy)
+      process.exit(1)
+  })
+
+cli
+  .command('run', 'Run a prompt headlessly, with optional schema-validated output')
+  .option('--prompt <text>', 'The prompt to run')
+  .option('--prompt-file <path>', 'Read the prompt from a file')
+  .option('--output-schema <json>', 'JSON Schema the output must satisfy')
+  .option('--output-schema-file <path>', 'Read the schema from a file')
+  .option('--model <name>', 'Model override')
+  .option('--retries <n>', 'Schema retries before failing', { default: '2' })
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot run --prompt "Summarize this week\'s dependency updates"')
+  .example('buddy-bot run --prompt-file p.txt --output-schema \'{"type":"object"}\'')
+  .action(async (options: CLIOptions & {
+    prompt?: string
+    promptFile?: string
+    outputSchema?: string
+    outputSchemaFile?: string
+    model?: string
+    retries?: string
+  }) => {
+    // stdout carries the result, which a pipeline step parses; diagnostics go
+    // to stderr via the logger so they cannot corrupt it.
+    const logger = options.verbose ? Logger.verbose() : Logger.silent()
+    const config = await resolveConfig(options.config)
+
+    try {
+      const prompt = options.promptFile
+        ? await Bun.file(options.promptFile).text()
+        : options.prompt
+
+      if (!prompt?.trim()) {
+        process.stderr.write('❌ Provide --prompt or --prompt-file\n')
+        process.exit(1)
+      }
+
+      const schemaText = options.outputSchemaFile
+        ? await Bun.file(options.outputSchemaFile).text()
+        : options.outputSchema
+
+      let schema: Record<string, unknown> | undefined
+      if (schemaText) {
+        try {
+          schema = JSON.parse(schemaText)
+        }
+        catch (error) {
+          process.stderr.write(`❌ --output-schema is not valid JSON: ${formatError(error)}\n`)
+          process.exit(1)
+        }
+      }
+
+      const { createAiClient } = await import('../src/ai')
+      const ai = createAiClient(
+        options.model ? { ...config, ai: { ...config.ai, model: options.model } } : config,
+        logger,
+      )
+
+      if (!ai) {
+        process.stderr.write('❌ No AI provider configured. See https://buddy-bot.sh/ai/providers\n')
+        process.exit(1)
+      }
+
+      const { publishOutput, runHeadless } = await import('../src/headless/run')
+
+      const outcome = await runHeadless({
+        prompt,
+        ai,
+        ...(schema ? { schema } : {}),
+        maxRetries: Number.parseInt(options.retries ?? '2', 10),
+        logger,
+      })
+
+      if (!outcome.valid) {
+        // The contract a pipeline depends on: a nonconforming output fails the
+        // step rather than emitting something shaped differently than promised.
+        process.stderr.write(`❌ Output did not satisfy the schema after ${outcome.attempts} attempt(s):\n${outcome.error}\n`)
+        process.exit(1)
+      }
+
+      const wrote = await publishOutput(outcome.result, process.env.GITHUB_OUTPUT)
+
+      const serialized = typeof outcome.result === 'string'
+        ? outcome.result
+        : JSON.stringify(outcome.result, null, 2)
+
+      process.stdout.write(`${serialized}\n`)
+
+      if (wrote)
+        logger.info('📤 Wrote `result` to $GITHUB_OUTPUT')
+    }
+    catch (error) {
+      process.stderr.write(`❌ ${formatError(error)}\n`)
+      process.exit(1)
+    }
   })
 
 cli.command('version', 'Show the version of Buddy Bot').action(() => {

@@ -33,3 +33,16 @@ export { prepareReview, renderFinding } from './poster'
 export { runReviewForPR } from './run'
 export type { RunReviewOptions } from './run'
 export type { InlineComment, PreparedReview } from './poster'
+export {
+  applySuggestion,
+  collectLocalDiff,
+  countBySeverity,
+  diffArgsFor,
+  formatAgent,
+  formatGithub,
+  formatPretty,
+  formatReview,
+  REVIEW_FORMATS,
+  shouldFail,
+} from './local'
+export type { DiffMode, ReviewFormat } from './local'

@@ -16,6 +16,8 @@ export interface AiResolution {
   model: string
   apiKey: string
   baseUrl?: string
+  /** Environment variable the key came from, for diagnostics */
+  apiKeyEnv?: string
 }
 
 /**
@@ -27,9 +29,13 @@ export interface AiResolution {
  * every AI feature is expected to degrade to a no-op rather than fail the run.
  *
  * @param config - Full buddy-bot configuration
+ * @param env - Environment to read keys from (defaults to `process.env`)
  * @returns The resolution, or `null` when no provider is usable
  */
-export function resolveAiProvider(config: BuddyBotConfig): AiResolution | null {
+export function resolveAiProvider(
+  config: BuddyBotConfig,
+  env: Record<string, string | undefined> = process.env,
+): AiResolution | null {
   const ai = config.ai
   if (ai?.enabled === false)
     return null
@@ -37,9 +43,11 @@ export function resolveAiProvider(config: BuddyBotConfig): AiResolution | null {
   const candidates: AiProviderName[] = ai?.provider ? [ai.provider] : PROVIDER_PRIORITY
 
   for (const provider of candidates) {
-    const apiKey = findApiKey(provider, ai?.apiKeyEnv)
-    if (!apiKey)
+    const found = findApiKey(provider, ai?.apiKeyEnv, env)
+    if (!found)
       continue
+
+    const { key: apiKey, source: apiKeyEnv } = found
 
     const model = resolveModel(provider, ai?.model)
     if (!model)
@@ -49,6 +57,7 @@ export function resolveAiProvider(config: BuddyBotConfig): AiResolution | null {
       provider,
       model,
       apiKey,
+      apiKeyEnv,
       ...(ai?.baseUrl ? { baseUrl: ai.baseUrl } : {}),
     }
   }
@@ -148,13 +157,17 @@ function instantiate(resolution: AiResolution): AiProvider {
   }
 }
 
-function findApiKey(provider: AiProviderName, overrideEnv?: string): string | undefined {
+function findApiKey(
+  provider: AiProviderName,
+  overrideEnv: string | undefined,
+  env: Record<string, string | undefined>,
+): { key: string, source: string } | undefined {
   const names = overrideEnv ? [overrideEnv, ...PROVIDER_KEY_ENV[provider]] : PROVIDER_KEY_ENV[provider]
 
   for (const name of names) {
-    const value = process.env[name]
+    const value = env[name]
     if (value && value.trim().length > 0)
-      return value.trim()
+      return { key: value.trim(), source: name }
   }
 
   return undefined
