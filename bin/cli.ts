@@ -1209,7 +1209,14 @@ cli
         process.exit(1)
       }
 
-      const { collectGitDiff, parseReviewState, prepareReview, reviewDiff } = await import('../src/review')
+      const {
+        collectGitDiff,
+        composeInstructions,
+        loadGuidelines,
+        parseReviewState,
+        prepareReview,
+        reviewDiff,
+      } = await import('../src/review')
 
       let diff: string
       let headSha = ''
@@ -1254,10 +1261,29 @@ cli
         return
       }
 
+      // Guidelines are inlined into the prompt, so they are always read from
+      // the base branch — reading them from the PR's own branch would let a
+      // contributor rewrite the rules their code is reviewed against.
+      const baseRef = config.repository?.baseBranch || options.base || 'main'
+      const guidelines = gitProvider
+        ? await loadGuidelines(
+            (path, ref) => gitProvider!.getFileContent(path, ref),
+            baseRef,
+            config.ai?.review?.guidelineFiles,
+            logger,
+          )
+        : ''
+
       const result = await reviewDiff(ai, {
         diff,
         profile: options.profile ?? config.ai?.review?.profile,
         summaryOnly: options.summaryOnly ?? config.ai?.review?.summaryOnly,
+        instructions: composeInstructions({
+          global: config.ai?.review?.instructions,
+          guidelines,
+        }),
+        pathFilters: config.ai?.review?.pathFilters,
+        pathInstructions: config.ai?.review?.pathInstructions,
         seenFingerprints,
         logger,
       })

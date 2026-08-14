@@ -346,6 +346,36 @@ function validateAi(issues: ConfigIssue[], config: BuddyBotConfig): void {
       checkEnum(issues, 'ai.review.requestChangesOn', review.requestChangesOn, REQUEST_CHANGES_MODES)
       checkStringArray(issues, 'ai.review.ignoreTitleKeywords', review.ignoreTitleKeywords)
       checkStringArray(issues, 'ai.review.ignoreUsernames', review.ignoreUsernames)
+      checkStringArray(issues, 'ai.review.pathFilters', review.pathFilters)
+
+      if (review.instructions !== undefined && typeof review.instructions !== 'string')
+        issues.push({ path: 'ai.review.instructions', message: `expected a string, got ${quote(review.instructions)}` })
+
+      // `false` disables guideline loading; anything else must be a path list.
+      if (review.guidelineFiles !== undefined && review.guidelineFiles !== false)
+        checkStringArray(issues, 'ai.review.guidelineFiles', review.guidelineFiles)
+
+      if (review.pathInstructions !== undefined) {
+        if (!Array.isArray(review.pathInstructions)) {
+          issues.push({
+            path: 'ai.review.pathInstructions',
+            message: `expected an array, got ${quote(review.pathInstructions)}`,
+          })
+        }
+        else {
+          review.pathInstructions.forEach((entry: unknown, index: number) => {
+            const base = `ai.review.pathInstructions[${index}]`
+            if (!isPlainObject(entry)) {
+              issues.push({ path: base, message: `expected an object, got ${quote(entry)}` })
+              return
+            }
+            for (const key of ['path', 'instructions'] as const) {
+              if (typeof entry[key] !== 'string' || !entry[key].trim())
+                issues.push({ path: `${base}.${key}`, message: `expected a non-empty string, got ${quote(entry[key])}` })
+            }
+          })
+        }
+      }
     }
   }
 

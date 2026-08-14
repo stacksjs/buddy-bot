@@ -991,6 +991,35 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
+   * Read a repository file at a specific ref.
+   *
+   * The ref is explicit rather than defaulting to the branch under review:
+   * callers that inline file contents into a prompt must read from the base
+   * branch, and a defaulted ref makes that easy to get wrong silently.
+   *
+   * @param path - Repository-relative path
+   * @param ref - Branch, tag or SHA to read from
+   * @returns File contents, or `null` when the file does not exist there
+   */
+  async getFileContent(path: string, ref: string): Promise<string | null> {
+    try {
+      const response = await this.apiRequest(
+        `GET /repos/${this.owner}/${this.repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`,
+      )
+
+      if (!response?.content)
+        return null
+
+      return Buffer.from(response.content, response.encoding === 'base64' ? 'base64' : 'utf-8').toString('utf-8')
+    }
+    catch (error) {
+      if (error instanceof GitHubApiError && error.isNotFound)
+        return null
+      throw error
+    }
+  }
+
+  /**
    * Fetch a pull request's unified diff.
    *
    * Uses the diff media type rather than assembling per-file patches, so the

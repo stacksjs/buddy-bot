@@ -22,5 +22,12 @@ export {
   serializeReviewState,
 } from './marker'
 export type { ReviewState } from './marker'
+export {
+  composeInstructions,
+  DEFAULT_GUIDELINE_FILES,
+  loadGuidelines,
+  MAX_GUIDELINE_CHARS,
+} from './guidelines'
+export type { RefFileReader } from './guidelines'
 export { prepareReview, renderFinding } from './poster'
 export type { InlineComment, PreparedReview } from './poster'

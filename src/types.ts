@@ -180,6 +180,24 @@ export interface BuddyBotConfig {
       requestChangesOn?: 'never' | 'critical'
       /** Post only the summary and walkthrough, no inline findings */
       summaryOnly?: boolean
+      /**
+       * Gitignore-style path filters, applied on top of the built-in
+       * exclusions for lock files and build output. `!` excludes.
+       */
+      pathFilters?: string[]
+      /**
+       * Guidance applied when reviewing files matching a glob, e.g.
+       * `{ path: 'src/security/**', instructions: 'Flag any new network call' }`.
+       */
+      pathInstructions?: Array<{ path: string, instructions: string }>
+      /**
+       * Files describing the repository's conventions, read from the base
+       * branch. Set to `false` to disable, or list paths to override the
+       * defaults (CLAUDE.md, AGENTS.md, .cursorrules and similar).
+       */
+      guidelineFiles?: string[] | false
+      /** Global guidance prepended to every review */
+      instructions?: string
     }
   }
 

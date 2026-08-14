@@ -2,6 +2,7 @@ import type { AiClient } from '../ai/types'
 import type { Logger } from '../utils/logger'
 import type { ParsedDiff } from './diff'
 import type { ReviewFinding, ReviewResult } from './findings'
+import { createPathMatcher, instructionsForPath } from '../utils/globs'
 import { getDefaultLogger } from '../utils/logger'
 import { parseUnifiedDiff, renderDiffForReview } from './diff'
 import { dedupeFindings, REVIEW_SCHEMA, validateFindings } from './findings'
@@ -33,6 +34,10 @@ export interface ReviewOptions {
   context?: string
   /** Whether to include a path in the review */
   includePath?: (path: string) => boolean
+  /** Gitignore-style path filters from config, applied over the defaults */
+  pathFilters?: string[]
+  /** Glob-keyed guidance applied to the files a review actually touches */
+  pathInstructions?: Array<{ path: string, instructions: string }>
   logger?: Logger
 }
 
@@ -81,7 +86,12 @@ export async function reviewDiff(ai: AiClient, options: ReviewOptions): Promise<
   const profile = options.profile ?? 'chill'
   const parsed = parseUnifiedDiff(options.diff)
 
-  const include = options.includePath ?? defaultIncludePath
+  // Config filters sit on top of the built-in exclusions rather than
+  // replacing them, so opting a directory in never silently re-admits
+  // lockfiles and build output.
+  const configured = createPathMatcher(options.pathFilters)
+  const include = options.includePath
+    ?? ((path: string) => defaultIncludePath(path) && configured.matches(path))
   const rendered = renderDiffForReview(parsed, { include })
 
   if (rendered.files.length === 0) {
@@ -91,11 +101,20 @@ export async function reviewDiff(ai: AiClient, options: ReviewOptions): Promise<
 
   logger.info(`🔍 Reviewing ${rendered.files.length} file(s), ${parsed.changedLines} changed line(s)`)
 
+  // Only the instructions matching files actually under review are sent, so a
+  // large per-directory ruleset costs nothing on an unrelated change.
+  const matchedPathInstructions = [
+    ...new Set(rendered.files.flatMap(file => instructionsForPath(file.path, options.pathInstructions))),
+  ]
+
   const system = [
     BASE_SYSTEM,
     PROFILE_GUIDANCE[profile],
     options.summaryOnly ? 'Return an empty findings array; only the summary and walkthrough are wanted.' : '',
     options.instructions ? `Repository-specific guidance:\n${options.instructions}` : '',
+    matchedPathInstructions.length > 0
+      ? `Guidance for the files under review:\n${matchedPathInstructions.join('\n')}`
+      : '',
   ].filter(Boolean).join('\n\n')
 
   const userContent = [
