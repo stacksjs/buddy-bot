@@ -1,14 +1,20 @@
+import type { GitProviderName } from './git/provider'
 import type { Drift } from './scanner/resolution-drift'
 import type { LogLevel } from './utils/logger'
 
-/**
- * Git hosting providers with a working {@link GitProvider} implementation.
- *
- * Kept as a single-member union on purpose: widening it is the signal that a
- * real implementation has landed, so a config typo cannot compile into a
- * runtime failure halfway through a workflow run.
- */
-export type GitProviderName = 'github'
+// The provider contract lives beside its implementations in `src/git/`, and is
+// re-exported here so `import type { GitProvider } from 'buddy-bot'` keeps
+// working. `IMPLEMENTED_PROVIDERS` — not the type — is what gates a name from
+// reaching a workflow run.
+export type {
+  CheckRunResult,
+  GitProvider,
+  GitProviderName,
+  ProviderBranch,
+  ProviderCapabilities,
+  ReviewSubmission,
+  ReviewSubmissionResult,
+} from './git/provider'
 
 /** Advisory severity, ordered from least to most severe. */
 export type VulnerabilitySeverity = 'low' | 'moderate' | 'high' | 'critical'
@@ -29,9 +35,9 @@ export interface BuddyBotConfig {
   /** Repository settings */
   repository?: {
     /**
-     * Git provider. Only `github` is implemented — GitLab and Bitbucket
-     * support would need a full `GitProvider` implementation, so they are
-     * deliberately absent from this union rather than failing at runtime.
+     * Git provider. Only `github` is implemented; `gitlab` and `bitbucket`
+     * type-check but are rejected at validation with a link to the issue
+     * tracking them, so a config typo cannot reach a workflow run.
      */
     provider: GitProviderName
     /** Repository owner/organization */
@@ -504,74 +510,6 @@ export interface PackageMetadata {
   devDependencies?: Record<string, string>
   /** Peer dependencies */
   peerDependencies?: Record<string, string>
-}
-
-// Git and PR types
-export interface GitProvider {
-  /** Check if a branch exists */
-  branchExists: (branchName: string) => Promise<boolean>
-
-  /** Create a new branch */
-  createBranch: (branchName: string, baseBranch: string) => Promise<void>
-
-  /** Commit changes to branch (Renovate-style: resets branch to baseBranch, applies files fresh) */
-  commitChanges: (branchName: string, message: string, files: FileChange[], baseBranch?: string) => Promise<void>
-
-  /** Create pull request */
-  createPullRequest: (options: PullRequestOptions) => Promise<PullRequest>
-
-  /** Get existing pull requests */
-  getPullRequests: (state?: 'open' | 'closed' | 'all') => Promise<PullRequest[]>
-
-  /** Update pull request */
-  updatePullRequest: (prNumber: number, options: Partial<PullRequestOptions>) => Promise<PullRequest>
-
-  /** Close pull request */
-  closePullRequest: (prNumber: number) => Promise<void>
-
-  /** Reopen a closed pull request */
-  reopenPullRequest: (prNumber: number) => Promise<void>
-
-  /** Create comment on pull request */
-  createComment: (prNumber: number, comment: string) => Promise<void>
-
-  /** Merge pull request */
-  mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
-
-  /**
-   * Hand a pull request to the provider's own auto-merge queue. Resolves
-   * `false` when the repository cannot queue it, so the caller can fall back
-   * to merging directly once checks are green.
-   */
-  enableAutoMerge?: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<boolean>
-
-  /** Aggregate check/status state of a pull request's head commit */
-  getPullRequestChecksState?: (prNumber: number) => Promise<'success' | 'failure' | 'pending' | 'none'>
-
-  /** Delete a branch */
-  deleteBranch: (branchName: string) => Promise<void>
-
-  /** Create GitHub issue */
-  createIssue: (options: IssueOptions) => Promise<Issue>
-
-  /** Get existing issues */
-  getIssues: (state?: 'open' | 'closed' | 'all') => Promise<Issue[]>
-
-  /** Update issue */
-  updateIssue: (issueNumber: number, options: Partial<IssueOptions>) => Promise<Issue>
-
-  /** Close issue */
-  closeIssue: (issueNumber: number) => Promise<void>
-
-  /** Unpin issue - Note: GitHub REST API does not support pinning issues programmatically */
-  /**
-   * Remove an issue from the repository's pinned list. Resolves `false` when
-   * the provider refused, since pinning is cosmetic and never fatal.
-   */
-  unpinIssue: (issueNumber: number) => Promise<boolean>
-
-  /** Pin an issue to the top of the repository's issue list */
-  pinIssue?: (issueNumber: number) => Promise<boolean>
 }
 
 export interface FileChange {

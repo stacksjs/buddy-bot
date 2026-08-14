@@ -1,4 +1,5 @@
 /* eslint-disable no-cond-assign, ts/no-require-imports */
+import type { GitProvider } from './git/provider'
 import type { Drift } from './scanner/resolution-drift'
 import type { AdvisoryQuery } from './services/security-advisories'
 import type {
@@ -16,7 +17,8 @@ import type {
 import fs from 'node:fs'
 import process from 'node:process'
 import { DashboardGenerator } from './dashboard/dashboard-generator'
-import { GitHubProvider } from './git/github-provider'
+import { createProvider, supports } from './git/provider'
+import { formatError } from './utils/errors'
 import { evaluateAutoMerge, evaluateAutoMergeForUpdates, resolveAutoMergeConfig } from './pr/auto-merge'
 import { PullRequestGenerator } from './pr/pr-generator'
 import { manifestFiles, manifestUpdates, parseManifest } from './pr/pr-manifest'
@@ -376,15 +378,16 @@ export class Buddy {
         this.logger.info('ℹ️ No BUDDY_BOT_TOKEN — workflow file updates will be skipped')
       }
 
-      // Initialize GitHub provider with primary token for API calls
-      // and optional workflow token for elevated permissions
-      const gitProvider = new GitHubProvider(
-        primaryToken,
-        this.config.repository.owner,
-        this.config.repository.name,
-        hasWorkflowPermissions,
-        workflowToken,
-      )
+      // Primary token for API calls, optional workflow token for elevated
+      // permissions. The factory decides which implementation to build.
+      const gitProvider = await createProvider({
+        provider: this.config.repository.provider,
+        owner: this.config.repository.owner,
+        name: this.config.repository.name,
+        token: primaryToken,
+        ...(workflowToken ? { workflowToken } : {}),
+        ...(this.config.repository.apiUrl ? { apiUrl: this.config.repository.apiUrl } : {}),
+      }, { logger: this.logger })
 
       // Initialize PR generator with config
       const prGenerator = new PullRequestGenerator(this.config)
@@ -2096,27 +2099,27 @@ export class Buddy {
    * `BUDDY_BOT_TOKEN` is the fallback and the source of workflow-file
    * permissions.
    */
-  private createGitProvider(): GitHubProvider | null {
+  private async createGitProvider(): Promise<GitProvider | null> {
     const repository = this.config.repository
     if (!repository?.owner || !repository.name) {
       this.logger.warn('⚠️ Repository owner and name are required for pull request operations')
       return null
     }
 
-    const token = process.env.GITHUB_TOKEN
-    const workflowToken = process.env.BUDDY_BOT_TOKEN
-    if (!token && !workflowToken) {
-      this.logger.warn('⚠️ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for pull request operations')
+    try {
+      return await createProvider({
+        provider: repository.provider,
+        owner: repository.owner,
+        name: repository.name,
+        ...(repository.apiUrl ? { apiUrl: repository.apiUrl } : {}),
+      }, { logger: this.logger })
+    }
+    catch (error) {
+      // Missing credentials and unsupported providers are both configuration
+      // problems, not run failures: the caller degrades rather than aborting.
+      this.logger.warn(`⚠️ ${formatError(error)}`)
       return null
     }
-
-    return new GitHubProvider(
-      token || workflowToken!,
-      repository.owner,
-      repository.name,
-      !!workflowToken,
-      workflowToken,
-    )
   }
 
   /**
@@ -2127,7 +2130,7 @@ export class Buddy {
    * next run once its checks have reported.
    */
   private async queueAutoMerge(
-    gitProvider: GitHubProvider,
+    gitProvider: GitProvider,
     pr: PullRequest,
     updates: PackageUpdate[],
     labels: string[],
@@ -2139,6 +2142,11 @@ export class Buddy {
     }
 
     const { strategy } = resolveAutoMergeConfig(this.config)
+    if (!supports(gitProvider, 'nativeAutoMerge', 'enableAutoMerge')) {
+      this.logger.info(`🔀 PR #${pr.number} qualifies for auto-merge but this provider has no merge queue; update-check will merge it once checks pass`)
+      return
+    }
+
     try {
       const queued = await gitProvider.enableAutoMerge(pr.number, strategy)
       if (queued)
@@ -2166,7 +2174,7 @@ export class Buddy {
     if (!settings.enabled)
       return []
 
-    const gitProvider = this.createGitProvider()
+    const gitProvider = await this.createGitProvider()
     if (!gitProvider)
       return []
 
@@ -2174,7 +2182,7 @@ export class Buddy {
     const prs = await gitProvider.getPullRequests('open')
 
     for (const pr of prs.filter(candidate => candidate.head.startsWith('buddy-bot/'))) {
-      const checks = settings.requireGreenCI
+      const checks = settings.requireGreenCI && gitProvider.getPullRequestChecksState
         ? await gitProvider.getPullRequestChecksState(pr.number)
         : 'none'
 
@@ -2367,7 +2375,7 @@ export class Buddy {
    * This is called during the update-check workflow to proactively clean up PRs
    * when projects stop using certain dependency management systems (like Composer)
    */
-  async checkAndCloseObsoletePRs(gitProvider: GitHubProvider, dryRun: boolean = false): Promise<void> {
+  async checkAndCloseObsoletePRs(gitProvider: GitProvider, dryRun: boolean = false): Promise<void> {
     try {
       this.logger.info('🔍 Scanning for obsolete PRs due to removed dependency files...')
 
@@ -2455,7 +2463,7 @@ export class Buddy {
    * Check for and auto-close PRs where dependencies are already at target version
    * This handles cases like PR #125 where the update has already been applied
    */
-  async checkAndCloseSatisfiedPRs(gitProvider: GitHubProvider, dryRun: boolean = false): Promise<void> {
+  async checkAndCloseSatisfiedPRs(gitProvider: GitProvider, dryRun: boolean = false): Promise<void> {
     try {
       this.logger.info('🔍 Checking for PRs where dependencies are already at target version...')
 
@@ -2729,14 +2737,13 @@ export class Buddy {
       }
 
       // Use GITHUB_TOKEN as primary (github-actions[bot] attribution)
-      const token = this.config.repository.token || process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN || ''
-      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
-      const gitProvider = new GitHubProvider(
-        token,
-        this.config.repository.owner,
-        this.config.repository.name,
-        hasWorkflowPermissions,
-      )
+      const gitProvider = await createProvider({
+        provider: this.config.repository.provider,
+        owner: this.config.repository.owner,
+        name: this.config.repository.name,
+        ...(this.config.repository.token ? { token: this.config.repository.token } : {}),
+        ...(this.config.repository.apiUrl ? { apiUrl: this.config.repository.apiUrl } : {}),
+      }, { logger: this.logger })
 
       // Collect dashboard data
       const dashboardData = await this.collectDashboardData(gitProvider)
@@ -2797,10 +2804,12 @@ export class Buddy {
       // Pinning is cosmetic and capped at three issues per repository, so a
       // refusal is reported but never fails the run.
       if (dashboardConfig.pin !== undefined) {
-        if (dashboardConfig.pin)
+        if (!dashboardConfig.pin)
+          await gitProvider.unpinIssue(issue.number)
+        else if (supports(gitProvider, 'pinIssues', 'pinIssue'))
           await gitProvider.pinIssue(issue.number)
         else
-          await gitProvider.unpinIssue(issue.number)
+          this.logger.debug('📌 Provider does not support pinning issues; leaving the dashboard unpinned')
       }
 
       this.logger.success(`✅ Dashboard updated: ${issue.url}`)
@@ -2815,7 +2824,7 @@ export class Buddy {
   /**
    * Collect all data needed for the dashboard
    */
-  private async collectDashboardData(gitProvider: GitHubProvider): Promise<DashboardData> {
+  private async collectDashboardData(gitProvider: GitProvider): Promise<DashboardData> {
     const [packageFiles, openPRs] = await Promise.all([
       this.scanner.scanProject(),
       gitProvider.getPullRequests('open'),
@@ -2995,7 +3004,7 @@ export class Buddy {
    * @returns The updated issue, or null when it no longer exists
    */
   private async updateDashboardIssue(
-    gitProvider: GitHubProvider,
+    gitProvider: GitProvider,
     issueNumber: number,
     options: IssueOptions,
   ): Promise<Issue | null> {
@@ -3017,7 +3026,7 @@ export class Buddy {
   /**
    * Find existing dashboard issue
    */
-  private async findExistingDashboard(gitProvider: GitHubProvider, issueNumber?: number): Promise<Issue | null> {
+  private async findExistingDashboard(gitProvider: GitProvider, issueNumber?: number): Promise<Issue | null> {
     try {
       this.logger.info('Searching for existing dashboard issue...')
 

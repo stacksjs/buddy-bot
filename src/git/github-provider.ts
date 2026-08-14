@@ -1,5 +1,6 @@
-import type { FileChange, GitProvider, Issue, IssueOptions, PullRequest, PullRequestOptions } from '../types'
+import type { FileChange, Issue, IssueOptions, PullRequest, PullRequestOptions } from '../types'
 import type { Logger } from '../utils/logger'
+import type { GitProvider, ProviderCapabilities } from './provider'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
@@ -96,6 +97,32 @@ export class GitHubProvider implements GitProvider {
   ) {
     this.apiUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : getGitHubApiUrl()
     this.logger = logger ?? getDefaultLogger()
+  }
+
+  /**
+   * What this provider supports.
+   *
+   * Every flag is true: GitHub is the platform the feature set was designed
+   * against, so this method exists to let callers gate on capabilities rather
+   * than on `provider instanceof GitHubProvider`. `checkRuns` is reported
+   * true even though a default `GITHUB_TOKEN` may lack `checks: write` —
+   * capability describes the API, and the permission failure is handled where
+   * it happens, by logging rather than throwing.
+   */
+  capabilities(): ProviderCapabilities {
+    return {
+      pinIssues: true,
+      checkRuns: true,
+      inlineReviewComments: true,
+      reviewSuggestions: true,
+      nativeAutoMerge: true,
+      commentReactions: true,
+      ciLogs: true,
+      teamReviewers: true,
+      draftPullRequests: true,
+      permissionLookup: true,
+      branchHousekeeping: true,
+    }
   }
 
   /**

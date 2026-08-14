@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import type { GitProvider } from '../src/git/provider'
 import type { BuddyBotConfig } from '../src/types'
 import fs from 'node:fs'
 import process from 'node:process'
@@ -8,6 +9,7 @@ import prompts from 'prompts'
 import { version } from '../package.json'
 import { Buddy } from '../src/buddy'
 import { getConfig } from '../src/config'
+import { assertSupports, createProvider, supports } from '../src/git/provider'
 import {
   hasDashboardActions,
   parseDashboardActions,
@@ -35,6 +37,7 @@ import {
   validateRepositoryAccess,
   validateWorkflowGeneration,
 } from '../src/setup'
+import { formatError } from '../src/utils/errors'
 import { Logger } from '../src/utils/logger'
 
 let _resolvedConfig: BuddyBotConfig | null = null
@@ -51,6 +54,41 @@ async function resolveConfig(configPath?: string): Promise<BuddyBotConfig> {
   if (!_resolvedConfig)
     _resolvedConfig = await getConfig()
   return _resolvedConfig
+}
+
+/**
+ * Build the git provider for a command, or exit with a usable message.
+ *
+ * Every provider-backed command needs the same three things — repository
+ * coordinates, a token, and a supported provider — and every one of them
+ * should fail the same way. Centralising it means adding a provider touches
+ * one place rather than seven.
+ *
+ * @param config - Resolved configuration
+ * @param purpose - What the provider is needed for, used in the error
+ * @param logger - Where to report the failure
+ * @returns A provider bound to the configured repository
+ */
+async function providerFor(config: BuddyBotConfig, purpose: string, logger: Logger): Promise<GitProvider> {
+  if (!config.repository?.owner || !config.repository.name) {
+    logger.error(`❌ Repository owner and name are required for ${purpose}`)
+    logger.info('Configure repository.owner and repository.name in buddy-bot.config.ts')
+    process.exit(1)
+  }
+
+  try {
+    return await createProvider({
+      provider: config.repository.provider,
+      owner: config.repository.owner,
+      name: config.repository.name,
+      ...(config.repository.token ? { token: config.repository.token } : {}),
+      ...(config.repository.apiUrl ? { apiUrl: config.repository.apiUrl } : {}),
+    }, { logger })
+  }
+  catch (error) {
+    logger.error(`❌ ${formatError(error)}`)
+    process.exit(1)
+  }
 }
 
 const cli = new CLI('buddy-bot')
@@ -731,22 +769,7 @@ cli
         process.exit(1)
       }
 
-      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
-      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-      if (!token) {
-        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR operations')
-        process.exit(1)
-      }
-
-      const { GitHubProvider } = await import('../src/git/github-provider')
-      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
-      const gitProvider = new GitHubProvider(
-        token,
-        config.repository.owner,
-        config.repository.name,
-        hasWorkflowPermissions,
-        process.env.BUDDY_BOT_TOKEN,
-      )
+      const gitProvider = await providerFor(config, 'PR operations', logger)
 
       const prNum = Number.parseInt(prNumber, 10)
       if (Number.isNaN(prNum)) {
@@ -943,22 +966,7 @@ cli
         process.exit(1)
       }
 
-      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
-      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-      if (!token) {
-        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for PR operations')
-        process.exit(1)
-      }
-
-      const { GitHubProvider } = await import('../src/git/github-provider')
-      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
-      const gitProvider = new GitHubProvider(
-        token,
-        config.repository.owner,
-        config.repository.name,
-        hasWorkflowPermissions,
-        process.env.BUDDY_BOT_TOKEN,
-      )
+      const gitProvider = await providerFor(config, 'PR operations', logger)
 
       // Step 0: Read the dashboard issue's checkboxes. A maintainer ticking a
       // box there is the same request as ticking one in the PR itself, so the
@@ -1124,6 +1132,7 @@ cli
 
       // Step 5: Run branch cleanup (uses local git commands, no API calls)
       logger.info('\n🧹 Running branch cleanup...')
+      assertSupports(gitProvider, 'branchHousekeeping', 'cleanupStaleBranches', 'branch cleanup')
       const result = await gitProvider.cleanupStaleBranches(2, !!options.dryRun)
 
       if (options.dryRun) {
@@ -1195,21 +1204,9 @@ cli
     const config = await resolveConfig(options.config)
 
     try {
-      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-      if (!config.repository || !token) {
-        logger.error('❌ Repository configuration and GITHUB_TOKEN are required')
-        process.exit(1)
-      }
+      const provider = await providerFor(config, 'this command', logger)
 
-      const { GitHubProvider } = await import('../src/git/github-provider')
-      const provider = new GitHubProvider(
-        token,
-        config.repository.owner,
-        config.repository.name,
-        !!process.env.BUDDY_BOT_TOKEN,
-        process.env.BUDDY_BOT_TOKEN,
-      )
-
+      assertSupports(provider, 'ciLogs', 'getWorkflowRunLogs', 'reading CI logs')
       const runId = options.runId ? Number.parseInt(options.runId, 10) : undefined
       const log = runId ? await provider.getWorkflowRunLogs(runId) : null
 
@@ -1224,7 +1221,7 @@ cli
       const outcome = await attemptFix({
         log,
         workspace: process.cwd(),
-        baseBranch: config.repository.baseBranch ?? 'main',
+        baseBranch: config.repository?.baseBranch ?? 'main',
         ai: createAiClient(config, logger),
         logger,
         regenerateLockfile: async () => {
@@ -1301,20 +1298,7 @@ cli
         return
       }
 
-      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-      if (!config.repository || !token) {
-        logger.error('❌ Repository configuration and GITHUB_TOKEN are required')
-        process.exit(1)
-      }
-
-      const { GitHubProvider } = await import('../src/git/github-provider')
-      const provider = new GitHubProvider(
-        token,
-        config.repository.owner,
-        config.repository.name,
-        !!process.env.BUDDY_BOT_TOKEN,
-        process.env.BUDDY_BOT_TOKEN,
-      )
+      const provider = await providerFor(config, 'this command', logger)
 
       const login = comment.user?.login ?? ''
       const isBot = comment.user?.type === 'Bot' || login.endsWith('[bot]')
@@ -1324,7 +1308,12 @@ cli
         isBot,
         // Resolved rather than assumed: public repositories accept comments
         // from anyone, and this is what separates a maintainer from a stranger.
-        canWrite: isBot ? false : await provider.hasWriteAccess(login),
+        // A provider that cannot resolve permissions is treated as granting
+        // none: assuming write access from a stranger's comment is the one
+        // failure mode worth being paranoid about.
+        canWrite: !isBot && supports(provider, 'permissionLookup', 'hasWriteAccess')
+          ? await provider.hasWriteAccess(login)
+          : false,
       }
 
       const isPullRequest = Boolean(event.pull_request ?? event.issue?.pull_request)
@@ -1336,7 +1325,8 @@ cli
         return
       }
 
-      await provider.reactToComment(comment.id, 'eyes')
+      if (supports(provider, 'commentReactions', 'reactToComment'))
+        await provider.reactToComment(comment.id, 'eyes')
 
       const { createHandlers, dispatchCommand } = await import('../src/commands')
       const { runReviewForPR } = await import('../src/review/run')
@@ -1406,7 +1396,8 @@ cli
       if (outcome.reply)
         await provider.createComment(target.number, outcome.reply)
 
-      await provider.reactToComment(comment.id, outcome.handled ? 'rocket' : 'confused')
+      if (supports(provider, 'commentReactions', 'reactToComment'))
+        await provider.reactToComment(comment.id, outcome.handled ? 'rocket' : 'confused')
 
       logger.success(outcome.handled ? `✅ Handled \`${command.name}\`` : `ℹ️ Did not run: ${outcome.refusal}`)
     }
@@ -1454,23 +1445,10 @@ cli
       let diff: string
       let headSha = ''
       let seenFingerprints: string[] = []
-      let gitProvider: InstanceType<typeof import('../src/git/github-provider').GitHubProvider> | null = null
+      let gitProvider: GitProvider | null = null
 
       if (prNumber) {
-        const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-        if (!config.repository || !token) {
-          logger.error('❌ Reviewing a PR needs repository config and GITHUB_TOKEN')
-          process.exit(1)
-        }
-
-        const { GitHubProvider } = await import('../src/git/github-provider')
-        gitProvider = new GitHubProvider(
-          token,
-          config.repository.owner,
-          config.repository.name,
-          !!process.env.BUDDY_BOT_TOKEN,
-          process.env.BUDDY_BOT_TOKEN,
-        )
+        gitProvider = await providerFor(config, 'reviewing a pull request', logger)
 
         const number = Number.parseInt(prNumber, 10)
         diff = await gitProvider.getPullRequestDiff(number)
@@ -1535,7 +1513,8 @@ cli
         return
       }
 
-      await gitProvider!.createReview(Number.parseInt(prNumber, 10), prepared)
+      assertSupports(gitProvider!, 'inlineReviewComments', 'createReview', 'posting a review')
+      await gitProvider.createReview(Number.parseInt(prNumber, 10), prepared)
       logger.success(`✅ Reviewed PR #${prNumber}: ${result.findings.length} finding(s)`)
     }
     catch (error) {
@@ -2261,22 +2240,7 @@ cli
         process.exit(1)
       }
 
-      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
-      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-      if (!token) {
-        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for branch operations')
-        process.exit(1)
-      }
-
-      const { GitHubProvider } = await import('../src/git/github-provider')
-      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
-      const gitProvider = new GitHubProvider(
-        token,
-        config.repository.owner,
-        config.repository.name,
-        hasWorkflowPermissions,
-        process.env.BUDDY_BOT_TOKEN,
-      )
+      const gitProvider = await providerFor(config, 'branch operations', logger)
 
       const days = Number.parseInt(options.days || '7', 10)
       if (Number.isNaN(days) || days < 1) {
@@ -2287,6 +2251,7 @@ cli
       logger.info(`🔍 Looking for buddy-bot branches older than ${days} days...`)
 
       // Get all orphaned branches
+      assertSupports(gitProvider, 'branchHousekeeping', 'getOrphanedBuddyBotBranches', 'branch cleanup')
       const orphanedBranches = await gitProvider.getOrphanedBuddyBotBranches()
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - days)
@@ -2327,6 +2292,7 @@ cli
       }
 
       // Perform cleanup
+      assertSupports(gitProvider, 'branchHousekeeping', 'cleanupStaleBranches', 'branch cleanup')
       const result = await gitProvider.cleanupStaleBranches(days, false)
 
       if (result.deleted.length > 0) {
@@ -2372,28 +2338,14 @@ cli
         process.exit(1)
       }
 
-      // Use GITHUB_TOKEN as primary (github-actions[bot] attribution), fall back to PAT
-      const token = process.env.GITHUB_TOKEN || process.env.BUDDY_BOT_TOKEN
-      if (!token) {
-        logger.error('❌ GITHUB_TOKEN or BUDDY_BOT_TOKEN environment variable required for branch operations')
-        process.exit(1)
-      }
-
-      const { GitHubProvider } = await import('../src/git/github-provider')
-      const hasWorkflowPermissions = !!process.env.BUDDY_BOT_TOKEN
-      const gitProvider = new GitHubProvider(
-        token,
-        config.repository.owner,
-        config.repository.name,
-        hasWorkflowPermissions,
-        process.env.BUDDY_BOT_TOKEN,
-      )
+      const gitProvider = await providerFor(config, 'branch operations', logger)
 
       const days = Number.parseInt(options.days || '7', 10)
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - days)
 
       // Get all branches and PRs
+      assertSupports(gitProvider, 'branchHousekeeping', 'getBuddyBotBranches', 'branch listing')
       const [allBuddyBranches, openPRs] = await Promise.all([
         gitProvider.getBuddyBotBranches(),
         gitProvider.getPullRequests('open'),

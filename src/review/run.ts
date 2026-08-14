@@ -1,4 +1,5 @@
-import type { GitHubProvider } from '../git/github-provider'
+import type { GitProvider } from '../git/provider'
+import { assertSupports } from '../git/provider'
 import type { BuddyBotConfig } from '../types'
 import type { Logger } from '../utils/logger'
 import { createAiClient, loadLearnings, renderLearnings, selectLearnings } from '../ai'
@@ -13,7 +14,7 @@ import { prepareReview } from './poster'
 /** Inputs to a full review of a pull request. */
 export interface RunReviewOptions {
   config: BuddyBotConfig
-  provider: GitHubProvider
+  provider: GitProvider
   prNumber: number
   /** Ignore previously reported findings and review the whole diff again */
   full?: boolean
@@ -83,6 +84,7 @@ export async function runReviewForPR(options: RunReviewOptions): Promise<string>
       { headSha, requestChangesOn: config.ai?.review?.requestChangesOn },
     )
 
+    assertSupports(provider, 'inlineReviewComments', 'createReview', 'posting a review')
     await provider.createReview(prNumber, prepared)
     return `Posted ${analysis.findings.length} static-analysis finding(s).`
   }
@@ -122,6 +124,7 @@ export async function runReviewForPR(options: RunReviewOptions): Promise<string>
     seenFingerprints: options.full ? [] : state?.fingerprints ?? [],
   })
 
+  assertSupports(provider, 'inlineReviewComments', 'createReview', 'posting a review')
   await provider.createReview(prNumber, prepared)
 
   return result.findings.length === 0

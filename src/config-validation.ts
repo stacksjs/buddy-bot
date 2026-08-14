@@ -1,4 +1,6 @@
 import type { BuddyBotConfig } from './types'
+import type { GitProviderName } from './git/provider'
+import { IMPLEMENTED_PROVIDERS, PROVIDER_TRACKING_ISSUES } from './git/provider'
 import { ConfigurationError } from './types'
 
 const UPDATE_STRATEGIES = ['major', 'minor', 'patch', 'all'] as const
@@ -9,7 +11,6 @@ const AI_EFFORTS = ['low', 'medium', 'high'] as const
 const REVIEW_PROFILES = ['chill', 'assertive'] as const
 const REQUEST_CHANGES_MODES = ['never', 'critical'] as const
 const SEVERITIES = ['low', 'moderate', 'high', 'critical'] as const
-const PROVIDERS = ['github'] as const
 const LOG_LEVELS = ['silent', 'error', 'warn', 'info', 'debug'] as const
 
 /** A single problem found in a loaded configuration. */
@@ -170,10 +171,16 @@ function validateRepository(issues: ConfigIssue[], config: BuddyBotConfig): void
     return
   }
 
-  if (repository.provider !== undefined && !PROVIDERS.includes(repository.provider as 'github')) {
+  if (repository.provider !== undefined && !IMPLEMENTED_PROVIDERS.includes(repository.provider as GitProviderName)) {
+    // A provider that is planned but unbuilt gets its tracking issue rather
+    // than a bare "unsupported", so the user finds the thread instead of
+    // filing a duplicate.
+    const tracking = PROVIDER_TRACKING_ISSUES[String(repository.provider)]
     issues.push({
       path: 'repository.provider',
-      message: `only ${PROVIDERS.map(quote).join(', ')} is supported, got ${quote(repository.provider)}`,
+      message: tracking
+        ? `${quote(repository.provider)} support is not implemented yet — follow ${tracking}`
+        : `only ${IMPLEMENTED_PROVIDERS.map(quote).join(', ')} is supported, got ${quote(repository.provider)}`,
     })
   }
 

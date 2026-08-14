@@ -1,4 +1,4 @@
-import type { GitHubProvider } from '../git/github-provider'
+import type { GitProvider } from '../git/provider'
 import type { BuddyBotConfig } from '../types'
 import type { CommandContext, CommandHandler, CommandOutcome } from './dispatcher'
 import process from 'node:process'
@@ -9,7 +9,7 @@ import { serializeReviewState } from '../review/marker'
 /** Everything the built-in handlers need to act. */
 export interface HandlerDeps {
   config: BuddyBotConfig
-  provider: GitHubProvider
+  provider: GitProvider
   /** Review a pull request and post the result */
   review: (prNumber: number, options: { full?: boolean, summaryOnly?: boolean }) => Promise<string>
   /** Rebase a dependency update pull request */

@@ -2,6 +2,29 @@
 export { Buddy } from './buddy'
 
 export { GitHubProvider } from './git/github-provider'
+export {
+  assertProviderSupported,
+  assertSupports,
+  createProvider,
+  IMPLEMENTED_PROVIDERS,
+  NO_CAPABILITIES,
+  PROVIDER_NAMES,
+  PROVIDER_TOKEN_ENV,
+  PROVIDER_TRACKING_ISSUES,
+  resolveProviderToken,
+  supports,
+  UnsupportedProviderError,
+} from './git/provider'
+export type {
+  CheckRunResult,
+  GitProvider,
+  GitProviderName,
+  ProviderBranch,
+  ProviderCapabilities,
+  ProviderConfig,
+  ReviewSubmission,
+  ReviewSubmissionResult,
+} from './git/provider'
 export { PullRequestGenerator } from './pr/pr-generator'
 export { RegistryClient } from './registry/registry-client'
 // Core functionality exports
