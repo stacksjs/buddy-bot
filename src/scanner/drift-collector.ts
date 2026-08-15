@@ -43,7 +43,10 @@ export async function collectDriftInputs(
   // each installed package's declarations about its dependencies.
   const declaredByPackage = new Map<string, DeclaredRange[]>()
 
-  const declare = (name: string, by: string, range: string): void => {
+  // Not named `declare`: that is a TypeScript contextual keyword, and Bun's
+  // released parser (1.3.14) mis-parses a local binding using it, failing the
+  // build several lines later with an unrelated "Unexpected }".
+  const recordRange = (name: string, by: string, range: string): void => {
     const existing = declaredByPackage.get(name)
     const entry = { by, range }
     if (existing)
@@ -54,12 +57,12 @@ export async function collectDriftInputs(
 
   for (const file of packageFiles) {
     for (const dependency of file.dependencies)
-      declare(dependency.name, ROOT, dependency.currentVersion)
+      recordRange(dependency.name, ROOT, dependency.currentVersion)
   }
 
   for (const pkg of installed) {
     for (const [name, range] of Object.entries(pkg.ranges))
-      declare(name, pkg.name, range)
+      recordRange(name, pkg.name, range)
   }
 
   const inputs: DriftInput[] = []
