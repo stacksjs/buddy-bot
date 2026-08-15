@@ -94,3 +94,48 @@ describe('dashboard issue update', () => {
     await expect(updateDashboardIssue(makeBuddy(), provider, 1911)).rejects.toThrow('network down')
   })
 })
+
+describe('dashboard matching', () => {
+  /** The matcher's exact predicate, as `findExistingDashboard` applies it. */
+  function matches(issue: { title: string, body: string, labels: string[] }): boolean {
+    const hasRequiredLabels = issue.labels.includes('dashboard') && issue.labels.includes('dependencies')
+    const titleMatches = issue.title.toLowerCase().includes('dependency dashboard')
+    const bodyHasMarker = issue.body.includes('This issue lists Buddy Bot updates and detected dependencies')
+
+    return bodyHasMarker || (hasRequiredLabels && titleMatches)
+  }
+
+  const MARKER = 'This issue lists Buddy Bot updates and detected dependencies.'
+
+  it('success case - the body marker alone identifies a dashboard', () => {
+    // Requiring labels too made a dashboard whose labels a maintainer removed
+    // permanently unfindable, so every run opened a fresh one.
+    expect(matches({ title: 'Anything', body: MARKER, labels: [] })).toBe(true)
+  })
+
+  it('success case - labels plus title still match a pre-marker dashboard', () => {
+    expect(matches({
+      title: 'Dependency Dashboard',
+      body: 'older body',
+      labels: ['dashboard', 'dependencies'],
+    })).toBe(true)
+  })
+
+  it('failure case - another tool\'s dashboard is not adopted', () => {
+    // Renovate's dashboard has the same title. Adopting it would overwrite a
+    // different tool's issue.
+    expect(matches({
+      title: 'Dependency Dashboard',
+      body: 'This issue lists Renovate updates and detected dependencies.',
+      labels: [],
+    })).toBe(false)
+  })
+
+  it('failure case - a title match alone is not enough', () => {
+    expect(matches({ title: 'Dependency Dashboard', body: 'unrelated', labels: [] })).toBe(false)
+  })
+
+  it('failure case - an ordinary issue never matches', () => {
+    expect(matches({ title: 'Bug: crash on start', body: 'stack trace', labels: ['bug'] })).toBe(false)
+  })
+})

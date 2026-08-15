@@ -3419,8 +3419,16 @@ export class Buddy {
         const titleMatches = issue.title.toLowerCase().includes('dependency dashboard')
         const bodyHasMarker = issue.body.includes('This issue lists Buddy Bot updates and detected dependencies')
 
-        // Be more strict: require both proper labels AND (title match OR body marker)
-        if (hasRequiredLabels && (titleMatches || bodyHasMarker)) {
+        // The body marker alone is definitive: buddy-bot writes it and nobody
+        // types it by hand. Requiring labels as well made a dashboard whose
+        // labels a maintainer removed permanently unfindable, so every run
+        // opened a fresh one — which is how duplicates accumulate.
+        //
+        // Labels plus a title match still count, for dashboards created before
+        // the marker existed. A title match on its own deliberately does not:
+        // another tool's "Dependency Dashboard" is not ours, and adopting one
+        // would overwrite it.
+        if (bodyHasMarker || (hasRequiredLabels && titleMatches)) {
           this.logger.info(`Found existing dashboard issue #${issue.number}: ${issue.title}`)
           this.logger.info(`  - Labels: ${issue.labels.join(', ')}`)
           this.logger.info(`  - Title matches: ${titleMatches}`)
