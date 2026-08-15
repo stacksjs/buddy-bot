@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Pantry
-        uses: home-lang/pantry/packages/action@v0.9.18
+        uses: pantry-pm/pantry/packages/action@v0.11.26
 
       - name: Install Dependencies
         run: bun install
@@ -41,8 +41,13 @@ jobs:
       # CHANGELOG.md for the body. The previous action-releaser step passed no
       # notes input at all, so every release back to v0.9.20 published empty,
       # and its globs pointed at binaries nothing built.
+      #
+      # Needs >= v0.11: the v0.9 extractor matched the bare version with a word
+      # boundary, so `v0.10.1` in a compare link never matched — there is no
+      # boundary between `v` and `0`. `release-checksums` also only exists from
+      # the newer action.
       - name: Create GitHub Release
-        uses: home-lang/pantry/packages/action@v0.9.18
+        uses: pantry-pm/pantry/packages/action@v0.11.26
         with:
           release: true
           release-changelog: CHANGELOG.md
