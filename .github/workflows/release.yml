@@ -30,14 +30,16 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # Pantry extracts this tag's section from CHANGELOG.md and posts it as the
+      # release body. The previous action-releaser step passed no notes input at
+      # all, so every release back to v0.9.20 published with an empty body — and
+      # its `files:` globs pointed at binaries this workflow never builds, so it
+      # attached nothing either.
       - name: Create GitHub Release
-        uses: stacksjs/action-releaser@v1.2.9
+        uses: home-lang/pantry/packages/action@v0.9.18
         with:
-          files: |
-            ./bin/buddy-bot-linux-x64.zip
-            ./bin/buddy-bot-linux-arm64.zip
-            ./bin/buddy-bot-windows-x64.zip
-            ./bin/buddy-bot-darwin-x64.zip
-            ./bin/buddy-bot-darwin-arm64.zip
+          release: true
+          release-changelog: CHANGELOG.md
+          release-files: none
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
