@@ -44,6 +44,7 @@
   ],
   "scripts": {
     "build": "bun build.ts",
+    "build:binaries": "bun build-binaries.ts",
     "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
     "prepublishOnly": "bun run build",
     "test": "bun test",

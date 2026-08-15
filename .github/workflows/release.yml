@@ -30,16 +30,28 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Pantry extracts this tag's section from CHANGELOG.md and posts it as the
-      # release body. The previous action-releaser step passed no notes input at
-      # all, so every release back to v0.9.20 published with an empty body — and
-      # its `files:` globs pointed at binaries this workflow never builds, so it
-      # attached nothing either.
+      # Standalone binaries for the platforms the release advertises. Cross
+      # compilation downloads a runtime matching the compiler's version, so
+      # this needs a released Bun — which is what the pantry setup step above
+      # provides.
+      - name: Build release binaries
+        run: bun run build:binaries
+
+      # Pantry attaches the binaries and extracts this tag's section from
+      # CHANGELOG.md for the body. The previous action-releaser step passed no
+      # notes input at all, so every release back to v0.9.20 published empty,
+      # and its globs pointed at binaries nothing built.
       - name: Create GitHub Release
         uses: home-lang/pantry/packages/action@v0.9.18
         with:
           release: true
           release-changelog: CHANGELOG.md
-          release-files: none
+          release-checksums: 'true'
+          release-files: |
+            ./bin/buddy-bot-linux-x64.zip
+            ./bin/buddy-bot-linux-arm64.zip
+            ./bin/buddy-bot-windows-x64.zip
+            ./bin/buddy-bot-darwin-x64.zip
+            ./bin/buddy-bot-darwin-arm64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
