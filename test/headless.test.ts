@@ -252,7 +252,7 @@ describe('doctor', () => {
 
   it('failure case - a broken config is a failure', async () => {
     const report = await diagnose(
-      { repository: { provider: 'gitlab' as never, owner: 'o', name: 'r' } },
+      { repository: { provider: 'svn' as never, owner: 'o', name: 'r' } },
       { ...noTools, env: {}, cwd: process.cwd() },
     )
 

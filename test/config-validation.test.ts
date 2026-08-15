@@ -68,12 +68,17 @@ describe('config-validation', () => {
       expect(issues[0].message).toContain('minr')
     })
 
-    it('failure case - rejects an unimplemented provider', () => {
+    it('failure case - rejects a provider that does not exist', () => {
       const issues = validateConfig({
-        repository: { provider: 'gitlab' as any, owner: 'a', name: 'b' },
+        repository: { provider: 'svn' as any, owner: 'a', name: 'b' },
       })
 
       expect(issues.map(i => i.path)).toContain('repository.provider')
+    })
+
+    it('success case - accepts gitlab and bitbucket', () => {
+      for (const provider of ['github', 'gitlab', 'bitbucket'] as const)
+        expect(validateConfig({ repository: { provider, owner: 'a', name: 'b' } })).toEqual([])
     })
 
     it('failure case - rejects a group with no patterns', () => {

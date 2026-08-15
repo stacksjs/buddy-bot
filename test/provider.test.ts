@@ -31,18 +31,19 @@ describe('provider registry', () => {
     expect(PROVIDER_NAMES).toEqual(['github', 'gitlab', 'bitbucket'])
   })
 
-  it('success case - only github is implemented today', () => {
-    expect(IMPLEMENTED_PROVIDERS).toEqual(['github'])
+  it('success case - every named provider is implemented', () => {
+    // The type and the implementation list agreeing is what lets config
+    // validation be a type-level concern rather than a runtime surprise.
+    expect(IMPLEMENTED_PROVIDERS).toEqual(PROVIDER_NAMES)
   })
 
   it('success case - accepts an implemented provider', () => {
     expect(() => assertProviderSupported('github')).not.toThrow()
   })
 
-  it('failure case - a planned provider names its tracking issue', () => {
-    // Pointing at the thread is what stops a user filing a duplicate.
-    expect(() => assertProviderSupported('gitlab')).toThrow(/issues\/115/)
-    expect(() => assertProviderSupported('bitbucket')).toThrow(/issues\/116/)
+  it('success case - accepts gitlab and bitbucket', () => {
+    expect(() => assertProviderSupported('gitlab')).not.toThrow()
+    expect(() => assertProviderSupported('bitbucket')).not.toThrow()
   })
 
   it('failure case - an unknown provider lists what is supported', () => {
@@ -57,16 +58,16 @@ describe('provider registry', () => {
     }
   })
 
-  it('success case - config validation rejects an unbuilt provider with its issue', () => {
-    const issues = validateConfig({ repository: { provider: 'gitlab', owner: 'o', name: 'r' } })
+  it('success case - config validation accepts every implemented provider', () => {
+    for (const provider of IMPLEMENTED_PROVIDERS)
+      expect(validateConfig({ repository: { provider, owner: 'o', name: 'r' } })).toEqual([])
+  })
+
+  it('failure case - config validation still rejects an unknown provider', () => {
+    const issues = validateConfig({ repository: { provider: 'svn' as never, owner: 'o', name: 'r' } })
 
     expect(issues).toHaveLength(1)
     expect(issues[0].path).toBe('repository.provider')
-    expect(issues[0].message).toContain('issues/115')
-  })
-
-  it('success case - config validation still accepts github', () => {
-    expect(validateConfig({ repository: { provider: 'github', owner: 'o', name: 'r' } })).toEqual([])
   })
 })
 
@@ -115,8 +116,31 @@ describe('provider factory', () => {
     expect(provider).toBeInstanceOf(GitHubProvider)
   })
 
-  it('failure case - refuses an unimplemented provider', async () => {
-    await expect(createProvider({ provider: 'gitlab', owner: 'o', name: 'r', token: 'x' }))
+  it('success case - builds a GitLab provider', async () => {
+    const { GitLabProvider } = await import('../src/git/gitlab-provider')
+    const provider = await createProvider(
+      { provider: 'gitlab', owner: 'group/sub', name: 'repo', token: 'x' },
+      { env: {} },
+    )
+
+    expect(provider).toBeInstanceOf(GitLabProvider)
+    // GitLab has no issue pinning, and says so rather than pretending.
+    expect(provider.capabilities().pinIssues).toBe(false)
+  })
+
+  it('success case - builds a Bitbucket provider', async () => {
+    const { BitbucketProvider } = await import('../src/git/bitbucket-provider')
+    const provider = await createProvider(
+      { provider: 'bitbucket', owner: 'workspace', name: 'repo', token: 'x' },
+      { env: {} },
+    )
+
+    expect(provider).toBeInstanceOf(BitbucketProvider)
+    expect(provider.capabilities().reopenPullRequests).toBe(false)
+  })
+
+  it('failure case - refuses a provider that does not exist', async () => {
+    await expect(createProvider({ provider: 'svn', owner: 'o', name: 'r', token: 'x' }))
       .rejects
       .toThrow(UnsupportedProviderError)
   })
@@ -164,6 +188,21 @@ describe('capability gating', () => {
 
     expect(Object.values(caps).every(Boolean)).toBe(true)
   })
+
+  it('success case - the other providers decline what they cannot do', async () => {
+    // The point of the flags. A provider claiming a capability it lacks is the
+    // failure this whole mechanism exists to prevent.
+    const { GitLabProvider } = await import('../src/git/gitlab-provider')
+    const { BitbucketProvider } = await import('../src/git/bitbucket-provider')
+
+    expect(new GitLabProvider('t', 'o', 'r').capabilities().pinIssues).toBe(false)
+
+    const bitbucket = new BitbucketProvider('t', 'w', 'r').capabilities()
+    expect(bitbucket.nativeAutoMerge).toBe(false)
+    expect(bitbucket.draftPullRequests).toBe(false)
+    expect(bitbucket.commentReactions).toBe(false)
+    expect(bitbucket.reopenPullRequests).toBe(false)
+  })
 })
 
 describe('platform-neutrality', () => {
@@ -172,6 +211,8 @@ describe('platform-neutrality', () => {
     // The GitHub provider and its endpoint resolution — the platform edge.
     'src/git/github-provider.ts',
     'src/git/provider.ts',
+    'src/git/gitlab-provider.ts',
+    'src/git/bitbucket-provider.ts',
     'src/utils/endpoints.ts',
     // Release notes and registries fetch from *dependency* repositories, which
     // are on github.com regardless of where this repository is hosted.

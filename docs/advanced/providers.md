@@ -1,31 +1,27 @@
 # Git Providers
 
 Buddy Bot talks to a hosting platform through one interface, `GitProvider`.
-GitHub is the only implementation today; GitLab ([#115]) and Bitbucket ([#116])
-are tracked separately. This page describes the contract so adding one is
-mechanical rather than exploratory.
+GitHub, GitLab and Bitbucket Cloud are all implemented. This page describes the
+contract so adding another is mechanical rather than exploratory.
 
 ## Configuration
 
 ```ts
 const config: BuddyBotConfig = {
   repository: {
-    provider: 'github', // 'gitlab' and 'bitbucket' type-check but are rejected
-    owner: 'stacksjs',
-    name: 'buddy-bot',
+    provider: 'gitlab',
+    // GitLab: the full group path, subgroups included
+    owner: 'group/subgroup',
+    name: 'repo',
     // Self-hosted instances: point at the API root
-    apiUrl: 'https://github.acme.com/api/v3',
+    apiUrl: 'https://gitlab.acme.com/api/v4',
   },
 }
 ```
 
-Naming an unimplemented provider fails validation before any network or git
-work happens, with a link to the issue tracking it:
-
-```
-repository.provider: "gitlab" support is not implemented yet — follow
-https://github.com/stacksjs/buddy-bot/issues/115
-```
+`owner` means the workspace on Bitbucket and the group path on GitLab, where it
+may contain slashes — those are part of the project's name, not the URL, and
+the provider encodes them as one segment.
 
 ## Tokens
 
@@ -71,6 +67,33 @@ if (supports(provider, 'pinIssues', 'pinIssue'))
 | `draftPullRequests`    | Opening a pull request as a draft            |
 | `permissionLookup`     | `hasWriteAccess`                             |
 | `branchHousekeeping`   | `getBuddyBotBranches`, `cleanupStaleBranches` |
+| `reopenPullRequests`   | `reopenPullRequest`                          |
+| `labels`               | Labels on pull requests and issues           |
+
+### What each platform supports
+
+| Capability             | GitHub | GitLab | Bitbucket |
+| ---------------------- | ------ | ------ | --------- |
+| `pinIssues`            | ✅     | ❌     | ❌        |
+| `checkRuns`            | ✅     | ✅ (commit statuses) | ✅ (build statuses) |
+| `inlineReviewComments` | ✅     | ✅     | ✅        |
+| `reviewSuggestions`    | ✅     | ✅     | ❌        |
+| `nativeAutoMerge`      | ✅     | ✅ (merge when pipeline succeeds) | ❌ |
+| `commentReactions`     | ✅     | ✅ (award emoji) | ❌  |
+| `ciLogs`               | ✅     | ✅     | ❌        |
+| `teamReviewers`        | ✅     | ❌     | ❌        |
+| `draftPullRequests`    | ✅     | ✅ (title prefix) | ❌ |
+| `permissionLookup`     | ✅     | ✅     | ✅        |
+| `branchHousekeeping`   | ✅     | ✅     | ✅        |
+| `reopenPullRequests`   | ✅     | ✅     | ❌        |
+| `labels`               | ✅     | ✅     | ❌        |
+
+Two of these rows exist *because* Bitbucket forced the distinction. A declined
+Bitbucket pull request is final — there is no reopen — and Bitbucket has no
+labels on pull requests or issues at all. Rather than have those operations
+silently do nothing, they are capabilities: `reopenPullRequest` is absent from
+the Bitbucket provider entirely, so a caller that gates on the flag degrades
+and a caller that does not gets a `TypeError` at the point of the mistake.
 
 `supports()` checks both the flag and the method's presence, so a provider
 that declares a capability it did not implement is treated as not having it
@@ -104,7 +127,15 @@ to degrade to, and a clear reason beats a silent success.
    `createProvider()`.
 
 4. **Add CI templates.** `src/setup.ts` generates GitHub Actions workflows;
-   a new provider needs its own pipeline format.
+   `src/templates/gitlab-ci.ts` generates GitLab and Bitbucket pipelines.
+
+`test/git/fake-api.ts` is worth reading before writing a new one: it serves an
+in-memory repository in each platform's REST dialect, so the *real* provider
+class runs through the conformance suite. That tests the actual HTTP mapping —
+URL shapes, field names, state vocabularies — which is the half most likely to
+be wrong. Two genuine bugs in the GitLab and Bitbucket providers were caught
+that way: a `DELETE` returning an empty body being parsed as JSON, and
+Bitbucket returning file contents as plain text rather than JSON.
 
 ### Terminology
 
@@ -119,5 +150,20 @@ Web and API URLs are constructed inside the provider. A test asserts that
 reads *dependency* repositories and is GitHub-centric regardless of where your
 own repository lives).
 
-[#115]: https://github.com/stacksjs/buddy-bot/issues/115
-[#116]: https://github.com/stacksjs/buddy-bot/issues/116
+## CI schedules
+
+Neither GitLab nor Bitbucket lets a repository file declare a schedule — both
+configure them in the project UI. The generated pipelines therefore branch on a
+variable the schedule sets, and carry instructions for creating those
+schedules. A generated file that assumed a `schedule:` block would never run
+and give no clue why.
+
+**GitLab** — Settings → CI/CD → Pipeline schedules. Create two, with variables
+`BUDDY_JOB=update` and `BUDDY_JOB=dashboard`.
+
+**Bitbucket** — Repository settings → Pipelines → Schedules, pointed at the
+`buddy-update` and `buddy-dashboard` custom pipelines.
+
+On GitLab, set `GITLAB_TOKEN` with `api` scope: the ambient `CI_JOB_TOKEN`
+cannot open merge requests, which is the failure a first scheduled run would
+otherwise hit.

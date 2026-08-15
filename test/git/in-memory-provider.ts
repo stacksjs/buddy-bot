@@ -36,6 +36,8 @@ export class InMemoryProvider implements GitProvider {
       inlineReviewComments: true,
       draftPullRequests: true,
       teamReviewers: true,
+      reopenPullRequests: true,
+      labels: true,
       ...this.overrides,
     }
   }

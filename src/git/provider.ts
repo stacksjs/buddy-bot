@@ -17,13 +17,16 @@ export type GitProviderName = 'github' | 'gitlab' | 'bitbucket'
 export const PROVIDER_NAMES: GitProviderName[] = ['github', 'gitlab', 'bitbucket']
 
 /** Providers with a working implementation today. */
-export const IMPLEMENTED_PROVIDERS: GitProviderName[] = ['github']
+export const IMPLEMENTED_PROVIDERS: GitProviderName[] = ['github', 'gitlab', 'bitbucket']
 
-/** Where to follow the work for a provider that is named but not built. */
-export const PROVIDER_TRACKING_ISSUES: Record<string, string> = {
-  gitlab: 'https://github.com/stacksjs/buddy-bot/issues/115',
-  bitbucket: 'https://github.com/stacksjs/buddy-bot/issues/116',
-}
+/**
+ * Where to follow the work for a provider that is named but not built.
+ *
+ * Empty now that every named provider is implemented. Kept because the next
+ * provider to be planned needs somewhere to point, and a config naming it
+ * should link to the thread rather than say "unknown".
+ */
+export const PROVIDER_TRACKING_ISSUES: Record<string, string> = {}
 
 /**
  * What a provider can actually do.
@@ -57,6 +60,22 @@ export interface ProviderCapabilities {
   permissionLookup: boolean
   /** Enumerate and prune buddy-bot's own branches */
   branchHousekeeping: boolean
+  /**
+   * Apply labels to pull requests and issues.
+   *
+   * Bitbucket has none. Labels drive grouping, the dashboard and auto-merge
+   * conditions, so a caller that needs them has to know they will not stick
+   * rather than discover it from a pull request that looks untagged.
+   */
+  labels: boolean
+  /**
+   * Reopen a closed pull request (`reopenPullRequest`).
+   *
+   * Bitbucket cannot: a declined pull request is final there, and the only way
+   * back is a new one from the same branch. Callers that reopen must check
+   * this rather than assume it.
+   */
+  reopenPullRequests: boolean
 }
 
 /** Capabilities all false, to spread over in a provider that supports few. */
@@ -72,6 +91,8 @@ export const NO_CAPABILITIES: ProviderCapabilities = {
   draftPullRequests: false,
   permissionLookup: false,
   branchHousekeeping: false,
+  reopenPullRequests: false,
+  labels: false,
 }
 
 /** A branch buddy-bot created, as the provider reports it. */
@@ -149,7 +170,6 @@ export interface GitProvider {
   getPullRequests: (state?: 'open' | 'closed' | 'all') => Promise<PullRequest[]>
   updatePullRequest: (prNumber: number, options: Partial<PullRequestOptions>) => Promise<PullRequest>
   closePullRequest: (prNumber: number) => Promise<void>
-  reopenPullRequest: (prNumber: number) => Promise<void>
   mergePullRequest: (prNumber: number, strategy?: 'merge' | 'squash' | 'rebase') => Promise<void>
 
   /** Unified diff of a pull request */
@@ -178,6 +198,9 @@ export interface GitProvider {
   unpinIssue: (issueNumber: number) => Promise<boolean>
 
   // -- Capability-gated ----------------------------------------------------
+
+  /** Requires `reopenPullRequests` */
+  reopenPullRequest?: (prNumber: number) => Promise<void>
 
   /** Requires `pinIssues` */
   pinIssue?: (issueNumber: number) => Promise<boolean>
@@ -332,18 +355,32 @@ export async function createProvider(
 
   // Imported lazily so a provider's transport dependencies are only loaded
   // when that provider is the one in use.
-  const { GitHubProvider } = await import('./github-provider')
+  switch (name) {
+    case 'gitlab': {
+      const { GitLabProvider } = await import('./gitlab-provider')
+      return new GitLabProvider(token, config.owner, config.name, config.apiUrl, options.logger)
+    }
 
-  const workflowToken = config.workflowToken ?? env.BUDDY_BOT_TOKEN
-  return new GitHubProvider(
-    token,
-    config.owner,
-    config.name,
-    Boolean(workflowToken),
-    workflowToken,
-    config.apiUrl,
-    options.logger,
-  )
+    case 'bitbucket': {
+      const { BitbucketProvider } = await import('./bitbucket-provider')
+      return new BitbucketProvider(token, config.owner, config.name, config.apiUrl, options.logger)
+    }
+
+    case 'github': {
+      const { GitHubProvider } = await import('./github-provider')
+      const workflowToken = config.workflowToken ?? env.BUDDY_BOT_TOKEN
+
+      return new GitHubProvider(
+        token,
+        config.owner,
+        config.name,
+        Boolean(workflowToken),
+        workflowToken,
+        config.apiUrl,
+        options.logger,
+      )
+    }
+  }
 }
 
 /**

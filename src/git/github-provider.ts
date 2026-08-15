@@ -122,6 +122,8 @@ export class GitHubProvider implements GitProvider {
       draftPullRequests: true,
       permissionLookup: true,
       branchHousekeeping: true,
+      reopenPullRequests: true,
+      labels: true,
     }
   }
 

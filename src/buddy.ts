@@ -860,7 +860,12 @@ export class Buddy {
             // This prevents creating duplicates when a PR was incorrectly auto-closed
             let reopened = false
             try {
-              const closedPRs = await gitProvider.getPullRequests('closed')
+              // A provider that cannot reopen has no reuse path at all — on
+              // Bitbucket a declined pull request is final. Not looking is what
+              // sends it down the create-fresh branch below.
+              const closedPRs = supports(gitProvider, 'reopenPullRequests', 'reopenPullRequest')
+                ? await gitProvider.getPullRequests('closed')
+                : []
               const recentlyClosed = closedPRs.find((pr) => {
                 if (pr.head !== branchName)
                   return false
@@ -881,7 +886,7 @@ export class Buddy {
                   await gitProvider.commitChanges(branchName, this.commitMessageFor(group, '(reopened)'), packageJsonUpdates, this.config.repository.baseBranch || 'main')
                 }
 
-                await gitProvider.reopenPullRequest(recentlyClosed.number)
+                await gitProvider.reopenPullRequest!(recentlyClosed.number)
                 const dynamicLabels = prGenerator.generateLabels(group)
                 await gitProvider.updatePullRequest(recentlyClosed.number, {
                   title: prTitle,
@@ -920,7 +925,10 @@ export class Buddy {
           // deleted its branch — we reopen instead of creating a duplicate.
           let reopenedFromClosed = false
           try {
-            const closedPRs = await gitProvider.getPullRequests('closed')
+            // Same gate as above: with no reopen there is no reuse path.
+            const closedPRs = supports(gitProvider, 'reopenPullRequests', 'reopenPullRequest')
+              ? await gitProvider.getPullRequests('closed')
+              : []
             const recentlyClosed = closedPRs.find((pr) => {
               // Match by branch name or similar title
               if (pr.head !== branchName && !this.isSimilarPRTitle(pr.title, prTitle))
@@ -948,7 +956,7 @@ export class Buddy {
               }
 
               // Reopen and update the existing PR
-              await gitProvider.reopenPullRequest(recentlyClosed.number)
+              await gitProvider.reopenPullRequest!(recentlyClosed.number)
               // Point the reopened PR at the new branch (in case branch name changed)
               const dynamicLabels = prGenerator.generateLabels(group)
               await gitProvider.updatePullRequest(recentlyClosed.number, {

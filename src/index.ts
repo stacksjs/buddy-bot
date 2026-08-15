@@ -1,7 +1,16 @@
 // Main Buddy class
 export { Buddy } from './buddy'
 
+export { BitbucketProvider } from './git/bitbucket-provider'
 export { GitHubProvider } from './git/github-provider'
+export { GitLabProvider } from './git/gitlab-provider'
+export {
+  ciTemplateFor,
+  DEFAULT_SCHEDULE,
+  generateBitbucketPipeline,
+  generateGitLabPipeline,
+} from './templates/gitlab-ci'
+export type { PipelineSchedule } from './templates/gitlab-ci'
 export {
   assertProviderSupported,
   assertSupports,

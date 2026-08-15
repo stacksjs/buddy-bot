@@ -38,6 +38,8 @@ export function runProviderConformance(name: string, create: () => GitProvider):
           'draftPullRequests',
           'permissionLookup',
           'branchHousekeeping',
+          'reopenPullRequests',
+          'labels',
         ]
 
         for (const flag of required)
@@ -59,6 +61,7 @@ export function runProviderConformance(name: string, create: () => GitProvider):
           ['ciLogs', 'getWorkflowRunLogs'],
           ['permissionLookup', 'hasWriteAccess'],
           ['branchHousekeeping', 'cleanupStaleBranches'],
+          ['reopenPullRequests', 'reopenPullRequest'],
         ]
 
         for (const [flag, method] of gated) {
@@ -159,11 +162,30 @@ export function runProviderConformance(name: string, create: () => GitProvider):
 
       it('success case - a reopened pull request is open again', async () => {
         const provider = create()
+        if (!provider.capabilities().reopenPullRequests)
+          return
+
         const pr = await provider.createPullRequest({ title: 'a', body: '', head: 'h1', base: 'main' })
         await provider.closePullRequest(pr.number)
-        await provider.reopenPullRequest(pr.number)
+        await provider.reopenPullRequest!(pr.number)
 
         expect((await provider.getPullRequests('open'))[0]?.number).toBe(pr.number)
+      })
+
+      it('failure case - a provider without reopen says so rather than pretending', async () => {
+        // Silently succeeding would leave a caller believing the pull request
+        // is open again when it is permanently declined.
+        const provider = create()
+        if (provider.capabilities().reopenPullRequests)
+          return
+
+        const pr = await provider.createPullRequest({ title: 'a', body: '', head: 'h1', base: 'main' })
+        await provider.closePullRequest(pr.number)
+
+        if (provider.reopenPullRequest)
+          await expect(provider.reopenPullRequest(pr.number)).rejects.toThrow()
+
+        expect(await provider.getPullRequests('open')).toHaveLength(0)
       })
 
       it('success case - a merged pull request reports merged, not closed', async () => {
@@ -214,7 +236,8 @@ export function runProviderConformance(name: string, create: () => GitProvider):
 
         expect(updated.body).toBe('new')
         expect(updated.title).toBe('a')
-        expect(updated.labels).toEqual(['dependencies'])
+        if (provider.capabilities().labels)
+          expect(updated.labels).toEqual(['dependencies'])
       })
 
       it('success case - state filtering excludes closed issues', async () => {
