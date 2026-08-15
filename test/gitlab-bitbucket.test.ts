@@ -8,6 +8,7 @@ import {
   generateBitbucketPipeline,
   generateGitLabPipeline,
 } from '../src/templates/gitlab-ci'
+import { parseRemote } from '../src/setup'
 import { Logger } from '../src/utils/logger'
 import { bitbucketApi, createRepo, gitlabApi } from './git/fake-api'
 import { runProviderConformance } from './git/provider-conformance'
@@ -325,5 +326,27 @@ describe('CI templates', () => {
     expect(ciTemplateFor('bitbucket')?.path).toBe('bitbucket-pipelines.yml')
     // GitHub has the richer generator in setup.ts.
     expect(ciTemplateFor('github')).toBeNull()
+  })
+})
+
+describe('remote detection', () => {
+  it('success case - recognises each platform, HTTPS and SSH', () => {
+    expect(parseRemote('https://github.com/stacksjs/buddy-bot.git'))
+      .toEqual({ owner: 'stacksjs', name: 'buddy-bot', provider: 'github' })
+    expect(parseRemote('git@gitlab.com:group/repo.git'))
+      .toEqual({ owner: 'group', name: 'repo', provider: 'gitlab' })
+    expect(parseRemote('https://bitbucket.org/workspace/repo'))
+      .toEqual({ owner: 'workspace', name: 'repo', provider: 'bitbucket' })
+  })
+
+  it('success case - keeps a GitLab subgroup path intact', () => {
+    // Truncating it would configure a project that does not exist.
+    expect(parseRemote('git@gitlab.com:group/sub/deeper/repo.git'))
+      .toEqual({ owner: 'group/sub/deeper', name: 'repo', provider: 'gitlab' })
+  })
+
+  it('failure case - an unknown host is not guessed at', () => {
+    expect(parseRemote('git@git.acme.com:team/repo.git')).toBeNull()
+    expect(parseRemote('')).toBeNull()
   })
 })

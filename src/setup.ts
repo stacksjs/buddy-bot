@@ -17,6 +17,8 @@ const execAsync = promisify(exec)
 export interface RepositoryInfo {
   owner: string
   name: string
+  /** Which platform the remote points at (default: `github`) */
+  provider?: 'github' | 'gitlab' | 'bitbucket'
 }
 
 export interface WorkflowPreset {
@@ -950,17 +952,41 @@ export function displayProgress(progress: SetupProgress): void {
   }
 }
 
+/**
+ * Work out the repository and platform from a git remote.
+ *
+ * The owner capture allows slashes so a GitLab subgroup path survives — those
+ * are part of the project's name, and truncating them would configure a
+ * project that does not exist.
+ *
+ * @param remoteUrl - A git remote, HTTPS or SSH
+ * @returns The repository, or null when the host is not one buddy-bot knows
+ * @example
+ * ```ts
+ * parseRemote('git@gitlab.com:group/sub/repo.git')
+ * // { owner: 'group/sub', name: 'repo', provider: 'gitlab' }
+ * ```
+ */
+export function parseRemote(remoteUrl: string): RepositoryInfo | null {
+  const hosts: Array<[RegExp, RepositoryInfo['provider']]> = [
+    [/github\.com[/:](.+?)\/([^/]+?)(?:\.git)?$/, 'github'],
+    [/gitlab\.com[/:](.+?)\/([^/]+?)(?:\.git)?$/, 'gitlab'],
+    [/bitbucket\.org[/:](.+?)\/([^/]+?)(?:\.git)?$/, 'bitbucket'],
+  ]
+
+  for (const [pattern, provider] of hosts) {
+    const match = pattern.exec(remoteUrl.trim())
+    if (match)
+      return { owner: match[1], name: match[2], provider }
+  }
+
+  return null
+}
+
 export async function detectRepository(): Promise<RepositoryInfo | null> {
   try {
     const { stdout } = await execAsync('git remote get-url origin')
-    const remoteUrl = stdout.trim()
-
-    // Parse GitHub URL (supports both HTTPS and SSH)
-    const match = remoteUrl.match(/github\.com[/:]([\w-]+)\/([\w-]+)(?:\.git)?/)
-    if (match) {
-      return { owner: match[1], name: match[2] }
-    }
-    return null
+    return parseRemote(stdout.trim())
   }
   catch {
     return null
@@ -1065,7 +1091,7 @@ const config: BuddyBotConfig = {
   repository: {
     owner: '${repoInfo.owner}',
     name: '${repoInfo.name}',
-    provider: 'github',
+    provider: '${repoInfo.provider ?? 'github'}',
     ${hasCustomToken ? '// token: process.env.BUDDY_BOT_TOKEN,' : '// Uses GITHUB_TOKEN by default'}
   },
   dashboard: {
