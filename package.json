@@ -58,7 +58,9 @@
     "dev:docs": "bun --bun vitepress dev docs",
     "build:docs": "bun --bun vitepress build docs",
     "preview:docs": "bun --bun vitepress preview docs",
-    "release:patch": "bunx --bun bumpx patch --recursive --commit --tag --push --yes"
+    "release:patch": "bunx --bun bumpx patch --recursive --commit --tag --push --yes",
+    "release:minor": "bunx --bun bumpx minor --recursive --commit --tag --push --yes",
+    "release:major": "bunx --bun bumpx major --recursive --commit --tag --push --yes"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
