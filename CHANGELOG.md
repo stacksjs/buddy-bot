@@ -1,5 +1,19 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.1...v0.10.2)
+
+## 💚 Continuous Integration
+
+- bump the pantry action so the changelog actually extracts ([e9a1066](https://github.com/stacksjs/buddy-bot/commit/e9a1066)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.10.2 ([214bd82](https://github.com/stacksjs/buddy-bot/commit/214bd82)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.0...v0.10.1)
 
 ## 💚 Continuous Integration
