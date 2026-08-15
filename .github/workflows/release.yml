@@ -60,3 +60,33 @@ jobs:
             ./bin/buddy-bot-darwin-arm64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Binaries live only on the latest release: they are ~150 MB a version,
+      # and an older release's copies are superseded the moment this one
+      # publishes. Only the names this workflow produces are pruned, so an
+      # asset somebody attached by hand is never touched.
+      #
+      # Housekeeping, so it must not fail a release that already succeeded —
+      # the package is on npm and the release exists by this point.
+      - name: Keep binaries only on the latest release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_TAG: ${{ github.ref_name }}
+        run: |
+          set -uo pipefail
+
+          PRUNABLE="buddy-bot-linux-x64.zip buddy-bot-linux-arm64.zip buddy-bot-windows-x64.zip buddy-bot-darwin-x64.zip buddy-bot-darwin-arm64.zip checksums.txt release-manifest.json"
+
+          for tag in $(gh release list --limit 30 --json tagName --jq '.[].tagName'); do
+            [ "$tag" = "$CURRENT_TAG" ] && continue
+
+            for asset in $(gh release view "$tag" --json assets --jq '.assets[].name'); do
+              case " $PRUNABLE " in
+                *" $asset "*)
+                  echo "Pruning $asset from $tag"
+                  gh release delete-asset "$tag" "$asset" --yes || true
+                  ;;
+              esac
+            done
+          done
