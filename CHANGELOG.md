@@ -1,5 +1,72 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.27...v0.10.0)
+
+## ✨ Features
+
+- **setup**: detect the provider from the git remote ([2a6872d](https://github.com/stacksjs/buddy-bot/commit/2a6872d)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#115](https://github.com/stacksjs/buddy-bot/issues/115), [#116](https://github.com/stacksjs/buddy-bot/issues/116))
+- **git**: implement GitLab and Bitbucket providers ([acdd885](https://github.com/stacksjs/buddy-bot/commit/acdd885)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#115](https://github.com/stacksjs/buddy-bot/issues/115), [#116](https://github.com/stacksjs/buddy-bot/issues/116), [#1390](https://github.com/stacksjs/buddy-bot/issues/1390))
+- **agent**: deliver finishing touches as stacked pull requests ([a66a329](https://github.com/stacksjs/buddy-bot/commit/a66a329)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1394](https://github.com/stacksjs/buddy-bot/issues/1394), [#1394](https://github.com/stacksjs/buddy-bot/issues/1394))
+- **scanner**: pnpm catalogs, engines, overrides awareness and base-image EOL ([bc1a59f](https://github.com/stacksjs/buddy-bot/commit/bc1a59f)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1385](https://github.com/stacksjs/buddy-bot/issues/1385), [#1385](https://github.com/stacksjs/buddy-bot/issues/1385), [#1386](https://github.com/stacksjs/buddy-bot/issues/1386), [#1386](https://github.com/stacksjs/buddy-bot/issues/1386), [#107](https://github.com/stacksjs/buddy-bot/issues/107), [#117](https://github.com/stacksjs/buddy-bot/issues/117))
+- **ecosystems**: add Python, Rust, Go and Ruby behind an adapter interface ([48e81ff](https://github.com/stacksjs/buddy-bot/commit/48e81ff)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1385](https://github.com/stacksjs/buddy-bot/issues/1385))
+- **gates**: AI pre-merge checks, post-merge actions and issue quick-links ([dec1a7a](https://github.com/stacksjs/buddy-bot/commit/dec1a7a)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1394](https://github.com/stacksjs/buddy-bot/issues/1394))
+- **reports**: scheduled dependency-health and activity reports ([42b151d](https://github.com/stacksjs/buddy-bot/commit/42b151d)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1389](https://github.com/stacksjs/buddy-bot/issues/1389))
+- **docker**: support every OCI registry, and index Actions advisories ([f0470ec](https://github.com/stacksjs/buddy-bot/commit/f0470ec)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1386](https://github.com/stacksjs/buddy-bot/issues/1386))
+- **cli**: local review, doctor, and headless runs ([f0e93d2](https://github.com/stacksjs/buddy-bot/commit/f0e93d2)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1391](https://github.com/stacksjs/buddy-bot/issues/1391))
+- **analysis**: add six analyzers covering the rest of the first tier ([be91aea](https://github.com/stacksjs/buddy-bot/commit/be91aea)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1392](https://github.com/stacksjs/buddy-bot/issues/1392), [#1378](https://github.com/stacksjs/buddy-bot/issues/1378))
+- **rules**: complete the packageRules engine ([12d282f](https://github.com/stacksjs/buddy-bot/commit/12d282f)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1395](https://github.com/stacksjs/buddy-bot/issues/1395), [#1384](https://github.com/stacksjs/buddy-bot/issues/1384))
+- **upgrades**: wire major-upgrade analysis into pull request creation ([b5255e1](https://github.com/stacksjs/buddy-bot/commit/b5255e1)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1396](https://github.com/stacksjs/buddy-bot/issues/1396), [#1388](https://github.com/stacksjs/buddy-bot/issues/1388))
+- **events**: add runtime event bus and notifications ([11ddd52](https://github.com/stacksjs/buddy-bot/commit/11ddd52)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1387](https://github.com/stacksjs/buddy-bot/issues/1387))
+- **upgrades**: add AI-assisted major upgrade analysis and migration ([39c5abc](https://github.com/stacksjs/buddy-bot/commit/39c5abc)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1388](https://github.com/stacksjs/buddy-bot/issues/1388))
+- **rules**: add packageRules engine ([4332bf0](https://github.com/stacksjs/buddy-bot/commit/4332bf0)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1384](https://github.com/stacksjs/buddy-bot/issues/1384))
+- **workflow**: wire AI features to GitHub events ([1256078](https://github.com/stacksjs/buddy-bot/commit/1256078)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1393](https://github.com/stacksjs/buddy-bot/issues/1393))
+- **issues**: add enrichment and finishing-touch tasks ([4d93b82](https://github.com/stacksjs/buddy-bot/commit/4d93b82)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1380](https://github.com/stacksjs/buddy-bot/issues/1380), [#1383](https://github.com/stacksjs/buddy-bot/issues/1383))
+- **gates**: add pre-merge checks ([bc8f8f7](https://github.com/stacksjs/buddy-bot/commit/bc8f8f7)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1382](https://github.com/stacksjs/buddy-bot/issues/1382))
+- **ci**: add CI failure analysis and auto-fix ([1567193](https://github.com/stacksjs/buddy-bot/commit/1567193)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1381](https://github.com/stacksjs/buddy-bot/issues/1381))
+- **ai**: add learnings and memory ([ab35028](https://github.com/stacksjs/buddy-bot/commit/ab35028)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1379](https://github.com/stacksjs/buddy-bot/issues/1379))
+- **commands**: add @buddy-bot comment commands ([c3f74c8](https://github.com/stacksjs/buddy-bot/commit/c3f74c8)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1376](https://github.com/stacksjs/buddy-bot/issues/1376))
+- **analysis**: add static-analysis orchestration ([bfa2329](https://github.com/stacksjs/buddy-bot/commit/bfa2329)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1378](https://github.com/stacksjs/buddy-bot/issues/1378))
+- **review**: add path filters, path instructions and guideline ingestion ([48eb08f](https://github.com/stacksjs/buddy-bot/commit/48eb08f)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1377](https://github.com/stacksjs/buddy-bot/issues/1377))
+- **review**: add AI pull request review engine ([ca7a0d0](https://github.com/stacksjs/buddy-bot/commit/ca7a0d0)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1375](https://github.com/stacksjs/buddy-bot/issues/1375))
+- **agent**: add secure agent runtime ([fb09bf6](https://github.com/stacksjs/buddy-bot/commit/fb09bf6)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1374](https://github.com/stacksjs/buddy-bot/issues/1374))
+- **ai**: add model-agnostic provider layer ([5c87092](https://github.com/stacksjs/buddy-bot/commit/5c87092)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1373](https://github.com/stacksjs/buddy-bot/issues/1373))
+- **scanner**: finish the ecosystems that were scan-only ([8663565](https://github.com/stacksjs/buddy-bot/commit/8663565)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1372](https://github.com/stacksjs/buddy-bot/issues/1372))
+- **config**: honor options that were typed but never read ([3bb8f50](https://github.com/stacksjs/buddy-bot/commit/3bb8f50)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1371](https://github.com/stacksjs/buddy-bot/issues/1371))
+- **dashboard**: make checkboxes and pinning functional ([6e1db3b](https://github.com/stacksjs/buddy-bot/commit/6e1db3b)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1370](https://github.com/stacksjs/buddy-bot/issues/1370))
+- **pr**: wire auto-merge into PR creation and update-check ([bcf1d45](https://github.com/stacksjs/buddy-bot/commit/bcf1d45)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1369](https://github.com/stacksjs/buddy-bot/issues/1369))
+- **pr**: add auto-merge condition evaluator ([721c395](https://github.com/stacksjs/buddy-bot/commit/721c395)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1369](https://github.com/stacksjs/buddy-bot/issues/1369))
+- **pr**: embed the metadata manifest in generated PR bodies ([d05578e](https://github.com/stacksjs/buddy-bot/commit/d05578e)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1368](https://github.com/stacksjs/buddy-bot/issues/1368))
+- **pr**: add structured PR metadata manifest ([3b09ec6](https://github.com/stacksjs/buddy-bot/commit/3b09ec6)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1368](https://github.com/stacksjs/buddy-bot/issues/1368))
+
+## 🐛 Bug Fixes
+
+- **dashboard**: stop duplicates when a dashboard loses its labels ([20e4685](https://github.com/stacksjs/buddy-bot/commit/20e4685)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#104](https://github.com/stacksjs/buddy-bot/issues/104), [#1355](https://github.com/stacksjs/buddy-bot/issues/1355), [#1356](https://github.com/stacksjs/buddy-bot/issues/1356), [#1397](https://github.com/stacksjs/buddy-bot/issues/1397))
+- wire up the features that were built but unreachable ([349623d](https://github.com/stacksjs/buddy-bot/commit/349623d)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## ♻️ Code Refactoring
+
+- **git**: extract GitProvider abstraction with capability flags ([6517353](https://github.com/stacksjs/buddy-bot/commit/6517353)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1390](https://github.com/stacksjs/buddy-bot/issues/1390), [#115](https://github.com/stacksjs/buddy-bot/issues/115), [#116](https://github.com/stacksjs/buddy-bot/issues/116))
+- **pr**: read PR state from the manifest instead of markdown ([5a364c4](https://github.com/stacksjs/buddy-bot/commit/5a364c4)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1368](https://github.com/stacksjs/buddy-bot/issues/1368))
+
+## 📝 Documentation
+
+- **agent**: tag fenced blocks with a language ([ded7219](https://github.com/stacksjs/buddy-bot/commit/ded7219)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1374](https://github.com/stacksjs/buddy-bot/issues/1374))
+- **agent**: document modes, tiers and the security model ([6a8e159](https://github.com/stacksjs/buddy-bot/commit/6a8e159)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1374](https://github.com/stacksjs/buddy-bot/issues/1374))
+- **ai**: document provider setup, aliases and budgets ([67e3a3a](https://github.com/stacksjs/buddy-bot/commit/67e3a3a)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1373](https://github.com/stacksjs/buddy-bot/issues/1373))
+- document capped dependencies and pantry.lock's role ([c6e2228](https://github.com/stacksjs/buddy-bot/commit/c6e2228)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1372](https://github.com/stacksjs/buddy-bot/issues/1372))
+- **config**: document PR template tokens and package pinning ([9bfc471](https://github.com/stacksjs/buddy-bot/commit/9bfc471)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1371](https://github.com/stacksjs/buddy-bot/issues/1371))
+- **dashboard**: document working checkboxes and pinning ([b88b51c](https://github.com/stacksjs/buddy-bot/commit/b88b51c)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1370](https://github.com/stacksjs/buddy-bot/issues/1370))
+- document auto-merge conditions and safety rails ([a2dbe05](https://github.com/stacksjs/buddy-bot/commit/a2dbe05)) _(by Chris <chrisbreuer93@gmail.com>)_ ([#1369](https://github.com/stacksjs/buddy-bot/issues/1369))
+
+## 🔧 Chores
+
+- release v0.10.0 ([b4e6f25](https://github.com/stacksjs/buddy-bot/commit/b4e6f25)) _(by Chris <chrisbreuer93@gmail.com>)_
+- add release:minor and release:major scripts ([aa946d2](https://github.com/stacksjs/buddy-bot/commit/aa946d2)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.26...v0.9.27)
 
 ## 💥 Breaking Changes
