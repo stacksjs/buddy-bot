@@ -1,5 +1,20 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.0...v0.10.1)
+
+## 💚 Continuous Integration
+
+- build release binaries and let pantry attach them ([aeae408](https://github.com/stacksjs/buddy-bot/commit/aeae408)) _(by Chris <chrisbreuer93@gmail.com>)_
+- let pantry create the GitHub release so it carries the changelog ([481ad7a](https://github.com/stacksjs/buddy-bot/commit/481ad7a)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.10.1 ([60fa734](https://github.com/stacksjs/buddy-bot/commit/60fa734)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.9.27...v0.10.0)
 
 ## ✨ Features
