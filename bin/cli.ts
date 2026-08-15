@@ -168,6 +168,41 @@ async function applyFixes(findings: ReviewFinding[], assumeYes: boolean, logger:
   return applied
 }
 
+/**
+ * Collect what buddy-bot knows about this repository's dependencies.
+ *
+ * Used to enrich an issue that names a package. Failures are swallowed: the
+ * context is an extra, and losing it must not stop the quick-links comment
+ * that carries the actions.
+ *
+ * @param config - Resolved configuration
+ * @param logger - Where to report a failure
+ * @returns One entry per declared dependency
+ */
+async function collectPackageContext(
+  config: BuddyBotConfig,
+  logger: Logger,
+): Promise<Array<{ name: string, declaredVersion?: string }>> {
+  try {
+    const { PackageScanner } = await import('../src/scanner/package-scanner')
+    const files = await new PackageScanner(process.cwd(), logger, config.packages?.ignorePaths).scanProject()
+
+    const seen = new Map<string, string>()
+    for (const file of files) {
+      for (const dependency of file.dependencies) {
+        if (!seen.has(dependency.name))
+          seen.set(dependency.name, dependency.currentVersion)
+      }
+    }
+
+    return [...seen].map(([name, declaredVersion]) => ({ name, declaredVersion }))
+  }
+  catch (error) {
+    logger.debug(`Could not collect dependency context: ${formatError(error)}`)
+    return []
+  }
+}
+
 const cli = new CLI('buddy-bot')
 
 cli.usage(`[command] [options]
@@ -2803,6 +2838,127 @@ cli
   })
 
 cli
+  .command('handle-issue', 'Post Buddy Bot quick-links on a new issue, or run a ticked action')
+  .option('--payload <path>', 'Path to the event payload (default: GITHUB_EVENT_PATH)')
+  .option('--issue <number>', 'Act on an issue directly rather than reading an event')
+  .option('--dry-run', 'Report what would happen without acting')
+  .option('--verbose, -v', 'Enable verbose logging')
+  .example('buddy-bot handle-issue')
+  .action(async (options: CLIOptions & {
+    payload?: string
+    issue?: string
+    dryRun?: boolean
+  }) => {
+    const logger = options.verbose ? Logger.verbose() : Logger.quiet()
+    const config = await resolveConfig(options.config)
+
+    if (config.issues?.quickLinks !== true) {
+      logger.info('ℹ️ Issue quick-links are off (set issues.quickLinks to enable)')
+      return
+    }
+
+    try {
+      let issueNumber = options.issue ? Number.parseInt(options.issue, 10) : Number.NaN
+
+      if (Number.isNaN(issueNumber)) {
+        const payloadPath = options.payload || process.env.GITHUB_EVENT_PATH
+        if (!payloadPath) {
+          logger.error('❌ No event payload. Pass --issue or --payload, or run inside CI.')
+          process.exit(1)
+        }
+
+        const event = await Bun.file(payloadPath).json()
+        issueNumber = Number(event?.issue?.number)
+
+        if (Number.isNaN(issueNumber)) {
+          logger.info('ℹ️ Event carries no issue; nothing to do')
+          return
+        }
+      }
+
+      const provider = await providerFor(config, 'issue quick-links', logger)
+      const issues = await provider.getIssues('open')
+      const issue = issues.find(candidate => candidate.number === issueNumber)
+
+      if (!issue) {
+        logger.info(`ℹ️ Issue #${issueNumber} is not open`)
+        return
+      }
+
+      const {
+        clearQuickSelection,
+        parseQuickSelection,
+        QUICK_LINKS_MARKER,
+        renderQuickLinks,
+      } = await import('../src/issues')
+
+      const selection = parseQuickSelection(issue.body)
+
+      // A ticked box is a request; an issue with no comment yet gets the offer.
+      if (selection.actions.length > 0) {
+        logger.info(`🤖 Requested: ${selection.actions.join(', ')}`)
+
+        if (options.dryRun)
+          return
+
+        const { createAiClient } = await import('../src/ai')
+        const ai = createAiClient(config, logger)
+
+        if (!ai) {
+          await provider.createComment(issueNumber, 'Buddy Bot needs an AI provider configured to act on this. See https://buddy-bot.sh/ai/providers')
+          return
+        }
+
+        // Cleared first, so a long-running action cannot be triggered twice by
+        // a second poll arriving before the first finishes.
+        await provider.updateIssue(issueNumber, { body: clearQuickSelection(issue.body) })
+
+        for (const action of selection.actions) {
+          const { getFinishingTouch, runAgent } = await import('../src/agent')
+          const touch = getFinishingTouch(action === 'build' ? 'autofix' : 'plan')
+
+          const result = await runAgent(ai, {
+            mode: touch.mode,
+            task: `${touch.buildTask({ summary: issue.title, files: [] })}\n\nIssue:\n${issue.body}`,
+            context: { workspace: process.cwd(), baseBranch: config.repository?.baseBranch ?? 'main' },
+            logger,
+          })
+
+          await provider.createComment(issueNumber, result.output)
+          logger.success(`✅ Ran ${action}`)
+        }
+
+        return
+      }
+
+      if (issue.body.includes(QUICK_LINKS_MARKER)) {
+        logger.debug('Quick-links already posted on this issue')
+        return
+      }
+
+      // Dependency context is added only when the issue names a package this
+      // repository actually depends on.
+      const packages = config.issues?.dependencyContext
+        ? await collectPackageContext(config, logger)
+        : []
+
+      const comment = renderQuickLinks({ body: issue.body, packages })
+
+      if (options.dryRun) {
+        logger.info(comment)
+        return
+      }
+
+      await provider.createComment(issueNumber, comment)
+      logger.success(`✅ Posted quick-links on #${issueNumber}`)
+    }
+    catch (error) {
+      logger.error('handle-issue failed:', error)
+      process.exit(1)
+    }
+  })
+
+cli
   .command('gate <pr-number>', 'Run pre-merge gates on a pull request and publish the result')
   .option('--dry-run', 'Print the result instead of publishing a check run')
   .option('--verbose, -v', 'Enable verbose logging')
@@ -2830,9 +2986,34 @@ cli
       }
 
       const gates = config.gates ?? {}
+      const manifest = parseManifest(pr.body)
+
+      // The manifest is what the dependency gate reads: without it the gate
+      // evaluates an empty list and passes every pull request.
+      const { manifestUpdates: readManifest } = await import('../src/pr/pr-manifest')
+      const dependencies = manifest
+        ? await Promise.all(readManifest(manifest).map(async (update) => {
+            const base = { name: update.name, version: update.newVersion }
+
+            // Only base images have a support window to check, and only when
+            // the gate would act on it.
+            if (gates.dependencyGate?.blockEol === false)
+              return base
+
+            const entry = manifest.updates.find(candidate => candidate.name === update.name)
+            if (entry?.dependencyType !== 'docker-image')
+              return base
+
+            const { checkEol, describeEol } = await import('../src/registry/eol')
+            const status = await checkEol(update.name, update.newVersion, { logger })
+            const note = describeEol(status)
+
+            return status?.eol && note ? { ...base, eol: note } : base
+          }))
+        : []
 
       const deterministic = runGates(
-        { title: pr.title, body: pr.body, manifest: parseManifest(pr.body) },
+        { title: pr.title, body: pr.body, manifest, dependencies },
         {
           ...(gates.titleFormat ? { titleFormat: gates.titleFormat } : {}),
           ...(gates.description ? { description: gates.description } : {}),

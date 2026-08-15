@@ -9,6 +9,7 @@ import {
   generateGitLabPipeline,
 } from '../src/templates/gitlab-ci'
 import { parseRemote } from '../src/setup'
+import { REPOSITORY_ENV_VARS, resolveRepositoryConfig } from '../src/utils/repository'
 import { Logger } from '../src/utils/logger'
 import { bitbucketApi, createRepo, gitlabApi } from './git/fake-api'
 import { runProviderConformance } from './git/provider-conformance'
@@ -348,5 +349,63 @@ describe('remote detection', () => {
   it('failure case - an unknown host is not guessed at', () => {
     expect(parseRemote('git@git.acme.com:team/repo.git')).toBeNull()
     expect(parseRemote('')).toBeNull()
+  })
+})
+
+describe('repository detection across CI platforms', () => {
+  function resolve(env: Record<string, string | undefined>) {
+    const config = { repository: { provider: 'github' as const, owner: '', name: '' } }
+    return { result: resolveRepositoryConfig(config, env), config }
+  }
+
+  it('success case - reads GitHub Actions', () => {
+    expect(resolve({ GITHUB_REPOSITORY: 'stacksjs/buddy-bot' }).result)
+      .toMatchObject({ owner: 'stacksjs', name: 'buddy-bot' })
+  })
+
+  it('success case - reads GitLab CI', () => {
+    // Without this, buddy-bot on GitLab CI with no config file cannot find
+    // the repository it is running in at all.
+    expect(resolve({ CI_PROJECT_PATH: 'group/repo' }).result)
+      .toMatchObject({ owner: 'group', name: 'repo' })
+  })
+
+  it('success case - keeps a GitLab subgroup path in the owner', () => {
+    // Truncating it would target a project that does not exist.
+    expect(resolve({ CI_PROJECT_PATH: 'group/sub/deeper/repo' }).result)
+      .toMatchObject({ owner: 'group/sub/deeper', name: 'repo' })
+  })
+
+  it('success case - reads Bitbucket Pipelines', () => {
+    expect(resolve({ BITBUCKET_REPO_FULL_NAME: 'workspace/repo' }).result)
+      .toMatchObject({ owner: 'workspace', name: 'repo' })
+  })
+
+  it('success case - resolves deterministically when several are set', () => {
+    // A GitLab job mirroring from GitHub sets both; order decides, not chance.
+    expect(resolve({ GITHUB_REPOSITORY: 'a/b', CI_PROJECT_PATH: 'c/d' }).result)
+      .toMatchObject({ owner: 'a', name: 'b' })
+    expect(REPOSITORY_ENV_VARS[0]).toBe('GITHUB_REPOSITORY')
+  })
+
+  it('edge case - a malformed value is ignored rather than half-parsed', () => {
+    expect(resolve({ CI_PROJECT_PATH: 'norepo' }).result.source).toBe('unresolved')
+    expect(resolve({ CI_PROJECT_PATH: '' }).result.source).toBe('unresolved')
+  })
+})
+
+describe('setup generates the right CI file', () => {
+  it('success case - a GitLab repository gets a GitLab pipeline', () => {
+    // Writing GitHub Actions workflows into a GitLab repository produces files
+    // that never run, which reads as a successful setup until the first
+    // schedule does nothing.
+    expect(ciTemplateFor('gitlab')?.path).toBe('.gitlab-ci.yml')
+    expect(ciTemplateFor('bitbucket')?.path).toBe('bitbucket-pipelines.yml')
+  })
+
+  it('success case - the GitLab template declares no variable nothing reads', () => {
+    // A setting in generated output that no code consults is worse than none:
+    // it implies configuration that does nothing.
+    expect(generateGitLabPipeline()).not.toContain('BUDDY_BOT_PROVIDER')
   })
 })

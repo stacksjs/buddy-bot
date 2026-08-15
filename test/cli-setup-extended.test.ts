@@ -199,3 +199,38 @@ describe('CLI Setup - Extended Tests', () => {
     })
   })
 })
+
+describe('Unified Workflow - newer commands', () => {
+  it('should give every CLI command a trigger', async () => {
+    // A command with no workflow job is unreachable for anyone who just runs
+    // `buddy-bot setup` — the feature exists but nothing invokes it.
+    const { generateUnifiedWorkflow } = await import('../src/setup')
+    const workflow = generateUnifiedWorkflow(false)
+
+    for (const command of ['gate', 'touch', 'post-merge', 'handle-issue', 'report'])
+      expect(workflow).toContain(`bunx buddy-bot ${command}`)
+  })
+
+  it('should guard post-merge on the merged flag', async () => {
+    // `closed` also fires for a pull request somebody abandoned.
+    const { generateUnifiedWorkflow } = await import('../src/setup')
+
+    expect(generateUnifiedWorkflow(false)).toContain('github.event.pull_request.merged == true')
+  })
+
+  it('should parse as YAML with every job present', async () => {
+    const { generateUnifiedWorkflow } = await import('../src/setup')
+    const parsed = Bun.YAML.parse(generateUnifiedWorkflow(true)) as { jobs?: Record<string, unknown> }
+
+    for (const job of ['gate', 'touch', 'post-merge', 'issue-links', 'report'])
+      expect(parsed.jobs?.[job]).toBeTruthy()
+  })
+
+  it('should not override the workflow-level token in the new jobs', async () => {
+    // GITHUB_TOKEN is primary for bot attribution; BUDDY_BOT_TOKEN rides
+    // alongside it for elevated scopes. The `||` pattern breaks that.
+    const { generateUnifiedWorkflow } = await import('../src/setup')
+
+    expect(generateUnifiedWorkflow(true)).not.toContain('BUDDY_BOT_TOKEN || secrets.GITHUB_TOKEN')
+  })
+})

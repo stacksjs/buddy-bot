@@ -45,8 +45,6 @@ export function generateGitLabPipeline(options: { review?: boolean } = {}): stri
     '',
     '.buddy-bot:',
     '  image: oven/bun:latest',
-    '  variables:',
-    '    BUDDY_BOT_PROVIDER: gitlab',
     '  before_script:',
     '    - bun install --frozen-lockfile',
     '',

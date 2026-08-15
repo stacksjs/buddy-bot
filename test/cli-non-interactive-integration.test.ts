@@ -229,7 +229,10 @@ describe('CLI Non-Interactive Integration Tests', () => {
       const requiredSections = [
         'name: Buddy Bot',
         'pull_request:', // Rebase checkbox triggers instantly via PR edit event
-        'types: [edited]',
+        // `edited` is what fires the rebase checkbox; the list has grown since
+        // (closed drives post-merge, opened drives gates) so this asserts the
+        // trigger rather than the exact set.
+        'types: [edited,',
         'workflow_dispatch:',
         'dry_run:',
         'check:', // job name

@@ -17,6 +17,8 @@ import {
   QUICK_LINKS_MARKER,
   renderQuickLinks,
 } from '../src/issues'
+import { checkDependencies } from '../src/gates/checks'
+import { describeEol } from '../src/registry/eol'
 import { Logger } from '../src/utils/logger'
 
 function scriptedClient(json: unknown): AiClient & { requests: AiCompletionRequest[] } {
@@ -412,5 +414,25 @@ describe('issue quick links', () => {
 
   it('edge case - renders with no options at all', () => {
     expect(renderQuickLinks()).toContain('Buddy Bot')
+  })
+})
+
+describe('EOL feeds the dependency gate', () => {
+  it('success case - an EOL note becomes a gate violation', () => {
+    // The gate reads `dependency.eol`; nothing populated it until the gate
+    // command started looking base images up.
+    const status = { product: 'nodejs', cycle: '18', eol: true, date: '2025-04-30' }
+    const note = describeEol(status)
+
+    expect(note).toContain('end of life')
+    expect(checkDependencies([{ name: 'node', version: '18', eol: note }], { mode: 'error' }).passed)
+      .toBe(false)
+  })
+
+  it('failure case - a supported cycle produces no note and no violation', () => {
+    const note = describeEol({ product: 'nodejs', cycle: '22', eol: false, daysRemaining: 400 })
+
+    expect(note).toBe('')
+    expect(checkDependencies([{ name: 'node', version: '22' }], { mode: 'error' }).passed).toBe(true)
   })
 })

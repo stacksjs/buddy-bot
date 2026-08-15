@@ -7,27 +7,63 @@ export interface RepositoryResolution {
   name?: string
   /** Where the value came from. */
   source: 'config' | 'environment' | 'unresolved'
-  /** True when GITHUB_REPOSITORY replaced a conflicting configured value. */
+  /** True when a CI-provided repository replaced a conflicting configured value. */
   overrodeConfig: boolean
   /** Human-readable explanation, present only when an override happened. */
   warning?: string
 }
 
-function parseGitHubRepository(value: string | undefined): { owner: string, name: string } | null {
+/**
+ * Split an `owner/name` path, keeping any intermediate segments in the owner.
+ *
+ * GitLab's `CI_PROJECT_PATH` carries the full subgroup path, and those
+ * segments are part of the project's address — truncating `group/sub/repo` to
+ * `group/sub` would target a project that does not exist.
+ */
+function parseRepositoryPath(value: string | undefined): { owner: string, name: string } | null {
   if (!value)
     return null
 
-  const [owner, name] = value.split('/')
-  if (!owner || !name)
+  const segments = value.split('/').filter(Boolean)
+  if (segments.length < 2)
     return null
 
-  return { owner, name }
+  return { owner: segments.slice(0, -1).join('/'), name: segments[segments.length - 1] }
+}
+
+/**
+ * The CI variable each platform exposes the repository through.
+ *
+ * Read in order, so a runner that sets more than one (a GitLab job mirroring
+ * from GitHub, say) resolves deterministically rather than by whichever
+ * happened to be checked first.
+ */
+export const REPOSITORY_ENV_VARS: string[] = [
+  // GitHub Actions
+  'GITHUB_REPOSITORY',
+  // GitLab CI — full path including subgroups
+  'CI_PROJECT_PATH',
+  // Bitbucket Pipelines
+  'BITBUCKET_REPO_FULL_NAME',
+]
+
+/** Resolve the repository from whichever CI exposes it. */
+function detectRepository(env: Record<string, string | undefined>): { owner: string, name: string } | null {
+  for (const name of REPOSITORY_ENV_VARS) {
+    const parsed = parseRepositoryPath(env[name])
+    if (parsed)
+      return parsed
+  }
+
+  return null
 }
 
 /**
  * Resolve the repository buddy-bot should operate on, mutating the config in place.
  *
- * `GITHUB_REPOSITORY` wins over a configured owner/name whenever the two disagree.
+ * The CI-provided repository wins over a configured owner/name whenever the two
+ * disagree — `GITHUB_REPOSITORY`, `CI_PROJECT_PATH` or `BITBUCKET_REPO_FULL_NAME`
+ * depending on the platform.
  * buddy-bot commits and pushes through the local checkout's `origin`, so the API
  * target must be the repository that is actually checked out — a config pointing
  * elsewhere (commonly a value copy-pasted from another project's config) can only
@@ -37,7 +73,7 @@ function parseGitHubRepository(value: string | undefined): { owner: string, name
  * since an issue number is only meaningful within the repository it came from.
  *
  * @param config - Configuration to resolve and mutate
- * @param env - Environment to read `GITHUB_REPOSITORY` from (defaults to `process.env`)
+ * @param env - Environment to read the repository from (defaults to `process.env`)
  * @returns Details of what was resolved and whether the config was overridden
  * @example
  * ```ts
@@ -54,7 +90,7 @@ export function resolveRepositoryConfig(
     return { source: 'unresolved', overrodeConfig: false }
 
   const configured = config.repository
-  const detected = parseGitHubRepository(env.GITHUB_REPOSITORY)
+  const detected = detectRepository(env)
   const hasConfigured = Boolean(configured.owner && configured.name)
 
   if (!detected) {
@@ -69,7 +105,7 @@ export function resolveRepositoryConfig(
   if (isMismatch) {
     const stale = `${configured.owner}/${configured.name}`
     const warning
-      = `Configured repository ${stale} does not match GITHUB_REPOSITORY `
+      = `Configured repository ${stale} does not match the checked-out repository `
         + `${detected.owner}/${detected.name}. Using ${detected.owner}/${detected.name} — buddy-bot `
         + `operates on the checked-out repository. Update repository.owner/repository.name in your `
         + `buddy-bot config to silence this warning.`

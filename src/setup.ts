@@ -7,6 +7,7 @@ import process from 'node:process'
 import { promisify } from 'node:util'
 import prompts from 'prompts'
 import { convertRenovateRules } from './rules/renovate'
+import { ciTemplateFor } from './templates/gitlab-ci'
 import { GitHubActionsTemplate } from './templates/github-actions'
 import { getGitHubApiUrl } from './utils/endpoints'
 import { fetchWithTimeout } from './utils/http'
@@ -1164,13 +1165,13 @@ on:
   # is that reviews on fork pull requests need a token with more than the
   # default read-only fork permissions.
   pull_request:
-    types: [edited, opened, ready_for_review, synchronize]
+    types: [edited, opened, ready_for_review, synchronize, closed]
 
   # Dashboard checkboxes: same idea, fired when the dashboard issue is edited.
   # The determine-jobs step filters to the dashboard issue and ignores the
   # bot's own edits, so unticking a handled box cannot re-trigger the workflow.
   issues:
-    types: [edited]
+    types: [edited, opened]
 
   # @buddy-bot commands. The guard below terminates in seconds for the
   # overwhelming majority of comments, which never mention the bot, so ordinary
@@ -1194,6 +1195,8 @@ on:
     # and obsolete-PR detection. The PR-edited trigger handles rebase requests
     # in real time, but cleanup needs a scheduled tick or stale branches pile up.
     - cron: '0 4 * * *'
+    # Weekly dependency-health report, Monday 09:00 UTC.
+    - cron: '0 9 * * 1'
 
   workflow_dispatch: # Manual trigger
     inputs:
@@ -1451,6 +1454,118 @@ ${generateComposerSetupSteps()}
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
           GOOGLE_API_KEY: \${{ secrets.GOOGLE_API_KEY }}
           OPENROUTER_API_KEY: \${{ secrets.OPENROUTER_API_KEY }}
+
+  # Pre-merge gates. Publishes a check run, so branch protection can require it.
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [determine-jobs, setup]
+    if: \${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run gates
+        run: bunx buddy-bot gate \${{ github.event.pull_request.number }} --verbose
+
+  # Finishing touches, when a maintainer ticks one on a pull request.
+  touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [determine-jobs, setup]
+    if: \${{ github.event_name == 'pull_request' && github.event.action == 'edited' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run finishing touches
+        run: bunx buddy-bot touch \${{ github.event.pull_request.number }} --verbose
+
+  # Post-merge actions. Guarded on the merged flag, because the closed action
+  # also fires for a pull request somebody abandoned.
+  post-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [determine-jobs, setup]
+    if: \${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run post-merge actions
+        run: bunx buddy-bot post-merge \${{ github.event.pull_request.number }} --verbose
+
+  # Quick-links on a new issue, and the actions a maintainer ticks there.
+  issue-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [determine-jobs, setup]
+    if: \${{ github.event_name == 'issues' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Handle issue
+        run: bunx buddy-bot handle-issue --verbose
+
+  # Weekly dependency-health report.
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [determine-jobs, setup]
+    if: \${{ github.event_name == 'schedule' && github.event.schedule == '0 9 * * 1' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Generate report
+        run: bunx buddy-bot report --publish --verbose
 
   # Review a pull request on open, ready-for-review, or push
   review:
@@ -1877,6 +1992,19 @@ ${generateComposerSetupSteps()}
 }
 
 export async function generateCoreWorkflows(_preset: WorkflowPreset, _repoInfo: RepositoryInfo, hasCustomToken: boolean, logger: Logger): Promise<void> {
+  // GitLab and Bitbucket get their own pipeline format. Writing GitHub Actions
+  // workflows into a GitLab repository would produce files that never run,
+  // which reads as a successful setup until the first schedule does nothing.
+  const provider = _repoInfo.provider ?? 'github'
+  const template = ciTemplateFor(provider)
+
+  if (template) {
+    fs.writeFileSync(template.path, template.content)
+    logger.info(`Generated ${template.path} for ${provider}`)
+    logger.info(`⚠️ ${provider} schedules are configured in the project UI — see the comments at the top of ${template.path}`)
+    return
+  }
+
   // Ensure output directory exists
   const outputDir = '.github/workflows'
   if (!fs.existsSync(outputDir)) {
