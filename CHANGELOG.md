@@ -1,5 +1,23 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.2...v0.10.3)
+
+## 🐛 Bug Fixes
+
+- **deps**: require importable ts-pantry runtime ([32d709a](https://github.com/stacksjs/buddy-bot/commit/32d709a)) _(by Chris <chris@stacksjs.com>)_
+
+## 💚 Continuous Integration
+
+- keep release binaries only on the latest release ([2536249](https://github.com/stacksjs/buddy-bot/commit/2536249)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.10.3 ([0ed14af](https://github.com/stacksjs/buddy-bot/commit/0ed14af)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.1...v0.10.2)
 
 ## 💚 Continuous Integration
