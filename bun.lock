@@ -20,7 +20,7 @@
         "@types/prompts": "^2.4.9",
         "buddy-bot": "^0.9.17",
         "bun-git-hooks": "^0.3.1",
-        "bun-plugin-dtsx": "^0.9.14",
+        "bun-plugin-dtsx": "^0.11.5",
         "bunfig": "^0.15.9",
         "pickier": "^0.1.26",
         "typescript": "^6.0.2",
@@ -50,7 +50,7 @@
 
     "@stacksjs/desktop": ["@stacksjs/desktop@0.2.67", "", { "peerDependencies": { "craft": "*" }, "optionalPeers": ["craft"] }, "sha512-eVOQdAWOY6779isIK3j+6dNVRExxAQpwjq1udTUXzsjtjDy3h0yZ7zQ4mwaWio97hfKbr1YRZzO+7npBTm6Hqw=="],
 
-    "@stacksjs/dtsx": ["@stacksjs/dtsx@0.9.26", "", { "dependencies": { "@stacksjs/clapp": "^0.2.0" }, "peerDependencies": { "typescript": ">=5.9.3" }, "bin": { "dtsx": "./dist/bin/cli.js" } }, "sha512-MOUxZn8BhXpFYM+vh7cnQLUOLjZ4G6q76V+4OypkRiu/Gvpek9ywBQLbmv8iWLjT6gXlFMpEdw33o3GKKLpMCw=="],
+    "@stacksjs/dtsx": ["@stacksjs/dtsx@0.11.5", "", { "dependencies": { "@stacksjs/clapp": "^0.2.0" }, "bin": { "dtsx": "./dist/bin/cli.js" } }, "sha512-BW8+/zkpK7uA6vMnKUMs2uvHJeiau/HTz8bDJb5ecdAltdn6w0hb+U6lCwdc3zypp1Q1m/10Cay9rrMn/D4e1A=="],
 
     "@stacksjs/gitlint": ["@stacksjs/gitlint@0.1.6", "", { "bin": { "gitlint": "./dist/bin/cli.js" } }, "sha512-A4MTsddeWHEhz0mLKq+P/CqHxmWv4SWhrmWotP1UMtVbGlpYs/q+bwqrFyThT6L9xMR8iWKGVTV908oS6QDeNg=="],
 
@@ -132,7 +132,7 @@
 
     "bun-git-hooks": ["bun-git-hooks@0.3.2", "", { "bin": { "git-hooks": "./dist/bin/cli.js", "bun-git-hooks": "./dist/bin/cli.js" } }, "sha512-cHkmB7sxmtPNekzG0nGXqbN8Q+dZf4muvV4eCB8dBCduW1DHR+4YulKinPUk/C6Rogy+JMyL1ysVVVWwZobwZw=="],
 
-    "bun-plugin-dtsx": ["bun-plugin-dtsx@0.9.26", "", { "dependencies": { "@stacksjs/dtsx": "0.9.26" } }, "sha512-dOlA+gx3mju+Be0uoZqsuQ3U+GPu08wv7QQwA1k569tw8Bv9GwVWJz0jjQw6tzJi9Rvwfl31MVXu9rHYQXSKow=="],
+    "bun-plugin-dtsx": ["bun-plugin-dtsx@0.11.5", "", { "dependencies": { "@stacksjs/dtsx": "0.11.5" } }, "sha512-dva7CrHthEYAmnEQu8m0yvaP0joNS3zQQC4TSt7CS/dlEfUYVYU5jTqAB+Iseew4H2HceD5cy57XzpdpG7g9IA=="],
 
     "bun-plugin-stx": ["bun-plugin-stx@0.2.67", "", { "dependencies": { "@stacksjs/stx": "0.2.67", "stx-router": "0.2.67" }, "bin": { "serve": "./dist/serve.js", "stx-serve": "./dist/serve.js" } }, "sha512-rLjVqxv2xqaAZFFxjnw9xcppxWTB/3L3/YVNCzi2VeAPGeGHx8Z9ROCAZcjvrrkIIo1TjaoNqDghwmBtJ65WFg=="],
 
