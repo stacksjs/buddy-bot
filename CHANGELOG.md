@@ -1,5 +1,19 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.3...v0.10.4)
+
+## 🐛 Bug Fixes
+
+- **build**: bump bun-plugin-dtsx so the published types parse ([cedc389](https://github.com/stacksjs/buddy-bot/commit/cedc389)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.10.4 ([7064e74](https://github.com/stacksjs/buddy-bot/commit/7064e74)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.2...v0.10.3)
 
 ## 🐛 Bug Fixes
