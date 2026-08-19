@@ -1,5 +1,19 @@
 # Changelog
 
+[Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.4...v0.10.5)
+
+## ⚡ Performance Improvements
+
+- **ai**: make the Anthropic SDK an optional peer, resolved on first use ([a316c78](https://github.com/stacksjs/buddy-bot/commit/a316c78)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.10.5 ([7111ccd](https://github.com/stacksjs/buddy-bot/commit/7111ccd)) _(by Chris <chris@stacksjs.com>)_
+
+## Contributors
+
+- _Chris <chris@stacksjs.com>_
+
 [Compare changes](https://github.com/stacksjs/buddy-bot/compare/v0.10.3...v0.10.4)
 
 ## 🐛 Bug Fixes
