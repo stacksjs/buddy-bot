@@ -64,19 +64,19 @@
     "release:major": "bunx --bun bumpx major --recursive --commit --tag --push --yes"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
     "prompts": "^2.4.2",
-    "ts-pantry": "^0.11.27"
+    "ts-pantry": "^0.11.32"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
+    "@stacksjs/bumpx": "^0.2.14",
     "@stacksjs/bunpress": "^0.1.4",
     "@stacksjs/clapp": "^0.2.0",
-    "@types/bun": "^1.3.13",
-    "@types/prompts": "^2.4.9",
-    "@stacksjs/bumpx": "^0.2.14",
     "@stacksjs/clarity": "^0.3.28",
     "@stacksjs/gitlint": "^0.1.5",
     "@stacksjs/logsmith": "^0.2.6",
+    "@types/bun": "^1.3.13",
+    "@types/prompts": "^2.4.9",
     "buddy-bot": "^0.9.17",
     "bun-git-hooks": "^0.3.1",
     "bun-plugin-dtsx": "^0.11.5",
@@ -91,5 +91,13 @@
       }
     },
     "commit-msg": "bunx gitlint --edit .git/COMMIT_EDITMSG"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.117.1"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
   }
 }

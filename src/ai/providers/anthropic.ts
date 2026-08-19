@@ -1,5 +1,5 @@
+import type Anthropic from '@anthropic-ai/sdk'
 import type { AiCompletionRequest, AiProvider, AiResponse, AiToolCall } from '../types'
-import Anthropic from '@anthropic-ai/sdk'
 import { AiProviderError } from '../types'
 
 /** Default output ceiling, sized to stay under the SDK's HTTP timeout. */
@@ -16,10 +16,39 @@ const DEFAULT_MAX_TOKENS = 16000
  * @returns A provider ready to complete requests
  */
 export function createAnthropicProvider(options: { apiKey: string, baseUrl?: string }): AiProvider {
-  const client = new Anthropic({
-    apiKey: options.apiKey,
-    ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
-  })
+  let client: Anthropic | undefined
+
+  /**
+   * Resolve the SDK on first use, not at import time.
+   *
+   * The SDK is an optional peer: it is 7 MB installed, and buddy-bot reaches
+   * for Anthropic only when a run both enables AI and resolves to this
+   * provider. A static import would put those bytes in every install of every
+   * project that merely has buddy-bot in its dev tooling — the overwhelmingly
+   * common case, and one that never constructs a provider at all.
+   */
+  async function getClient(): Promise<Anthropic> {
+    if (client)
+      return client
+
+    let AnthropicCtor: typeof Anthropic
+    try {
+      AnthropicCtor = (await import('@anthropic-ai/sdk')).default
+    }
+    catch {
+      throw new AiProviderError(
+        'The Anthropic provider needs @anthropic-ai/sdk, which is an optional peer dependency.\n'
+        + 'Install it with: bun add @anthropic-ai/sdk',
+        'anthropic',
+      )
+    }
+
+    client = new AnthropicCtor({
+      apiKey: options.apiKey,
+      ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
+    })
+    return client
+  }
 
   return {
     name: 'anthropic',
@@ -31,7 +60,7 @@ export function createAnthropicProvider(options: { apiKey: string, baseUrl?: str
       if (request.jsonSchema)
         outputConfig.format = { type: 'json_schema', schema: request.jsonSchema }
 
-      const response = await client.messages.create({
+      const response = await (await getClient()).messages.create({
         model,
         max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
         ...(request.system ? { system: request.system } : {}),
