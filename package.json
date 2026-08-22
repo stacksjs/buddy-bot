@@ -65,23 +65,23 @@
   },
   "dependencies": {
     "prompts": "^2.4.2",
-    "ts-pantry": "^0.11.32"
+    "ts-pantry": "^0.11.39"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
-    "@stacksjs/bumpx": "^0.2.14",
-    "@stacksjs/bunpress": "^0.1.4",
-    "@stacksjs/clapp": "^0.2.0",
-    "@stacksjs/clarity": "^0.3.28",
-    "@stacksjs/gitlint": "^0.1.5",
-    "@stacksjs/logsmith": "^0.2.6",
-    "@types/bun": "^1.3.13",
+    "@anthropic-ai/sdk": "^0.120.0",
+    "@stacksjs/bumpx": "^0.2.17",
+    "@stacksjs/bunpress": "^0.2.13",
+    "@stacksjs/clapp": "^0.2.13",
+    "@stacksjs/clarity": "^0.3.33",
+    "@stacksjs/gitlint": "^0.1.8",
+    "@stacksjs/logsmith": "^0.2.11",
+    "@types/bun": "^1.4.0",
     "@types/prompts": "^2.4.9",
-    "buddy-bot": "^0.9.17",
-    "bun-git-hooks": "^0.3.1",
-    "bun-plugin-dtsx": "^0.11.10",
-    "bunfig": "^0.15.9",
-    "pickier": "^0.1.26",
+    "buddy-bot": "^0.10.5",
+    "bun-git-hooks": "^0.3.3",
+    "bun-plugin-dtsx": "^0.21.17",
+    "bunfig": "^0.15.19",
+    "pickier": "^0.1.62",
     "typescript": "^7.0.2"
   },
   "git-hooks": {
